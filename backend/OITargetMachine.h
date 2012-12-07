@@ -1,4 +1,4 @@
-//===--- OITargetMachine.h - TargetMachine for the C++ backend --*- C++ -*-===//
+//===-- OITargetMachine.h - Define TargetMachine for OI ---*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,40 +7,90 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file declares the TargetMachine that is used by the C++ backend.
+// This file declares the OI specific subclass of TargetMachine.
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef OITARGETMACHINE_H
 #define OITARGETMACHINE_H
 
+#include "OIFrameLowering.h"
+#include "OIISelLowering.h"
+#include "OIInstrInfo.h"
+#include "OISelectionDAGInfo.h"
+#include "OISubtarget.h"
 #include "llvm/DataLayout.h"
+#include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetTransformImpl.h"
 
 namespace llvm {
 
-class formatted_raw_ostream;
-
-struct OITargetMachine : public TargetMachine {
+class OITargetMachine : public LLVMTargetMachine {
+  OISubtarget Subtarget;
+  const DataLayout DL;       // Calculates type size & alignment
+  OIInstrInfo InstrInfo;
+  OITargetLowering TLInfo;
+  OISelectionDAGInfo TSInfo;
+  OIFrameLowering FrameLowering;
+  ScalarTargetTransformImpl STTI;
+  VectorTargetTransformImpl VTTI;
+public:
   OITargetMachine(const Target &T, StringRef TT,
-                   StringRef CPU, StringRef FS, const TargetOptions &Options,
-                   Reloc::Model RM, CodeModel::Model CM,
-                   CodeGenOpt::Level OL)
-    : TargetMachine(T, TT, CPU, FS, Options) {}
+                     StringRef CPU, StringRef FS, const TargetOptions &Options,
+                     Reloc::Model RM, CodeModel::Model CM,
+                     CodeGenOpt::Level OL, bool is64bit);
 
-  virtual bool addPassesToEmitFile(PassManagerBase &PM,
-                                   formatted_raw_ostream &Out,
-                                   CodeGenFileType FileType,
-                                   bool DisableVerify,
-                                   AnalysisID StartAfter,
-                                   AnalysisID StopAfter);
+  virtual const OIInstrInfo *getInstrInfo() const { return &InstrInfo; }
+  virtual const TargetFrameLowering  *getFrameLowering() const {
+    return &FrameLowering;
+  }
+  virtual const OISubtarget   *getSubtargetImpl() const{ return &Subtarget; }
+  virtual const OIRegisterInfo *getRegisterInfo() const {
+    return &InstrInfo.getRegisterInfo();
+  }
+  virtual const OITargetLowering* getTargetLowering() const {
+    return &TLInfo;
+  }
+  virtual const OISelectionDAGInfo* getSelectionDAGInfo() const {
+    return &TSInfo;
+  }
+  virtual const ScalarTargetTransformInfo *getScalarTargetTransformInfo()const {
+    return &STTI;
+  }
+  virtual const VectorTargetTransformInfo *getVectorTargetTransformInfo()const {
+    return &VTTI;
+  }
+  virtual const DataLayout       *getDataLayout() const { return &DL; }
 
-  virtual const DataLayout *getDataLayout() const { return 0; }
+  // Pass Pipeline Configuration
+  virtual TargetPassConfig *createPassConfig(PassManagerBase &PM);
 };
 
-extern Target OIBackendTarget;
+/// OIV8TargetMachine - OI 32-bit target machine
+///
+class OIV8TargetMachine : public OITargetMachine {
+  virtual void anchor();
+public:
+  OIV8TargetMachine(const Target &T, StringRef TT,
+                       StringRef CPU, StringRef FS,
+                       const TargetOptions &Options,
+                       Reloc::Model RM, CodeModel::Model CM,
+                       CodeGenOpt::Level OL);
+};
 
-} // End llvm namespace
+/// OIV9TargetMachine - OI 64-bit target machine
+///
+class OIV9TargetMachine : public OITargetMachine {
+  virtual void anchor();
+public:
+  OIV9TargetMachine(const Target &T, StringRef TT,
+                       StringRef CPU, StringRef FS,
+                       const TargetOptions &Options,
+                       Reloc::Model RM, CodeModel::Model CM,
+                       CodeGenOpt::Level OL);
+};
 
+} // end namespace llvm
 
 #endif
