@@ -51,6 +51,6 @@ $(TARGETINFO): $(TARGETINFO_OBJECTS)
 	$(QUIET)ld -o $@ -r $(TARGETINFO_OBJECTS)
 
 clean::
-	$(QUIET)rm -f $(ALL_OBJECTS) *.d
+	$(QUIET)rm -f $(ALL_OBJECTS) $(TARGETINFO) *.d
 
 -include $(ALL_OBJECTS:.o=.d)

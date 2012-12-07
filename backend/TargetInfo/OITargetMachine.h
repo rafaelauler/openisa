@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef CPPTARGETMACHINE_H
-#define CPPTARGETMACHINE_H
+#ifndef OITARGETMACHINE_H
+#define OITARGETMACHINE_H
 
 #include "llvm/DataLayout.h"
 #include "llvm/Target/TargetMachine.h"
@@ -21,8 +21,8 @@ namespace llvm {
 
 class formatted_raw_ostream;
 
-struct CPPTargetMachine : public TargetMachine {
-  CPPTargetMachine(const Target &T, StringRef TT,
+struct OITargetMachine : public TargetMachine {
+  OITargetMachine(const Target &T, StringRef TT,
                    StringRef CPU, StringRef FS, const TargetOptions &Options,
                    Reloc::Model RM, CodeModel::Model CM,
                    CodeGenOpt::Level OL)
@@ -38,7 +38,7 @@ struct CPPTargetMachine : public TargetMachine {
   virtual const DataLayout *getDataLayout() const { return 0; }
 };
 
-extern Target TheCppBackendTarget;
+extern Target OIBackendTarget;
 
 } // End llvm namespace
 

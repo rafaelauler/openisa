@@ -27,7 +27,7 @@ LOADABLE_MODULE_OPTIONS=-shared -Wl,-O1
 endif
 
 PLUGIN=OIBackend.so
-PLUGIN_OBJECTS=OIBackend.o TargetInfo/OIBackendTargetInfo.o
+PLUGIN_OBJECTS=OIBackend.o
 ALL_OBJECTS=$(PLUGIN_OBJECTS)
 ALL_TARGETS=$(PLUGIN)
 
@@ -38,9 +38,6 @@ LD_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags)
 
 default: $(ALL_TARGETS)
 
-TargetInfo/OIBackendCodeGen.o:
-	make -C TargetInfo
-
 %.o : $(SRC_DIR)/%.c
 	@echo Compiling $*.c
 	$(QUIET)$(CC) -c $(CPP_OPTIONS) $(CFLAGS) $<
@@ -50,12 +47,13 @@ TargetInfo/OIBackendCodeGen.o:
 	$(QUIET)$(CXX) -c $(CPP_OPTIONS) $(CXXFLAGS) $<
 
 $(PLUGIN): $(PLUGIN_OBJECTS)
+	$(QUIET)make -C TargetInfo
 	@echo Linking $@
 	$(QUIET)$(CXX) -o $@ $(LOADABLE_MODULE_OPTIONS) $(CXXFLAGS) \
-	$(LD_OPTIONS) $(PLUGIN_OBJECTS)
+	$(LD_OPTIONS) $(PLUGIN_OBJECTS) TargetInfo/OIBackendTargetInfo.o
 
 clean::
 	$(QUIET)rm -f $(ALL_OBJECTS) *.d $(PLUGIN)
-	make -C TargetInfo clean
+	$(QUIET)make -C TargetInfo clean
 
 -include $(ALL_OBJECTS:.o=.d)

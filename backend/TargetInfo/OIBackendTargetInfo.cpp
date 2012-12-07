@@ -1,4 +1,4 @@
-//===-- OIBackendTargetInfo.cpp - CppBackend Target Implementation -------===//
+//===-- OIBackendTargetInfo.cpp - CppBackend Target Implementation --*- C++ -*-/
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -22,9 +22,23 @@ static unsigned OIBackend_TripleMatchQuality(const std::string &TT) {
 }
 
 extern "C" void LLVMInitializeOIBackendTargetInfo() { 
-  TargetRegistry::RegisterTarget(OIBackendTarget, "cpp",    
+  TargetRegistry::RegisterTarget(OIBackendTarget, "oi",    
                                   "OpenISA backend",
                                   &OIBackend_TripleMatchQuality);
 }
 
 extern "C" void LLVMInitializeOIBackendTargetMC() {}
+
+extern "C" void LLVMInitializeOIBackendTarget();
+
+class initialize_custom_target {
+public:
+  initialize_custom_target() {
+    LLVMInitializeOIBackendTarget();
+    LLVMInitializeOIBackendTargetInfo();
+    LLVMInitializeOIBackendTargetMC();
+  }
+};
+
+
+initialize_custom_target A;
