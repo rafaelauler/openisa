@@ -200,9 +200,211 @@ multiclass F3_12np<string OpcStr, bits<6> Op3Val> {
                  !strconcat(OpcStr, " $b, $c, $dst"), []>;
 }
 
+// ~~
+// OpenISA multiclasses
+// ~~
+multiclass FOI_12<string OpcStr, bits<6> Op3Val, SDNode OpNode> {
+  def rr  : FOI<2, Op3Val, 
+                 (outs IntRegs:$dst), (ins IntRegs:$b, IntRegs:$c),
+                 !strconcat(OpcStr, " $b, $c, $dst"),
+                 [(set IntRegs:$dst, (OpNode IntRegs:$b, IntRegs:$c))]>;
+  def ri  : FOI<2, Op3Val,
+                 (outs IntRegs:$dst), (ins IntRegs:$b, i32imm:$c),
+                 !strconcat(OpcStr, " $b, $c, $dst"),
+                 [(set IntRegs:$dst, (OpNode IntRegs:$b, imm:$c))]>;
+}
+
+multiclass FOI_1OP<string OpcStr, bits<6> Op3Val, SDNode OpNode> {
+  def r    : FOI<2, Op3Val,
+                  (outs IntRegs:$dst), (ins IntRegs:$b),
+                  !strconcat(OpcStr, " $b, $dst"),
+                  [(set IntRegs:$dst, (OpNode IntRegs:$b))]>;
+  def i    : FOI<2, Op3Val,
+                  (outs IntRegs:$dst), (ins i32imm:$b),
+                  !strconcat(OpcStr, " $b, $dst"),
+                  [(set IntRegs:$dst, (OpNode imm:$b))]>;                  
+}
+
+
 //===----------------------------------------------------------------------===//
 // Instructions
 //===----------------------------------------------------------------------===//
+
+// ~~
+// OpenISA Instructions
+// ~~
+
+defm oi_add     : FOI_12<"oiadd", 0b111111, add>; 
+defm oi_sub     : FOI_12<"oisub", 0b111111, sub>;
+defm oi_mul     : FOI_12<"oimul", 0b111111, mul>;
+defm oi_sdiv    : FOI_12<"oisdiv", 0b111111, sdiv>;
+defm oi_udiv    : FOI_12<"oiudiv", 0b111111, udiv>;
+defm oi_srem    : FOI_12<"oisrem", 0b111111, srem>;
+defm oi_urem    : FOI_12<"oiurem", 0b111111, urem>;
+//defm oi_sdivrem : FOI_12<"oisdivrem", 0b111111, sdivrem>;
+//defm oi_udivrem : FOI_12<"oiudivrem", 0b111111, udivrem>;
+defm oi_srl     : FOI_12<"oisrl", 0b111111, srl>;
+defm oi_sra     : FOI_12<"oisra", 0b111111, sra>;
+defm oi_shl     : FOI_12<"oishl", 0b111111, shl>;
+defm oi_rotl    : FOI_12<"oirotl", 0b111111, rotl>;
+defm oi_rotr    : FOI_12<"oirotr", 0b111111, rotr>;
+defm oi_and     : FOI_12<"oiand", 0b111111, and>;
+defm oi_or      : FOI_12<"oior", 0b111111, or>;
+defm oi_xor     : FOI_12<"oixor", 0b111111, xor>;
+defm oi_addc    : FOI_12<"oiaddc", 0b111111, addc>;
+defm oi_adde    : FOI_12<"oiadde", 0b111111, adde>;
+defm oi_subc    : FOI_12<"oisubc", 0b111111, subc>;
+defm oi_sube    : FOI_12<"oisube", 0b111111, sube>;
+//defm oi_sext_inreg : FOI_1OP<"oisext_inreg", 0b111111, sext_inreg>;
+defm oi_bswap   : FOI_1OP<"oibswap", 0b111111, bswap>;
+defm oi_ctlz    : FOI_1OP<"oictlz", 0b111111, ctlz>;
+defm oi_cttz    : FOI_1OP<"oicttz", 0b111111, cttz>;
+defm oi_ctpop   : FOI_1OP<"oictpop", 0b111111, ctpop>;
+defm oi_ctlz_zero_undef : FOI_1OP<"oictlz_zero_undef", 0b111111, ctlz_zero_undef>;
+defm oi_cttz_zero_undef : FOI_1OP<"oicttz_zero_undef", 0b111111, cttz_zero_undef>;
+//defm oi_sext    : FOI_1OP<"oisext", 0b111111, sext>;
+//defm oi_zext    : FOI_1OP<"oizext", 0b111111, zext>;
+//defm oi_anyext  : FOI_1OP<"oianyext", 0b111111, anyext>;
+//defm oi_trunc   : FOI_1OP<"oitrunc", 0b111111, trunc>;
+defm oi_bitconvert : FOI_1OP<"oibitcast", 0b111111, bitconvert>;
+
+
+//def extractelt : SDNode<"ISD::EXTRACT_VECTOR_ELT", SDTVecExtract>;
+//def insertelt  : SDNode<"ISD::INSERT_VECTOR_ELT", SDTVecInsert>;
+//
+//
+//def fadd       : SDNode<"ISD::FADD"       , SDTFPBinOp, [SDNPCommutative]>;
+//def fsub       : SDNode<"ISD::FSUB"       , SDTFPBinOp>;
+//def fmul       : SDNode<"ISD::FMUL"       , SDTFPBinOp, [SDNPCommutative]>;
+//def fdiv       : SDNode<"ISD::FDIV"       , SDTFPBinOp>;
+//def frem       : SDNode<"ISD::FREM"       , SDTFPBinOp>;
+//def fma        : SDNode<"ISD::FMA"        , SDTFPTernaryOp>;
+//def fabs       : SDNode<"ISD::FABS"       , SDTFPUnaryOp>;
+//def fgetsign   : SDNode<"ISD::FGETSIGN"   , SDTFPToIntOp>;
+//def fneg       : SDNode<"ISD::FNEG"       , SDTFPUnaryOp>;
+//def fsqrt      : SDNode<"ISD::FSQRT"      , SDTFPUnaryOp>;
+//def fsin       : SDNode<"ISD::FSIN"       , SDTFPUnaryOp>;
+//def fcos       : SDNode<"ISD::FCOS"       , SDTFPUnaryOp>;
+//def fexp2      : SDNode<"ISD::FEXP2"      , SDTFPUnaryOp>;
+//def flog2      : SDNode<"ISD::FLOG2"      , SDTFPUnaryOp>;
+//def frint      : SDNode<"ISD::FRINT"      , SDTFPUnaryOp>;
+//def ftrunc     : SDNode<"ISD::FTRUNC"     , SDTFPUnaryOp>;
+//def fceil      : SDNode<"ISD::FCEIL"      , SDTFPUnaryOp>;
+//def ffloor     : SDNode<"ISD::FFLOOR"     , SDTFPUnaryOp>;
+//def fnearbyint : SDNode<"ISD::FNEARBYINT" , SDTFPUnaryOp>;
+//
+//def fround     : SDNode<"ISD::FP_ROUND"   , SDTFPRoundOp>;
+//def fextend    : SDNode<"ISD::FP_EXTEND"  , SDTFPExtendOp>;
+//def fcopysign  : SDNode<"ISD::FCOPYSIGN"  , SDTFPSignOp>;
+//
+//def sint_to_fp : SDNode<"ISD::SINT_TO_FP" , SDTIntToFPOp>;
+//def uint_to_fp : SDNode<"ISD::UINT_TO_FP" , SDTIntToFPOp>;
+//def fp_to_sint : SDNode<"ISD::FP_TO_SINT" , SDTFPToIntOp>;
+//def fp_to_uint : SDNode<"ISD::FP_TO_UINT" , SDTFPToIntOp>;
+//def f16_to_f32 : SDNode<"ISD::FP16_TO_FP32", SDTIntToFPOp>;
+//def f32_to_f16 : SDNode<"ISD::FP32_TO_FP16", SDTFPToIntOp>;
+//
+//def setcc      : SDNode<"ISD::SETCC"      , SDTSetCC>;
+//def select     : SDNode<"ISD::SELECT"     , SDTSelect>;
+//def vselect    : SDNode<"ISD::VSELECT"    , SDTVSelect>;
+//def selectcc   : SDNode<"ISD::SELECT_CC"  , SDTSelectCC>;
+//
+//def brcond     : SDNode<"ISD::BRCOND"     , SDTBrcond, [SDNPHasChain]>;
+//def brind      : SDNode<"ISD::BRIND"      , SDTBrind,  [SDNPHasChain]>;
+//def br         : SDNode<"ISD::BR"         , SDTBr,     [SDNPHasChain]>;
+//def trap       : SDNode<"ISD::TRAP"       , SDTNone,
+//                        [SDNPHasChain, SDNPSideEffect]>;
+//def debugtrap  : SDNode<"ISD::DEBUGTRAP"  , SDTNone,
+//                        [SDNPHasChain, SDNPSideEffect]>;
+//
+//def prefetch   : SDNode<"ISD::PREFETCH"   , SDTPrefetch,
+//                        [SDNPHasChain, SDNPMayLoad, SDNPMayStore,
+//                         SDNPMemOperand]>;
+//
+//def readcyclecounter : SDNode<"ISD::READCYCLECOUNTER", SDTIntLeaf,
+//                     [SDNPHasChain, SDNPSideEffect]>;
+//
+//def membarrier : SDNode<"ISD::MEMBARRIER" , SDTMemBarrier,
+//                        [SDNPHasChain, SDNPSideEffect]>;
+//
+//def atomic_fence : SDNode<"ISD::ATOMIC_FENCE" , SDTAtomicFence,
+//                          [SDNPHasChain, SDNPSideEffect]>;
+//
+//def atomic_cmp_swap : SDNode<"ISD::ATOMIC_CMP_SWAP" , SDTAtomic3,
+//                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+//def atomic_load_add : SDNode<"ISD::ATOMIC_LOAD_ADD" , SDTAtomic2,
+//                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+//def atomic_swap     : SDNode<"ISD::ATOMIC_SWAP", SDTAtomic2,
+//                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+//def atomic_load_sub : SDNode<"ISD::ATOMIC_LOAD_SUB" , SDTAtomic2,
+//                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+//def atomic_load_and : SDNode<"ISD::ATOMIC_LOAD_AND" , SDTAtomic2,
+//                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+//def atomic_load_or  : SDNode<"ISD::ATOMIC_LOAD_OR" , SDTAtomic2,
+//                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+//def atomic_load_xor : SDNode<"ISD::ATOMIC_LOAD_XOR" , SDTAtomic2,
+//                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+//def atomic_load_nand: SDNode<"ISD::ATOMIC_LOAD_NAND", SDTAtomic2,
+//                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+//def atomic_load_min : SDNode<"ISD::ATOMIC_LOAD_MIN", SDTAtomic2,
+//                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+//def atomic_load_max : SDNode<"ISD::ATOMIC_LOAD_MAX", SDTAtomic2,
+//                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+//def atomic_load_umin : SDNode<"ISD::ATOMIC_LOAD_UMIN", SDTAtomic2,
+//                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+//def atomic_load_umax : SDNode<"ISD::ATOMIC_LOAD_UMAX", SDTAtomic2,
+//                    [SDNPHasChain, SDNPMayStore, SDNPMayLoad, SDNPMemOperand]>;
+//def atomic_load      : SDNode<"ISD::ATOMIC_LOAD", SDTAtomicLoad,
+//                    [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+//def atomic_store     : SDNode<"ISD::ATOMIC_STORE", SDTAtomicStore,
+//                    [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+//
+//// Do not use ld, st directly. Use load, extload, sextload, zextload, store,
+//// and truncst (see below).
+//def ld         : SDNode<"ISD::LOAD"       , SDTLoad,
+//                        [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+//def st         : SDNode<"ISD::STORE"      , SDTStore,
+//                        [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+//def ist        : SDNode<"ISD::STORE"      , SDTIStore,
+//                        [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+//
+//def vector_shuffle : SDNode<"ISD::VECTOR_SHUFFLE", SDTVecShuffle, []>;
+//def build_vector : SDNode<"ISD::BUILD_VECTOR", SDTypeProfile<1, -1, []>, []>;
+//def scalar_to_vector : SDNode<"ISD::SCALAR_TO_VECTOR", SDTypeProfile<1, 1, []>,
+//                              []>;
+//def vector_extract : SDNode<"ISD::EXTRACT_VECTOR_ELT",
+//    SDTypeProfile<1, 2, [SDTCisPtrTy<2>]>, []>;
+//def vector_insert : SDNode<"ISD::INSERT_VECTOR_ELT",
+//    SDTypeProfile<1, 3, [SDTCisSameAs<0, 1>, SDTCisPtrTy<3>]>, []>;
+//
+//// This operator does not do subvector type checking.  The ARM
+//// backend, at least, needs it.
+//def vector_extract_subvec : SDNode<"ISD::EXTRACT_SUBVECTOR",
+//    SDTypeProfile<1, 2, [SDTCisInt<2>, SDTCisVec<1>, SDTCisVec<0>]>, 
+//    []>;
+//
+//// This operator does subvector type checking.
+//def extract_subvector : SDNode<"ISD::EXTRACT_SUBVECTOR", SDTSubVecExtract, []>;
+//def insert_subvector : SDNode<"ISD::INSERT_SUBVECTOR", SDTSubVecInsert, []>;
+//
+//// Nodes for intrinsics, you should use the intrinsic itself and let tblgen use
+//// these internally.  Don't reference these directly.
+//def intrinsic_void : SDNode<"ISD::INTRINSIC_VOID",
+//                            SDTypeProfile<0, -1, [SDTCisPtrTy<0>]>,
+//                            [SDNPHasChain]>;
+//def intrinsic_w_chain : SDNode<"ISD::INTRINSIC_W_CHAIN",
+//                               SDTypeProfile<1, -1, [SDTCisPtrTy<1>]>,
+//                               [SDNPHasChain]>;
+//def intrinsic_wo_chain : SDNode<"ISD::INTRINSIC_WO_CHAIN",
+//                                SDTypeProfile<1, -1, [SDTCisPtrTy<1>]>, []>;
+//
+//// Do not use cvt directly. Use cvt forms below
+//def cvt : SDNode<"ISD::CONVERT_RNDSAT", SDTConvertOp>;
+
+
+// ~~
+// SPARC Instructions
+// ~~
 
 // Pseudo instructions.
 class Pseudo<dag outs, dag ins, string asmstr, list<dag> pattern>

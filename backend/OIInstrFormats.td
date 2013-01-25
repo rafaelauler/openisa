@@ -111,4 +111,16 @@ class F3_3<bits<2> opVal, bits<6> op3val, bits<9> opfval, dag outs, dag ins,
   let Inst{4-0}  = rs2;
 }
 
+class FOI<bits<2> opVal, bits<6> op3val, dag outs, dag ins,
+           string asmstr, list<dag> pattern> : F3<outs, ins, asmstr, pattern> {
+  bits<8> asi = 0; // asi not currently used
+  bits<5> rs2;
+
+  let op         = opVal;
+  let op3        = op3val;
+
+  let Inst{13}   = 0;     // i field = 0
+  let Inst{12-5} = asi;   // address space identifier
+  let Inst{4-0}  = rs2;
+}
 
