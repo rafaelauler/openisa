@@ -41,6 +41,7 @@ BUILT_SOURCES = $(BUILT_SOURCES_raw:%=$(ObjDir)/%)
 
 
 PLUGIN=$(BIN_DIR)/OIBackend.so
+FRONTEND=$(BIN_DIR)/oife
 
 Sources := $(notdir $(wildcard $(SRC_DIR)/*.cpp \
            $(SRC_DIR)/TargetInfo/*.cpp \
@@ -49,22 +50,29 @@ Sources := $(notdir $(wildcard $(SRC_DIR)/*.cpp \
 	   $(SRC_DIR)/Disassembler/*.cpp \
 	   $(SRC_DIR)/AsmParser/*.cpp))
 
+FrontEndSources := $(notdir $(wildcard $(SRC_DIR)/FrontEnd/*.cpp))
+
 BaseNameSources := $(sort $(basename $(Sources)))
+
+FrontEndBaseNameSources := $(sort $(basename $(FrontEndSources)))
 
 PLUGIN_OBJECTS := $(BaseNameSources:%=$(ObjDir)/%.o)
 
-ALL_OBJECTS=$(PLUGIN_OBJECTS)
-ALL_TARGETS=$(PLUGIN)
+FRONTEND_OBJECTS := $(FrontEndBaseNameSources:%=$(ObjDir)/%.o)
+
+ALL_OBJECTS=$(PLUGIN_OBJECTS) $(FRONTEND_OBJECTS)
+ALL_TARGETS=$(PLUGIN) $(FRONTEND)
 
 CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -MD -MP -I$(SRC_DIR) -I$(ObjDir)
 
-#LD_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags) $(shell $(LLVM_CONFIG) --libs mcdisassembler)
+# options for static linking
+LD_STATIC_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags) $(shell $(LLVM_CONFIG) --libs)
 # enable dynamic linking
 LD_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags) -lLLVM-$(shell $(LLVM_CONFIG) --version)
 
 # Basic makefile initialization
-VPATH=$(SRC_DIR):$(SRC_DIR)/TargetInfo:$(SRC_DIR)/MCTargetDesc:$(SRC_DIR)/InstPrinter:$(SRC_DIR)/Disassembler:$(SRC_DIR)/AsmParser
+VPATH=$(SRC_DIR):$(SRC_DIR)/TargetInfo:$(SRC_DIR)/MCTargetDesc:$(SRC_DIR)/InstPrinter:$(SRC_DIR)/Disassembler:$(SRC_DIR)/AsmParser:$(SRC_DIR)/FrontEnd
 .PHONY: default clean
 # .PRECIOUS: $(ObjDir) $(ALL_OBJECTS)
 
@@ -101,11 +109,15 @@ $(PLUGIN): $(PLUGIN_OBJECTS)
 	$(QUIET)$(CXX) -o $@ $(LOADABLE_MODULE_OPTIONS) $(CXXFLAGS) \
 	$(LD_OPTIONS) $^ 
 
+$(FRONTEND): $(PLUGIN_OBJECS) $(FRONTEND_OBJECTS)
+	@echo Linking $@
+	$(QUIET)$(CXX) -o $@ $(CXXFLAGS) $(LD_STATIC_OPTIONS) $^
+
 include Makefile.tblgen
 
 clean::
 	$(QUIET)rm -f $(SRC_DIR)/*~ $(SRC_DIR)/TargetInfo/*~ \
-        $(SRC_DIR)/MCTargetDesc/*~ $(BUILT_SOURCES) $(ALL_OBJECTS) *.d $(PLUGIN)
+        $(SRC_DIR)/MCTargetDesc/*~ $(BUILT_SOURCES) $(ALL_OBJECTS) *.d $(PLUGIN) $(FRONTEND)
 	$(QUIET)rm -rf $(ObjDir)
 
 -include $(ALL_OBJECTS:.o=.d)
