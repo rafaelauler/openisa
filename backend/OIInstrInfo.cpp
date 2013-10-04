@@ -1,4 +1,4 @@
-//===-- OIInstrInfo.cpp - OI Instruction Information ----------------===//
+//===-- OiInstrInfo.cpp - Oi Instruction Information ------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,351 +7,278 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the OI implementation of the TargetInstrInfo class.
+// This file contains the Oi implementation of the TargetInstrInfo class.
 //
 //===----------------------------------------------------------------------===//
 
-#include "OIInstrInfo.h"
-#include "OI.h"
-#include "OIMachineFunctionInfo.h"
-#include "OISubtarget.h"
+#include "OiInstrInfo.h"
+#include "InstPrinter/OiInstPrinter.h"
+#include "OiAnalyzeImmediate.h"
+#include "OiMachineFunction.h"
+#include "OiTargetMachine.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TargetRegistry.h"
 
 #define GET_INSTRINFO_CTOR
-#include "OIGenInstrInfo.inc"
+#include "OiGenInstrInfo.inc"
 
 using namespace llvm;
 
-OIInstrInfo::OIInstrInfo(OISubtarget &ST)
-  : OIGenInstrInfo(SP::ADJCALLSTACKDOWN, SP::ADJCALLSTACKUP),
-    RI(ST, *this), Subtarget(ST) {
+OiInstrInfo::OiInstrInfo(OiTargetMachine &tm, unsigned UncondBr)
+  : OiGenInstrInfo(Oi::ADJCALLSTACKDOWN, Oi::ADJCALLSTACKUP),
+    TM(tm), UncondBrOpc(UncondBr) {}
+
+const OiInstrInfo *OiInstrInfo::create(OiTargetMachine &TM) {
+  if (TM.getSubtargetImpl()->inOi16Mode())
+    return llvm::createOi16InstrInfo(TM);
+
+  return llvm::createOiSEInstrInfo(TM);
 }
 
-/// isLoadFromStackSlot - If the specified machine instruction is a direct
-/// load from a stack slot, return the virtual or physical register number of
-/// the destination along with the FrameIndex of the loaded stack slot.  If
-/// not, return 0.  This predicate must return 0 if the instruction has
-/// any side effects other than loading from the stack slot.
-unsigned OIInstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
-                                             int &FrameIndex) const {
-  if (MI->getOpcode() == SP::LDri ||
-      MI->getOpcode() == SP::LDFri ||
-      MI->getOpcode() == SP::LDDFri) {
-    if (MI->getOperand(1).isFI() && MI->getOperand(2).isImm() &&
-        MI->getOperand(2).getImm() == 0) {
-      FrameIndex = MI->getOperand(1).getIndex();
-      return MI->getOperand(0).getReg();
-    }
-  }
-  return 0;
+bool OiInstrInfo::isZeroImm(const MachineOperand &op) const {
+  return op.isImm() && op.getImm() == 0;
 }
 
-/// isStoreToStackSlot - If the specified machine instruction is a direct
-/// store to a stack slot, return the virtual or physical register number of
-/// the source reg along with the FrameIndex of the loaded stack slot.  If
-/// not, return 0.  This predicate must return 0 if the instruction has
-/// any side effects other than storing to the stack slot.
-unsigned OIInstrInfo::isStoreToStackSlot(const MachineInstr *MI,
-                                            int &FrameIndex) const {
-  if (MI->getOpcode() == SP::STri ||
-      MI->getOpcode() == SP::STFri ||
-      MI->getOpcode() == SP::STDFri) {
-    if (MI->getOperand(0).isFI() && MI->getOperand(1).isImm() &&
-        MI->getOperand(1).getImm() == 0) {
-      FrameIndex = MI->getOperand(0).getIndex();
-      return MI->getOperand(2).getReg();
-    }
-  }
-  return 0;
-}
-
-static bool IsIntegerCC(unsigned CC)
+/// insertNoop - If data hazard condition is found insert the target nop
+/// instruction.
+void OiInstrInfo::
+insertNoop(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI) const
 {
-  return  (CC <= SPCC::ICC_VC);
+  DebugLoc DL;
+  BuildMI(MBB, MI, DL, get(Oi::NOP));
 }
 
+MachineMemOperand *OiInstrInfo::GetMemOperand(MachineBasicBlock &MBB, int FI,
+                                                unsigned Flag) const {
+  MachineFunction &MF = *MBB.getParent();
+  MachineFrameInfo &MFI = *MF.getFrameInfo();
+  unsigned Align = MFI.getObjectAlignment(FI);
 
-static SPCC::CondCodes GetOppositeBranchCondition(SPCC::CondCodes CC)
-{
-  switch(CC) {
-  case SPCC::ICC_NE:   return SPCC::ICC_E;
-  case SPCC::ICC_E:    return SPCC::ICC_NE;
-  case SPCC::ICC_G:    return SPCC::ICC_LE;
-  case SPCC::ICC_LE:   return SPCC::ICC_G;
-  case SPCC::ICC_GE:   return SPCC::ICC_L;
-  case SPCC::ICC_L:    return SPCC::ICC_GE;
-  case SPCC::ICC_GU:   return SPCC::ICC_LEU;
-  case SPCC::ICC_LEU:  return SPCC::ICC_GU;
-  case SPCC::ICC_CC:   return SPCC::ICC_CS;
-  case SPCC::ICC_CS:   return SPCC::ICC_CC;
-  case SPCC::ICC_POS:  return SPCC::ICC_NEG;
-  case SPCC::ICC_NEG:  return SPCC::ICC_POS;
-  case SPCC::ICC_VC:   return SPCC::ICC_VS;
-  case SPCC::ICC_VS:   return SPCC::ICC_VC;
-
-  case SPCC::FCC_U:    return SPCC::FCC_O;
-  case SPCC::FCC_O:    return SPCC::FCC_U;
-  case SPCC::FCC_G:    return SPCC::FCC_LE;
-  case SPCC::FCC_LE:   return SPCC::FCC_G;
-  case SPCC::FCC_UG:   return SPCC::FCC_ULE;
-  case SPCC::FCC_ULE:  return SPCC::FCC_UG;
-  case SPCC::FCC_L:    return SPCC::FCC_GE;
-  case SPCC::FCC_GE:   return SPCC::FCC_L;
-  case SPCC::FCC_UL:   return SPCC::FCC_UGE;
-  case SPCC::FCC_UGE:  return SPCC::FCC_UL;
-  case SPCC::FCC_LG:   return SPCC::FCC_UE;
-  case SPCC::FCC_UE:   return SPCC::FCC_LG;
-  case SPCC::FCC_NE:   return SPCC::FCC_E;
-  case SPCC::FCC_E:    return SPCC::FCC_NE;
-  }
-  llvm_unreachable("Invalid cond code");
+  return MF.getMachineMemOperand(MachinePointerInfo::getFixedStack(FI), Flag,
+                                 MFI.getObjectSize(FI), Align);
 }
 
-MachineInstr *
-OIInstrInfo::emitFrameIndexDebugValue(MachineFunction &MF,
-                                         int FrameIx,
-                                         uint64_t Offset,
-                                         const MDNode *MDPtr,
-                                         DebugLoc dl) const {
-  MachineInstrBuilder MIB = BuildMI(MF, dl, get(SP::DBG_VALUE))
+MachineInstr*
+OiInstrInfo::emitFrameIndexDebugValue(MachineFunction &MF, int FrameIx,
+                                        uint64_t Offset, const MDNode *MDPtr,
+                                        DebugLoc DL) const {
+  MachineInstrBuilder MIB = BuildMI(MF, DL, get(Oi::DBG_VALUE))
     .addFrameIndex(FrameIx).addImm(0).addImm(Offset).addMetadata(MDPtr);
   return &*MIB;
 }
 
+//===----------------------------------------------------------------------===//
+// Branch Analysis
+//===----------------------------------------------------------------------===//
 
-bool OIInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
-                                   MachineBasicBlock *&TBB,
-                                   MachineBasicBlock *&FBB,
-                                   SmallVectorImpl<MachineOperand> &Cond,
-                                   bool AllowModify) const
+void OiInstrInfo::AnalyzeCondBr(const MachineInstr *Inst, unsigned Opc,
+                                  MachineBasicBlock *&BB,
+                                  SmallVectorImpl<MachineOperand> &Cond) const {
+  assert(GetAnalyzableBrOpc(Opc) && "Not an analyzable branch");
+  int NumOp = Inst->getNumExplicitOperands();
+
+  // for both int and fp branches, the last explicit operand is the
+  // MBB.
+  BB = Inst->getOperand(NumOp-1).getMBB();
+  Cond.push_back(MachineOperand::CreateImm(Opc));
+
+  for (int i=0; i<NumOp-1; i++)
+    Cond.push_back(Inst->getOperand(i));
+}
+
+bool OiInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
+                                  MachineBasicBlock *&TBB,
+                                  MachineBasicBlock *&FBB,
+                                  SmallVectorImpl<MachineOperand> &Cond,
+                                  bool AllowModify) const {
+  SmallVector<MachineInstr*, 2> BranchInstrs;
+  BranchType BT = AnalyzeBranch(MBB, TBB, FBB, Cond, AllowModify, BranchInstrs);
+
+  return (BT == BT_None) || (BT == BT_Indirect);
+}
+
+void OiInstrInfo::BuildCondBr(MachineBasicBlock &MBB,
+                                MachineBasicBlock *TBB, DebugLoc DL,
+                                const SmallVectorImpl<MachineOperand>& Cond)
+  const {
+  unsigned Opc = Cond[0].getImm();
+  const MCInstrDesc &MCID = get(Opc);
+  MachineInstrBuilder MIB = BuildMI(&MBB, DL, MCID);
+
+  for (unsigned i = 1; i < Cond.size(); ++i) {
+    if (Cond[i].isReg())
+      MIB.addReg(Cond[i].getReg());
+    else if (Cond[i].isImm())
+      MIB.addImm(Cond[i].getImm());
+    else
+       assert(true && "Cannot copy operand");
+  }
+  MIB.addMBB(TBB);
+}
+
+unsigned OiInstrInfo::
+InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
+             MachineBasicBlock *FBB,
+             const SmallVectorImpl<MachineOperand> &Cond,
+             DebugLoc DL) const {
+  // Shouldn't be a fall through.
+  assert(TBB && "InsertBranch must not be told to insert a fallthrough");
+
+  // # of condition operands:
+  //  Unconditional branches: 0
+  //  Floating point branches: 1 (opc)
+  //  Int BranchZero: 2 (opc, reg)
+  //  Int Branch: 3 (opc, reg0, reg1)
+  assert((Cond.size() <= 3) &&
+         "# of Oi branch conditions must be <= 3!");
+
+  // Two-way Conditional branch.
+  if (FBB) {
+    BuildCondBr(MBB, TBB, DL, Cond);
+    BuildMI(&MBB, DL, get(UncondBrOpc)).addMBB(FBB);
+    return 2;
+  }
+
+  // One way branch.
+  // Unconditional branch.
+  if (Cond.empty())
+    BuildMI(&MBB, DL, get(UncondBrOpc)).addMBB(TBB);
+  else // Conditional branch.
+    BuildCondBr(MBB, TBB, DL, Cond);
+  return 1;
+}
+
+unsigned OiInstrInfo::
+RemoveBranch(MachineBasicBlock &MBB) const
 {
+  MachineBasicBlock::reverse_iterator I = MBB.rbegin(), REnd = MBB.rend();
+  MachineBasicBlock::reverse_iterator FirstBr;
+  unsigned removed;
 
-  MachineBasicBlock::iterator I = MBB.end();
-  MachineBasicBlock::iterator UnCondBrIter = MBB.end();
-  while (I != MBB.begin()) {
-    --I;
+  // Skip all the debug instructions.
+  while (I != REnd && I->isDebugValue())
+    ++I;
 
-    if (I->isDebugValue())
-      continue;
+  FirstBr = I;
 
-    //When we see a non-terminator, we are done
-    if (!isUnpredicatedTerminator(I))
+  // Up to 2 branches are removed.
+  // Note that indirect branches are not removed.
+  for(removed = 0; I != REnd && removed < 2; ++I, ++removed)
+    if (!GetAnalyzableBrOpc(I->getOpcode()))
       break;
 
-    //Terminator is not a branch
-    if (!I->isBranch())
-      return true;
+  MBB.erase(I.base(), FirstBr.base());
 
-    //Handle Unconditional branches
-    if (I->getOpcode() == SP::BA) {
-      UnCondBrIter = I;
+  return removed;
+}
 
-      if (!AllowModify) {
-        TBB = I->getOperand(0).getMBB();
-        continue;
-      }
-
-      while (llvm::next(I) != MBB.end())
-        llvm::next(I)->eraseFromParent();
-
-      Cond.clear();
-      FBB = 0;
-
-      if (MBB.isLayoutSuccessor(I->getOperand(0).getMBB())) {
-        TBB = 0;
-        I->eraseFromParent();
-        I = MBB.end();
-        UnCondBrIter = MBB.end();
-        continue;
-      }
-
-      TBB = I->getOperand(0).getMBB();
-      continue;
-    }
-
-    unsigned Opcode = I->getOpcode();
-    if (Opcode != SP::BCOND && Opcode != SP::FBCOND)
-      return true; //Unknown Opcode
-
-    SPCC::CondCodes BranchCode = (SPCC::CondCodes)I->getOperand(1).getImm();
-
-    if (Cond.empty()) {
-      MachineBasicBlock *TargetBB = I->getOperand(0).getMBB();
-      if (AllowModify && UnCondBrIter != MBB.end() &&
-          MBB.isLayoutSuccessor(TargetBB)) {
-
-        //Transform the code
-        //
-        //    brCC L1
-        //    ba L2
-        // L1:
-        //    ..
-        // L2:
-        //
-        // into
-        //
-        //   brnCC L2
-        // L1:
-        //   ...
-        // L2:
-        //
-        BranchCode = GetOppositeBranchCondition(BranchCode);
-        MachineBasicBlock::iterator OldInst = I;
-        BuildMI(MBB, UnCondBrIter, MBB.findDebugLoc(I), get(Opcode))
-          .addMBB(UnCondBrIter->getOperand(0).getMBB()).addImm(BranchCode);
-        BuildMI(MBB, UnCondBrIter, MBB.findDebugLoc(I), get(SP::BA))
-          .addMBB(TargetBB);
-
-        OldInst->eraseFromParent();
-        UnCondBrIter->eraseFromParent();
-
-        UnCondBrIter = MBB.end();
-        I = MBB.end();
-        continue;
-      }
-      FBB = TBB;
-      TBB = I->getOperand(0).getMBB();
-      Cond.push_back(MachineOperand::CreateImm(BranchCode));
-      continue;
-    }
-    //FIXME: Handle subsequent conditional branches
-    //For now, we can't handle multiple conditional branches
-    return true;
-  }
+/// ReverseBranchCondition - Return the inverse opcode of the
+/// specified Branch instruction.
+bool OiInstrInfo::
+ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const
+{
+  assert( (Cond.size() && Cond.size() <= 3) &&
+          "Invalid Oi branch condition!");
+  Cond[0].setImm(GetOppositeBranchOpc(Cond[0].getImm()));
   return false;
 }
 
-unsigned
-OIInstrInfo::InsertBranch(MachineBasicBlock &MBB,MachineBasicBlock *TBB,
-                             MachineBasicBlock *FBB,
-                             const SmallVectorImpl<MachineOperand> &Cond,
-                             DebugLoc DL) const {
-  assert(TBB && "InsertBranch must not be told to insert a fallthrough");
-  assert((Cond.size() == 1 || Cond.size() == 0) &&
-         "OI branch conditions should have one component!");
+OiInstrInfo::BranchType OiInstrInfo::
+AnalyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
+              MachineBasicBlock *&FBB, SmallVectorImpl<MachineOperand> &Cond,
+              bool AllowModify,
+              SmallVectorImpl<MachineInstr*> &BranchInstrs) const {
 
-  if (Cond.empty()) {
-    assert(!FBB && "Unconditional branch with multiple successors!");
-    BuildMI(&MBB, DL, get(SP::BA)).addMBB(TBB);
-    return 1;
+  MachineBasicBlock::reverse_iterator I = MBB.rbegin(), REnd = MBB.rend();
+
+  // Skip all the debug instructions.
+  while (I != REnd && I->isDebugValue())
+    ++I;
+
+  if (I == REnd || !isUnpredicatedTerminator(&*I)) {
+    // This block ends with no branches (it just falls through to its succ).
+    // Leave TBB/FBB null.
+    TBB = FBB = NULL;
+    return BT_NoBranch;
   }
 
-  //Conditional branch
-  unsigned CC = Cond[0].getImm();
+  MachineInstr *LastInst = &*I;
+  unsigned LastOpc = LastInst->getOpcode();
+  BranchInstrs.push_back(LastInst);
 
-  if (IsIntegerCC(CC))
-    BuildMI(&MBB, DL, get(SP::BCOND)).addMBB(TBB).addImm(CC);
-  else
-    BuildMI(&MBB, DL, get(SP::FBCOND)).addMBB(TBB).addImm(CC);
-  if (!FBB)
-    return 1;
+  // Not an analyzable branch (e.g., indirect jump).
+  if (!GetAnalyzableBrOpc(LastOpc))
+    return LastInst->isIndirectBranch() ? BT_Indirect : BT_None;
 
-  BuildMI(&MBB, DL, get(SP::BA)).addMBB(FBB);
-  return 2;
-}
+  // Get the second to last instruction in the block.
+  unsigned SecondLastOpc = 0;
+  MachineInstr *SecondLastInst = NULL;
 
-unsigned OIInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const
-{
-  MachineBasicBlock::iterator I = MBB.end();
-  unsigned Count = 0;
-  while (I != MBB.begin()) {
-    --I;
+  if (++I != REnd) {
+    SecondLastInst = &*I;
+    SecondLastOpc = GetAnalyzableBrOpc(SecondLastInst->getOpcode());
 
-    if (I->isDebugValue())
-      continue;
-
-    if (I->getOpcode() != SP::BA
-        && I->getOpcode() != SP::BCOND
-        && I->getOpcode() != SP::FBCOND)
-      break; // Not a branch
-
-    I->eraseFromParent();
-    I = MBB.end();
-    ++Count;
+    // Not an analyzable branch (must be an indirect jump).
+    if (isUnpredicatedTerminator(SecondLastInst) && !SecondLastOpc)
+      return BT_None;
   }
-  return Count;
+
+  // If there is only one terminator instruction, process it.
+  if (!SecondLastOpc) {
+    // Unconditional branch
+    if (LastOpc == UncondBrOpc) {
+      TBB = LastInst->getOperand(0).getMBB();
+      return BT_Uncond;
+    }
+
+    // Conditional branch
+    AnalyzeCondBr(LastInst, LastOpc, TBB, Cond);
+    return BT_Cond;
+  }
+
+  // If we reached here, there are two branches.
+  // If there are three terminators, we don't know what sort of block this is.
+  if (++I != REnd && isUnpredicatedTerminator(&*I))
+    return BT_None;
+
+  BranchInstrs.insert(BranchInstrs.begin(), SecondLastInst);
+
+  // If second to last instruction is an unconditional branch,
+  // analyze it and remove the last instruction.
+  if (SecondLastOpc == UncondBrOpc) {
+    // Return if the last instruction cannot be removed.
+    if (!AllowModify)
+      return BT_None;
+
+    TBB = SecondLastInst->getOperand(0).getMBB();
+    LastInst->eraseFromParent();
+    BranchInstrs.pop_back();
+    return BT_Uncond;
+  }
+
+  // Conditional branch followed by an unconditional branch.
+  // The last one must be unconditional.
+  if (LastOpc != UncondBrOpc)
+    return BT_None;
+
+  AnalyzeCondBr(SecondLastInst, SecondLastOpc, TBB, Cond);
+  FBB = LastInst->getOperand(0).getMBB();
+
+  return BT_CondUncond;
 }
 
-void OIInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
-                                 MachineBasicBlock::iterator I, DebugLoc DL,
-                                 unsigned DestReg, unsigned SrcReg,
-                                 bool KillSrc) const {
-  if (SP::IntRegsRegClass.contains(DestReg, SrcReg))
-    BuildMI(MBB, I, DL, get(SP::ORrr), DestReg).addReg(SP::G0)
-      .addReg(SrcReg, getKillRegState(KillSrc));
-  else if (SP::FPRegsRegClass.contains(DestReg, SrcReg))
-    BuildMI(MBB, I, DL, get(SP::FMOVS), DestReg)
-      .addReg(SrcReg, getKillRegState(KillSrc));
-  else if (SP::DFPRegsRegClass.contains(DestReg, SrcReg))
-    BuildMI(MBB, I, DL, get(Subtarget.isV9() ? SP::FMOVD : SP::FpMOVD), DestReg)
-      .addReg(SrcReg, getKillRegState(KillSrc));
-  else
-    llvm_unreachable("Impossible reg-to-reg copy");
-}
-
-void OIInstrInfo::
-storeRegToStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
-                    unsigned SrcReg, bool isKill, int FI,
-                    const TargetRegisterClass *RC,
-                    const TargetRegisterInfo *TRI) const {
-  DebugLoc DL;
-  if (I != MBB.end()) DL = I->getDebugLoc();
-
-  // On the order of operands here: think "[FrameIdx + 0] = SrcReg".
-  if (RC == &SP::IntRegsRegClass)
-    BuildMI(MBB, I, DL, get(SP::STri)).addFrameIndex(FI).addImm(0)
-      .addReg(SrcReg, getKillRegState(isKill));
-  else if (RC == &SP::FPRegsRegClass)
-    BuildMI(MBB, I, DL, get(SP::STFri)).addFrameIndex(FI).addImm(0)
-      .addReg(SrcReg,  getKillRegState(isKill));
-  else if (RC == &SP::DFPRegsRegClass)
-    BuildMI(MBB, I, DL, get(SP::STDFri)).addFrameIndex(FI).addImm(0)
-      .addReg(SrcReg,  getKillRegState(isKill));
-  else
-    llvm_unreachable("Can't store this register to stack slot");
-}
-
-void OIInstrInfo::
-loadRegFromStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
-                     unsigned DestReg, int FI,
-                     const TargetRegisterClass *RC,
-                     const TargetRegisterInfo *TRI) const {
-  DebugLoc DL;
-  if (I != MBB.end()) DL = I->getDebugLoc();
-
-  if (RC == &SP::IntRegsRegClass)
-    BuildMI(MBB, I, DL, get(SP::LDri), DestReg).addFrameIndex(FI).addImm(0);
-  else if (RC == &SP::FPRegsRegClass)
-    BuildMI(MBB, I, DL, get(SP::LDFri), DestReg).addFrameIndex(FI).addImm(0);
-  else if (RC == &SP::DFPRegsRegClass)
-    BuildMI(MBB, I, DL, get(SP::LDDFri), DestReg).addFrameIndex(FI).addImm(0);
-  else
-    llvm_unreachable("Can't load this register from stack slot");
-}
-
-unsigned OIInstrInfo::getGlobalBaseReg(MachineFunction *MF) const
-{
-  OIMachineFunctionInfo *OIFI = MF->getInfo<OIMachineFunctionInfo>();
-  unsigned GlobalBaseReg = OIFI->getGlobalBaseReg();
-  if (GlobalBaseReg != 0)
-    return GlobalBaseReg;
-
-  // Insert the set of GlobalBaseReg into the first MBB of the function
-  MachineBasicBlock &FirstMBB = MF->front();
-  MachineBasicBlock::iterator MBBI = FirstMBB.begin();
-  MachineRegisterInfo &RegInfo = MF->getRegInfo();
-
-  GlobalBaseReg = RegInfo.createVirtualRegister(&SP::IntRegsRegClass);
-
-
-  DebugLoc dl;
-
-  BuildMI(FirstMBB, MBBI, dl, get(SP::GETPCX), GlobalBaseReg);
-  OIFI->setGlobalBaseReg(GlobalBaseReg);
-  return GlobalBaseReg;
+/// Return the number of bytes of code the specified instruction may be.
+unsigned OiInstrInfo::GetInstSizeInBytes(const MachineInstr *MI) const {
+  switch (MI->getOpcode()) {
+  default:
+    return MI->getDesc().getSize();
+  case  TargetOpcode::INLINEASM: {       // Inline Asm: Variable size.
+    const MachineFunction *MF = MI->getParent()->getParent();
+    const char *AsmStr = MI->getOperand(0).getSymbolName();
+    return getInlineAsmLength(AsmStr, *MF->getTarget().getMCAsmInfo());
+  }
+  }
 }

@@ -1,0 +1,85 @@
+###############################################################################
+# TABLEGEN: Provide rules for running tblgen to produce *.inc files
+###############################################################################
+
+#
+# Tablegen rules (extracted from LLVM's Makefile.rules)
+#
+$(TARGET:%=$(ObjDir)/%GenRegisterInfo.inc): \
+$(ObjDir)/%GenRegisterInfo.inc : %.td | $(ObjDir)
+	$(Echo) "Building $(<F) register info implementation with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-register-info -o $@ $<
+
+$(TARGET:%=$(ObjDir)/%GenInstrInfo.inc): \
+$(ObjDir)/%GenInstrInfo.inc : %.td | $(ObjDir)
+	$(Echo) "Building $(<F) instruction information with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-instr-info -o $@ $<
+
+$(TARGET:%=$(ObjDir)/%GenAsmWriter.inc): \
+$(ObjDir)/%GenAsmWriter.inc : %.td | $(ObjDir)
+	$(Echo) "Building $(<F) assembly writer with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-asm-writer -o $@ $<
+
+$(TARGET:%=$(ObjDir)/%GenAsmWriter1.inc): \
+$(ObjDir)/%GenAsmWriter1.inc : %.td | $(ObjDir)
+	$(Echo) "Building $(<F) assembly writer #1 with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-asm-writer -asmwriternum=1 -o $@ $<
+
+$(TARGET:%=$(ObjDir)/%GenAsmMatcher.inc): \
+$(ObjDir)/%GenAsmMatcher.inc : %.td | $(ObjDir)
+	$(Echo) "Building $(<F) assembly matcher with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-asm-matcher -o $@ $<
+
+$(TARGET:%=$(ObjDir)/%GenMCCodeEmitter.inc): \
+$(ObjDir)/%GenMCCodeEmitter.inc: %.td | $(ObjDir)
+	$(Echo) "Building $(<F) MC code emitter with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-emitter -mc-emitter -o $@ $<
+
+$(TARGET:%=$(ObjDir)/%GenMCPseudoLowering.inc): \
+$(ObjDir)/%GenMCPseudoLowering.inc: %.td | $(ObjDir)
+	$(Echo) "Building $(<F) MC Pseudo instruction expander with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-pseudo-lowering -o $@ $<
+
+$(TARGET:%=$(ObjDir)/%GenCodeEmitter.inc): \
+$(ObjDir)/%GenCodeEmitter.inc: %.td | $(ObjDir)
+	$(Echo) "Building $(<F) code emitter with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-emitter -o $@ $<
+
+$(TARGET:%=$(ObjDir)/%GenDAGISel.inc): \
+$(ObjDir)/%GenDAGISel.inc : %.td | $(ObjDir)
+	$(Echo) "Building $(<F) DAG instruction selector implementation with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-dag-isel -o $@ $<
+
+$(TARGET:%=$(ObjDir)/%GenDisassemblerTables.inc): \
+$(ObjDir)/%GenDisassemblerTables.inc : %.td | $(ObjDir)
+	$(Echo) "Building $(<F) disassembly tables with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-disassembler -o $@ $<
+
+$(TARGET:%=$(ObjDir)/%GenEDInfo.inc): \
+$(ObjDir)/%GenEDInfo.inc : %.td | $(ObjDir)
+	$(Echo) "Building $(<F) enhanced disassembly information with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-enhanced-disassembly-info -o $@ $<
+
+$(TARGET:%=$(ObjDir)/%GenFastISel.inc): \
+$(ObjDir)/%GenFastISel.inc : %.td | $(ObjDir)
+	$(Echo) "Building $(<F) \"fast\" instruction selector implementation with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-fast-isel -o $@ $<
+
+$(TARGET:%=$(ObjDir)/%GenSubtargetInfo.inc): \
+$(ObjDir)/%GenSubtargetInfo.inc : %.td | $(ObjDir)
+	$(Echo) "Building $(<F) subtarget information with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-subtarget -o $@ $<
+
+$(TARGET:%=$(ObjDir)/%GenCallingConv.inc): \
+$(ObjDir)/%GenCallingConv.inc : %.td | $(ObjDir)
+	$(Echo) "Building $(<F) calling convention information with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-callingconv -o $@ $<
+
+$(TARGET:%=$(ObjDir)/%GenIntrinsics.inc): \
+$(ObjDir)/%GenIntrinsics.inc : %.td | $(ObjDir)
+	$(Echo) "Building $(<F) intrinsics information with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-tgt-intrinsic -o $@ $<
+
+$(ObjDir)/%GenDFAPacketizer.inc : %.td | $(ObjDir)
+	$(Echo) "Building $(<F) DFA packetizer tables with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-dfa-packetizer -o $@ $<

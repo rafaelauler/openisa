@@ -9,7 +9,7 @@
 LLVM_CONFIG?=llvm-config
 LLVMTableGen?=llvm-tblgen -I $(shell $(LLVM_CONFIG) --src-root)/include \
                           -I $(shell $(LLVM_CONFIG) --src-root)/lib/Target
-TARGET?=OI
+TARGET?=Oi
 Echo=@echo
 
 # Location of the source, useful if you want separate source and object
@@ -36,9 +36,7 @@ LOADABLE_MODULE_OPTIONS=-shared -Wl,-O1
 endif
 
 # Tablegen-generated necessary files
-BUILT_SOURCES_raw = OIGenRegisterInfo.inc OIGenInstrInfo.inc \
-		OIGenAsmWriter.inc OIGenDAGISel.inc \
-		OIGenSubtargetInfo.inc OIGenCallingConv.inc
+BUILT_SOURCES_raw := $(shell cat CMakeLists.txt | grep tablegen.LLVM | cut -d' ' -f2)
 BUILT_SOURCES = $(BUILT_SOURCES_raw:%=$(ObjDir)/%)
 
 
@@ -46,7 +44,11 @@ PLUGIN=$(BIN_DIR)/OIBackend.so
 
 Sources := $(notdir $(wildcard $(SRC_DIR)/*.cpp \
            $(SRC_DIR)/TargetInfo/*.cpp \
-	   $(SRC_DIR)/MCTargetDesc/*.cpp))
+	   $(SRC_DIR)/MCTargetDesc/*.cpp \
+	   $(SRC_DIR)/InstPrinter/*.cpp \
+	   $(SRC_DIR)/Disassembler/*.cpp \
+	   $(SRC_DIR)/AsmParser/*.cpp))
+
 BaseNameSources := $(sort $(basename $(Sources)))
 
 PLUGIN_OBJECTS := $(BaseNameSources:%=$(ObjDir)/%.o)
@@ -57,10 +59,12 @@ ALL_TARGETS=$(PLUGIN)
 CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -MD -MP -I$(SRC_DIR) -I$(ObjDir)
 
-LD_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags)
+#LD_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags) $(shell $(LLVM_CONFIG) --libs mcdisassembler)
+# enable dynamic linking
+LD_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags) -lLLVM-$(shell $(LLVM_CONFIG) --version)
 
 # Basic makefile initialization
-VPATH=$(SRC_DIR):$(SRC_DIR)/TargetInfo:$(SRC_DIR)/MCTargetDesc
+VPATH=$(SRC_DIR):$(SRC_DIR)/TargetInfo:$(SRC_DIR)/MCTargetDesc:$(SRC_DIR)/InstPrinter:$(SRC_DIR)/Disassembler:$(SRC_DIR)/AsmParser
 .PHONY: default clean
 # .PRECIOUS: $(ObjDir) $(ALL_OBJECTS)
 

@@ -1,4 +1,4 @@
-//===-- OITargetInfo.cpp - OI Target Implementation -----------------===//
+//===-- OiTargetInfo.cpp - Oi Target Implementation -------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,43 +7,50 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "OI.h"
-#include "llvm/Module.h"
+#include "Oi.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/TargetRegistry.h"
 using namespace llvm;
 
-Target llvm::TheOITarget;
-Target llvm::TheOIV9Target;
+Target llvm::TheOiTarget, llvm::TheOielTarget;
+Target llvm::TheOi64Target, llvm::TheOi64elTarget;
 
-static unsigned OIBackend_TripleMatchQuality(const std::string &TT) {
-  // This class always works, but shouldn't be the default in most cases.
-  return 1;
+extern "C" void LLVMInitializeOiTargetInfo() {
+  RegisterTarget<Triple::UnknownArch,
+        /*HasJIT=*/true> X(TheOiTarget, "oi", "Oi");
+
+  RegisterTarget<Triple::UnknownArch,
+        /*HasJIT=*/true> Y(TheOielTarget, "oiel", "Oiel");
+
+  RegisterTarget<Triple::UnknownArch,
+        /*HasJIT=*/false> A(TheOi64Target, "oi64", "Oi64 [experimental]");
+
+  RegisterTarget<Triple::UnknownArch,
+        /*HasJIT=*/false> B(TheOi64elTarget,
+                            "oi64el", "Oi64el [experimental]");
 }
+  
 
-extern "C" void LLVMInitializeOITargetInfo() { 
-  // RegisterTarget<Triple::oi> X(TheOITarget, "oi", "OI");
-  // RegisterTarget<Triple::oiv9> Y(TheOIV9Target, "oiv9", "OI V9");
-  TargetRegistry::RegisterTarget(TheOITarget, "oi", "OpenISA backend",
-                                 &OIBackend_TripleMatchQuality);
-  TargetRegistry::RegisterTarget(TheOIV9Target, "oiv9", "OpenISA v9 backend",
-                                 &OIBackend_TripleMatchQuality);
-}
-
-extern "C" void LLVMInitializeOITarget();
-extern "C" void LLVMInitializeOIAsmPrinter();
-extern "C" void LLVMInitializeOITargetMC();
+extern "C" void LLVMInitializeOiTarget();
+extern "C" void LLVMInitializeOiTargetMC();
+extern "C" void LLVMInitializeOiAsmPrinter();
+extern "C" void LLVMInitializeOiAsmParser();
+extern "C" void LLVMInitializeOiDisassembler();
 
 namespace {
   class InitializeOI {
   public:
     InitializeOI() {
-      LLVMInitializeOITargetInfo();
-      LLVMInitializeOITarget();
-      LLVMInitializeOIAsmPrinter();
-      LLVMInitializeOITargetMC();
+      LLVMInitializeOiTargetInfo();
+      LLVMInitializeOiTarget();
+      LLVMInitializeOiTargetMC();
+      LLVMInitializeOiAsmPrinter();
+      LLVMInitializeOiAsmParser();
+      LLVMInitializeOiDisassembler();
     }
   };
 
 } // End of anonymous namespace
 
 InitializeOI X;
+

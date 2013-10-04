@@ -1,4 +1,4 @@
-//===-- OITargetMachine.h - Define TargetMachine for OI ---*- C++ -*-===//
+//===-- OiTargetMachine.h - Define TargetMachine for Oi -----*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,90 +7,113 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file declares the OI specific subclass of TargetMachine.
+// This file declares the Oi specific subclass of TargetMachine.
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef OITARGETMACHINE_H
 #define OITARGETMACHINE_H
 
-#include "OIFrameLowering.h"
-#include "OIISelLowering.h"
-#include "OIInstrInfo.h"
-#include "OISelectionDAGInfo.h"
-#include "OISubtarget.h"
-#include "llvm/DataLayout.h"
+#include "OiFrameLowering.h"
+#include "OiISelLowering.h"
+#include "OiInstrInfo.h"
+#include "OiJITInfo.h"
+#include "OiSelectionDAGInfo.h"
+#include "OiSubtarget.h"
+#include "llvm/ADT/OwningPtr.h"
+#include "llvm/CodeGen/Passes.h"
+#include "llvm/CodeGen/SelectionDAGISel.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetTransformImpl.h"
 
 namespace llvm {
+class formatted_raw_ostream;
+class OiRegisterInfo;
 
-class OITargetMachine : public LLVMTargetMachine {
-  OISubtarget Subtarget;
-  const DataLayout DL;       // Calculates type size & alignment
-  OIInstrInfo InstrInfo;
-  OITargetLowering TLInfo;
-  OISelectionDAGInfo TSInfo;
-  OIFrameLowering FrameLowering;
-  ScalarTargetTransformImpl STTI;
-  VectorTargetTransformImpl VTTI;
+class OiTargetMachine : public LLVMTargetMachine {
+  OiSubtarget       Subtarget;
+  const DataLayout    DL; // Calculates type size & alignment
+  OwningPtr<const OiInstrInfo> InstrInfo;
+  OwningPtr<const OiFrameLowering> FrameLowering;
+  OwningPtr<const OiTargetLowering> TLInfo;
+  OwningPtr<const OiInstrInfo> InstrInfo16;
+  OwningPtr<const OiFrameLowering> FrameLowering16;
+  OwningPtr<const OiTargetLowering> TLInfo16;
+  OwningPtr<const OiInstrInfo> InstrInfoSE;
+  OwningPtr<const OiFrameLowering> FrameLoweringSE;
+  OwningPtr<const OiTargetLowering> TLInfoSE;
+  OiSelectionDAGInfo TSInfo;
+  OiJITInfo JITInfo;
+
 public:
-  OITargetMachine(const Target &T, StringRef TT,
-                     StringRef CPU, StringRef FS, const TargetOptions &Options,
-                     Reloc::Model RM, CodeModel::Model CM,
-                     CodeGenOpt::Level OL, bool is64bit);
+  OiTargetMachine(const Target &T, StringRef TT,
+                    StringRef CPU, StringRef FS, const TargetOptions &Options,
+                    Reloc::Model RM, CodeModel::Model CM,
+                    CodeGenOpt::Level OL,
+                    bool isLittle);
 
-  virtual const OIInstrInfo *getInstrInfo() const { return &InstrInfo; }
-  virtual const TargetFrameLowering  *getFrameLowering() const {
-    return &FrameLowering;
+  virtual ~OiTargetMachine() {}
+
+  virtual void addAnalysisPasses(PassManagerBase &PM);
+
+  virtual const OiInstrInfo *getInstrInfo() const
+  { return InstrInfo.get(); }
+  virtual const TargetFrameLowering *getFrameLowering() const
+  { return FrameLowering.get(); }
+  virtual const OiSubtarget *getSubtargetImpl() const
+  { return &Subtarget; }
+  virtual const DataLayout *getDataLayout()    const
+  { return &DL;}
+  virtual OiJITInfo *getJITInfo()
+  { return &JITInfo; }
+
+  virtual const OiRegisterInfo *getRegisterInfo()  const {
+    return &InstrInfo->getRegisterInfo();
   }
-  virtual const OISubtarget   *getSubtargetImpl() const{ return &Subtarget; }
-  virtual const OIRegisterInfo *getRegisterInfo() const {
-    return &InstrInfo.getRegisterInfo();
+
+  virtual const OiTargetLowering *getTargetLowering() const {
+    return TLInfo.get();
   }
-  virtual const OITargetLowering* getTargetLowering() const {
-    return &TLInfo;
-  }
-  virtual const OISelectionDAGInfo* getSelectionDAGInfo() const {
+
+  virtual const OiSelectionDAGInfo* getSelectionDAGInfo() const {
     return &TSInfo;
   }
-  virtual const ScalarTargetTransformInfo *getScalarTargetTransformInfo()const {
-    return &STTI;
-  }
-  virtual const VectorTargetTransformInfo *getVectorTargetTransformInfo()const {
-    return &VTTI;
-  }
-  virtual const DataLayout       *getDataLayout() const { return &DL; }
 
   // Pass Pipeline Configuration
   virtual TargetPassConfig *createPassConfig(PassManagerBase &PM);
+  virtual bool addCodeEmitter(PassManagerBase &PM, JITCodeEmitter &JCE);
+
+  // Set helper classes
+  void setHelperClassesOi16();
+
+  void setHelperClassesOiSE();
+
+
 };
 
-/// OIV8TargetMachine - OI 32-bit target machine
+/// OiebTargetMachine - Oi32/64 big endian target machine.
 ///
-class OIV8TargetMachine : public OITargetMachine {
+class OiebTargetMachine : public OiTargetMachine {
   virtual void anchor();
 public:
-  OIV8TargetMachine(const Target &T, StringRef TT,
-                       StringRef CPU, StringRef FS,
-                       const TargetOptions &Options,
-                       Reloc::Model RM, CodeModel::Model CM,
-                       CodeGenOpt::Level OL);
+  OiebTargetMachine(const Target &T, StringRef TT,
+                      StringRef CPU, StringRef FS, const TargetOptions &Options,
+                      Reloc::Model RM, CodeModel::Model CM,
+                      CodeGenOpt::Level OL);
 };
 
-/// OIV9TargetMachine - OI 64-bit target machine
+/// OielTargetMachine - Oi32/64 little endian target machine.
 ///
-class OIV9TargetMachine : public OITargetMachine {
+class OielTargetMachine : public OiTargetMachine {
   virtual void anchor();
 public:
-  OIV9TargetMachine(const Target &T, StringRef TT,
-                       StringRef CPU, StringRef FS,
-                       const TargetOptions &Options,
-                       Reloc::Model RM, CodeModel::Model CM,
-                       CodeGenOpt::Level OL);
+  OielTargetMachine(const Target &T, StringRef TT,
+                      StringRef CPU, StringRef FS, const TargetOptions &Options,
+                      Reloc::Model RM, CodeModel::Model CM,
+                      CodeGenOpt::Level OL);
 };
 
-} // end namespace llvm
+} // End llvm namespace
 
 #endif

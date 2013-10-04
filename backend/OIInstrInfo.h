@@ -1,4 +1,4 @@
-//===-- OIInstrInfo.h - OI Instruction Information --------*- C++ -*-===//
+//===-- OiInstrInfo.h - Oi Instruction Information ----------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,73 +7,48 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the OI implementation of the TargetInstrInfo class.
+// This file contains the Oi implementation of the TargetInstrInfo class.
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef OIINSTRUCTIONINFO_H
 #define OIINSTRUCTIONINFO_H
 
-#include "OIRegisterInfo.h"
+#include "Oi.h"
+#include "OiAnalyzeImmediate.h"
+#include "OiRegisterInfo.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Target/TargetInstrInfo.h"
 
 #define GET_INSTRINFO_HEADER
-#include "OIGenInstrInfo.inc"
+#include "OiGenInstrInfo.inc"
 
 namespace llvm {
 
-/// SPII - This namespace holds all of the target specific flags that
-/// instruction info tracks.
-///
-namespace SPII {
-  enum {
-    Pseudo = (1<<0),
-    Load = (1<<1),
-    Store = (1<<2),
-    DelaySlot = (1<<3)
-  };
-}
+class OiInstrInfo : public OiGenInstrInfo {
+protected:
+  OiTargetMachine &TM;
+  unsigned UncondBrOpc;
 
-class OIInstrInfo : public OIGenInstrInfo {
-  const OIRegisterInfo RI;
-  const OISubtarget& Subtarget;
 public:
-  explicit OIInstrInfo(OISubtarget &ST);
+  enum BranchType {
+    BT_None,       // Couldn't analyze branch.
+    BT_NoBranch,   // No branches found.
+    BT_Uncond,     // One unconditional branch.
+    BT_Cond,       // One conditional branch.
+    BT_CondUncond, // A conditional branch followed by an unconditional branch.
+    BT_Indirect    // One indirct branch.
+  };
 
-  /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
-  /// such, whenever a client has an instance of instruction info, it should
-  /// always be able to get register info as well (through this method).
-  ///
-  virtual const OIRegisterInfo &getRegisterInfo() const { return RI; }
+  explicit OiInstrInfo(OiTargetMachine &TM, unsigned UncondBrOpc);
 
-  /// isLoadFromStackSlot - If the specified machine instruction is a direct
-  /// load from a stack slot, return the virtual or physical register number of
-  /// the destination along with the FrameIndex of the loaded stack slot.  If
-  /// not, return 0.  This predicate must return 0 if the instruction has
-  /// any side effects other than loading from the stack slot.
-  virtual unsigned isLoadFromStackSlot(const MachineInstr *MI,
-                                       int &FrameIndex) const;
-  
-  /// isStoreToStackSlot - If the specified machine instruction is a direct
-  /// store to a stack slot, return the virtual or physical register number of
-  /// the source reg along with the FrameIndex of the loaded stack slot.  If
-  /// not, return 0.  This predicate must return 0 if the instruction has
-  /// any side effects other than storing to the stack slot.
-  virtual unsigned isStoreToStackSlot(const MachineInstr *MI,
-                                      int &FrameIndex) const;
+  static const OiInstrInfo *create(OiTargetMachine &TM);
 
-  /// emitFrameIndexDebugValue - Emit a target-dependent form of
-  /// DBG_VALUE encoding the address of a frame index.
-  virtual MachineInstr *emitFrameIndexDebugValue(MachineFunction &MF,
-                                                 int FrameIx,
-                                                 uint64_t Offset,
-                                                 const MDNode *MDPtr,
-                                                 DebugLoc dl) const;
-
+  /// Branch Analysis
   virtual bool AnalyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
                              MachineBasicBlock *&FBB,
                              SmallVectorImpl<MachineOperand> &Cond,
-                             bool AllowModify = false) const ;
+                             bool AllowModify) const;
 
   virtual unsigned RemoveBranch(MachineBasicBlock &MBB) const;
 
@@ -82,25 +57,85 @@ public:
                                 const SmallVectorImpl<MachineOperand> &Cond,
                                 DebugLoc DL) const;
 
-  virtual void copyPhysReg(MachineBasicBlock &MBB,
-                           MachineBasicBlock::iterator I, DebugLoc DL,
-                           unsigned DestReg, unsigned SrcReg,
-                           bool KillSrc) const;
-  
+  virtual
+  bool ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const;
+
+  BranchType AnalyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
+                           MachineBasicBlock *&FBB,
+                           SmallVectorImpl<MachineOperand> &Cond,
+                           bool AllowModify,
+                           SmallVectorImpl<MachineInstr*> &BranchInstrs) const;
+
+  virtual MachineInstr* emitFrameIndexDebugValue(MachineFunction &MF,
+                                                 int FrameIx, uint64_t Offset,
+                                                 const MDNode *MDPtr,
+                                                 DebugLoc DL) const;
+
+  /// Insert nop instruction when hazard condition is found
+  virtual void insertNoop(MachineBasicBlock &MBB,
+                          MachineBasicBlock::iterator MI) const;
+
+  /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
+  /// such, whenever a client has an instance of instruction info, it should
+  /// always be able to get register info as well (through this method).
+  ///
+  virtual const OiRegisterInfo &getRegisterInfo() const = 0;
+
+  virtual unsigned GetOppositeBranchOpc(unsigned Opc) const = 0;
+
+  /// Return the number of bytes of code the specified instruction may be.
+  unsigned GetInstSizeInBytes(const MachineInstr *MI) const;
+
   virtual void storeRegToStackSlot(MachineBasicBlock &MBB,
                                    MachineBasicBlock::iterator MBBI,
                                    unsigned SrcReg, bool isKill, int FrameIndex,
                                    const TargetRegisterClass *RC,
-                                   const TargetRegisterInfo *TRI) const;
+                                   const TargetRegisterInfo *TRI) const {
+    storeRegToStack(MBB, MBBI, SrcReg, isKill, FrameIndex, RC, TRI, 0);
+  }
 
   virtual void loadRegFromStackSlot(MachineBasicBlock &MBB,
                                     MachineBasicBlock::iterator MBBI,
                                     unsigned DestReg, int FrameIndex,
                                     const TargetRegisterClass *RC,
-                                    const TargetRegisterInfo *TRI) const;
-  
-  unsigned getGlobalBaseReg(MachineFunction *MF) const;
+                                    const TargetRegisterInfo *TRI) const {
+    loadRegFromStack(MBB, MBBI, DestReg, FrameIndex, RC, TRI, 0);
+  }
+
+  virtual void storeRegToStack(MachineBasicBlock &MBB,
+                               MachineBasicBlock::iterator MI,
+                               unsigned SrcReg, bool isKill, int FrameIndex,
+                               const TargetRegisterClass *RC,
+                               const TargetRegisterInfo *TRI,
+                               int64_t Offset) const = 0;
+
+  virtual void loadRegFromStack(MachineBasicBlock &MBB,
+                                MachineBasicBlock::iterator MI,
+                                unsigned DestReg, int FrameIndex,
+                                const TargetRegisterClass *RC,
+                                const TargetRegisterInfo *TRI,
+                                int64_t Offset) const = 0;
+
+protected:
+  bool isZeroImm(const MachineOperand &op) const;
+
+  MachineMemOperand *GetMemOperand(MachineBasicBlock &MBB, int FI,
+                                   unsigned Flag) const;
+
+private:
+  virtual unsigned GetAnalyzableBrOpc(unsigned Opc) const = 0;
+
+  void AnalyzeCondBr(const MachineInstr *Inst, unsigned Opc,
+                     MachineBasicBlock *&BB,
+                     SmallVectorImpl<MachineOperand> &Cond) const;
+
+  void BuildCondBr(MachineBasicBlock &MBB, MachineBasicBlock *TBB, DebugLoc DL,
+                   const SmallVectorImpl<MachineOperand>& Cond) const;
 };
+
+/// Create OiInstrInfo objects.
+const OiInstrInfo *createOi16InstrInfo(OiTargetMachine &TM);
+const OiInstrInfo *createOiSEInstrInfo(OiTargetMachine &TM);
 
 }
 

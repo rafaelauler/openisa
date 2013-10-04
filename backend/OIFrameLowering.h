@@ -1,4 +1,4 @@
-//===-- OIFrameLowering.h - Define frame lowering for OI --*- C++ -*-===//
+//===-- OiFrameLowering.h - Define frame lowering for Oi ----*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -14,26 +14,33 @@
 #ifndef OI_FRAMEINFO_H
 #define OI_FRAMEINFO_H
 
-#include "OI.h"
-#include "OISubtarget.h"
+#include "Oi.h"
+#include "OiSubtarget.h"
 #include "llvm/Target/TargetFrameLowering.h"
 
 namespace llvm {
-  class OISubtarget;
+  class OiSubtarget;
 
-class OIFrameLowering : public TargetFrameLowering {
+class OiFrameLowering : public TargetFrameLowering {
+protected:
+  const OiSubtarget &STI;
+
 public:
-  explicit OIFrameLowering(const OISubtarget &/*sti*/)
-    : TargetFrameLowering(TargetFrameLowering::StackGrowsDown, 8, 0) {
-  }
+  explicit OiFrameLowering(const OiSubtarget &sti, unsigned Alignment)
+    : TargetFrameLowering(StackGrowsDown, Alignment, 0, Alignment), STI(sti) {}
 
-  /// emitProlog/emitEpilog - These methods insert prolog and epilog code into
-  /// the function.
-  void emitPrologue(MachineFunction &MF) const;
-  void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const;
+  static const OiFrameLowering *create(OiTargetMachine &TM,
+                                         const OiSubtarget &ST);
 
-  bool hasFP(const MachineFunction &MF) const { return false; }
+  bool hasFP(const MachineFunction &MF) const;
+
+protected:
+  uint64_t estimateStackSize(const MachineFunction &MF) const;
 };
+
+/// Create OiFrameLowering objects.
+const OiFrameLowering *createOi16FrameLowering(const OiSubtarget &ST);
+const OiFrameLowering *createOiSEFrameLowering(const OiSubtarget &ST);
 
 } // End llvm namespace
 
