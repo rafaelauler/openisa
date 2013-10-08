@@ -24,8 +24,8 @@ endif
 
 Verb=$(QUIET)
 
-# COMMON_FLAGS=-Wall -Wextra -fvisibility=hidden
-COMMON_FLAGS=-fvisibility=hidden
+#COMMON_FLAGS=-Wall -Wextra -fvisibility=hidden
+#COMMON_FLAGS=-fvisibility=hidden
 CFLAGS+=$(COMMON_FLAGS) $(shell $(LLVM_CONFIG) --cflags)
 CXXFLAGS+=$(COMMON_FLAGS) $(shell $(LLVM_CONFIG) --cxxflags)
 
@@ -111,7 +111,7 @@ $(PLUGIN): $(PLUGIN_OBJECTS)
 
 $(FRONTEND): $(PLUGIN_OBJECS) $(FRONTEND_OBJECTS)
 	@echo Linking $@
-	$(QUIET)$(CXX) -o $@ $(CXXFLAGS) $(LD_STATIC_OPTIONS) $^
+	$(QUIET)$(CXX) -o $@ $(CXXFLAGS) $(LD_STATIC_OPTIONS) $(PLUGIN_OBJECTS) $(FRONTEND_OBJECTS)
 
 include Makefile.tblgen
 

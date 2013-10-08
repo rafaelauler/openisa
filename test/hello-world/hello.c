@@ -1,6 +1,4 @@
 /* hello world example */
-#include <stdio.h>
-#include <stdlib.h>
 
 int
 main() {
@@ -8,8 +6,9 @@ main() {
   
   a = 350;
   b = 150;
+  b += a;
   
-  printf("%d\n", a+b);
+  write(1, "hello.\n", 7);
 
-  return EXIT_SUCCESS;
+  return 0;
 }

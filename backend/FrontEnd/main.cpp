@@ -1,18 +1,5 @@
-//===-- llvm-mc.cpp - Machine Code Hacking Driver -------------------------===//
-//
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
-//
-//===----------------------------------------------------------------------===//
-//
-// This utility is a simple driver that allows command line hacking on machine
-// code.
-//
-//===----------------------------------------------------------------------===//
-
 #include "Disassembler.h"
+#include "MC2IRStreamer.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -39,6 +26,10 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 using namespace llvm;
+
+namespace llvm {
+extern Target TheOiTarget;
+}
 
 static cl::opt<std::string>
 InputFilename(cl::Positional, cl::desc("<input file>"), cl::init("-"));
@@ -185,6 +176,8 @@ Action(cl::desc("Action to perform:"),
                              "immediates as hex"),
                   clEnumValEnd));
 
+
+
 static const Target *GetTarget(const char *ProgName) {
   // Figure out the target triple.
   if (TripleName.empty())
@@ -192,11 +185,9 @@ static const Target *GetTarget(const char *ProgName) {
   Triple TheTriple(Triple::normalize(TripleName));
 
   // Get the target specific parser.
-  std::string Error;
-  const Target *TheTarget = TargetRegistry::lookupTarget(ArchName, TheTriple,
-                                                         Error);
+  const Target *TheTarget = &TheOiTarget; 
   if (!TheTarget) {
-    errs() << ProgName << ": " << Error;
+    errs() << "Could not load OpenISA target.";
     return 0;
   }
 
@@ -344,10 +335,9 @@ int main(int argc, char **argv) {
   llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
 
   // Initialize targets and assembly printers/parsers.
-  llvm::InitializeAllTargetInfos();
-  llvm::InitializeAllTargetMCs();
-  llvm::InitializeAllAsmParsers();
-  llvm::InitializeAllDisassemblers();
+  //
+  // No need to initialize the OpenISA target. It is initialized by a global
+  // constructor.
 
   // Register the target printer for --version.
   cl::AddExtraVersionPrinter(TargetRegistry::printRegisteredTargetsForVersion);
@@ -435,7 +425,7 @@ int main(int argc, char **argv) {
       MAB = TheTarget->createMCAsmBackend(TripleName, MCPU);
     }
     bool UseCFI = !DisableCFI;
-    Str.reset(TheTarget->createAsmStreamer(Ctx, FOS, /*asmverbose*/true,
+    Str.reset(createMC2IRStreamer(Ctx, FOS, /*asmverbose*/true,
                                            /*useLoc*/ true,
                                            UseCFI,
                                            /*useDwarfDirectory*/ true,
