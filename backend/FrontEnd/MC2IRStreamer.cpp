@@ -98,6 +98,19 @@ namespace {
       }
       return res;
     }
+
+    AllocaInst* ReadFrame(unsigned num) {
+      AllocaInst* res = framemap[num];
+      assert(res != 0);
+      return res;
+    }
+
+    AllocaInst* WriteFrame(unsigned num) {
+      AllocaInst* res = framemap[num];
+      assert(res != 0);
+      return res;
+    }
+
   };
 
 class MC2IRStreamer : public MCStreamer {
@@ -1477,8 +1490,8 @@ void MC2IRStreamer::StartFunction(MCSymbol *Symbol) {
 
   CurFnName = Symbol->getName();
   //CurInstr = 0;
-  CurStackPtr = 29; // FIXME: read this from .frame directive
-  CurReturnAddress = 31; //FIXME: read this from .frame directive
+  CurStackPtr = Oi::SP; // FIXME: read this from .frame directive
+  CurReturnAddress = Oi::RA; //FIXME: read this from .frame directive
 }
 
 void MC2IRStreamer::SetNumArgs(size_t num) {
@@ -1491,7 +1504,12 @@ void MC2IRStreamer::SetFrameSize(size_t num) {
 
 bool MC2IRStreamer::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
-    V = Builder.CreateLoad(CurFrame.ReadReg(o.getReg()));
+    if (o.getReg() == CurStackPtr)
+      return false;
+    if (o.getReg() == Oi::ZERO)
+      V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),0);
+    else
+      V = Builder.CreateLoad(CurFrame.ReadReg(o.getReg()));
     return true;
   } else if (o.isImm()) {
     V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
@@ -1502,8 +1520,11 @@ bool MC2IRStreamer::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
     return true;
   } else if (o.isExpr()) {
     int64_t val;
-    assert(o.getExpr()->EvaluateAsAbsolute(val));
-    V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), val);
+    if(o.getExpr()->EvaluateAsAbsolute(val)) {
+      V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), val);
+    } else {
+      return HandleLoadExpr(*o.getExpr(), V);
+    }
     return true;
   }
   llvm_unreachable("Invalid Src operand");
@@ -1511,8 +1532,8 @@ bool MC2IRStreamer::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
 
 bool MC2IRStreamer::HandleAluDstOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
-    if (o.getReg() == 168 + CurStackPtr ||
-        o.getReg() == 168 + CurReturnAddress)
+    if (o.getReg() == CurStackPtr ||
+        o.getReg() == CurReturnAddress)
       return false;
     V = CurFrame.WriteReg(o.getReg());
     return true;
@@ -1522,11 +1543,29 @@ bool MC2IRStreamer::HandleAluDstOperand(const MCOperand &o, Value *&V) {
 
 bool MC2IRStreamer::HandleLoadExpr(const MCExpr &exp, Value *&V) {
   if (const MCConstantExpr *ce = dyn_cast<const MCConstantExpr>(&exp)) {
-    return ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
-                            ce->getValue());
+    V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                        ce->getValue());
+    return true;
   } else if (const MCSymbolRefExpr *se = dyn_cast<const MCSymbolRefExpr>(&exp)){
-    return TheModule->getOrInsertGlobal(se->getSymbol().getName(),
-                                       Type::getInt32Ty(getGlobalContext()));
+    V = TheModule->getOrInsertGlobal(se->getSymbol().getName(),
+                                     Type::getInt32Ty(getGlobalContext()));
+    if (se->getKind() == MCSymbolRefExpr::VK_Mips_ABS_HI) {
+      Value *V0 = Builder.CreateLoad(V);
+      Value *V1 = Builder.CreateLShr(V0, ConstantInt::get
+                                     (Type::getInt32Ty(getGlobalContext()), 16));
+      Value *V2 = Builder.CreateShl(V1, ConstantInt::get
+                                    (Type::getInt32Ty(getGlobalContext()), 16));
+      V = V2;      
+    } else if (se->getKind() == MCSymbolRefExpr::VK_Mips_ABS_LO) {
+      Value *V0 = Builder.CreateLoad(V);
+      Value *V1 = Builder.CreateAnd(V0, ConstantInt::get
+                                    (Type::getInt32Ty(getGlobalContext()), 
+                                     0xFFFF));
+      V = V1;
+    } else if (se->getKind() != MCSymbolRefExpr::VK_None) {
+      llvm_unreachable("Unhandled SymbolRef Kind");
+    }
+    return true;
     //    GlobalVariable(TheModule,
     //               Type::getInt32Ty(getGlobalContext()),
     //               false,
@@ -1540,7 +1579,13 @@ bool MC2IRStreamer::HandleLoadExpr(const MCExpr &exp, Value *&V) {
 
 bool MC2IRStreamer::HandleLoadSrcOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
-    V = Builder.CreateLoad(CurFrame.ReadReg(o.getReg()));
+    if (o.getReg() == CurStackPtr) {
+      V = Builder.CreateLoad(CurFrame.ReadFrame(0));
+    } else if (o.getReg() == Oi::ZERO) {
+      return false;
+    } else {
+      V = Builder.CreateLoad(CurFrame.ReadReg(o.getReg()));
+    }
     return true;
   } else if (o.isImm()) {
     V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
@@ -1618,7 +1663,7 @@ void MC2IRStreamer::EmitInstruction(const MCInst &Inst) {
     break;
   }
   case Oi::JR: {
-    if (Inst.getOperand(0).getReg() == 168 + CurReturnAddress) {
+    if (Inst.getOperand(0).getReg() == CurReturnAddress) {
       Builder.CreateRetVoid();
     } else {
       llvm_unreachable("Can't handle indirect jumps yet.");
