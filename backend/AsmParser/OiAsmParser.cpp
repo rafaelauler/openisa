@@ -9,6 +9,7 @@
 
 #include "MCTargetDesc/OiMCTargetDesc.h"
 #include "OiRegisterInfo.h"
+#include "FrontEnd/MC2IRStreamer.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
@@ -145,6 +146,9 @@ class OiAsmParser : public MCTargetAsmParser {
 
   bool parseDirectiveWord(unsigned Size, SMLoc L);
 
+  bool parseDirectiveNumArgs();
+  bool parseDirectiveFrame(SMLoc L);
+
   MCSymbolRefExpr::VariantKind getVariantKind(StringRef Symbol);
 
   bool isOi64() const {
@@ -179,6 +183,7 @@ class OiAsmParser : public MCTargetAsmParser {
 
   bool processInstruction(MCInst &Inst, SMLoc IDLoc,
                         SmallVectorImpl<MCInst> &Instructions);
+
 public:
   OiAsmParser(MCSubtargetInfo &sti, MCAsmParser &parser)
     : MCTargetAsmParser(), STI(sti), Parser(parser) {
@@ -1813,6 +1818,46 @@ bool OiAsmParser::parseDirectiveWord(unsigned Size, SMLoc L) {
   return false;
 }
 
+/// parseDirectiveNumArgs
+///  ::= .numargs [ expression ]
+bool OiAsmParser::parseDirectiveNumArgs() {
+  if (getLexer().isNot(AsmToken::EndOfStatement)) {
+    const MCExpr *Value;
+    if (getParser().parseExpression(Value))
+      return true;
+    int64_t val;
+    if (!Value->EvaluateAsAbsolute(val))
+      return true;
+
+    setMC2IRNumArgs(&getParser().getStreamer(), (size_t) val);
+
+    if (!getLexer().is(AsmToken::EndOfStatement))
+      return true;
+  }
+
+  Parser.Lex();
+  return false;
+}
+
+/// parseDirectiveFrame
+///  ::= .frame [ reg, expression, reg ]
+bool OiAsmParser::parseDirectiveFrame(SMLoc L) {
+  Parser.Lex(); // Consume reg
+  Parser.Lex();
+  L = getLexer().getLoc();
+  if (getLexer().isNot(AsmToken::Comma))
+    return Error(L, "unexpected token in directive");
+  Parser.Lex(); // Consume comma
+  int64_t Value;
+  if (getParser().parseAbsoluteExpression(Value))
+    return true;
+  setMC2IRFrameSize(&getParser().getStreamer(), (size_t) Value);
+
+  Parser.eatToEndOfStatement();
+  return false;
+}
+
+
 bool OiAsmParser::ParseDirective(AsmToken DirectiveID) {
 
   StringRef IDVal = DirectiveID.getString();
@@ -1830,8 +1875,7 @@ bool OiAsmParser::ParseDirective(AsmToken DirectiveID) {
   }
 
   if (IDVal == ".frame") {
-    // Ignore this directive for now.
-    Parser.eatToEndOfStatement();
+    parseDirectiveFrame(DirectiveID.getLoc());
     return false;
   }
 
@@ -1859,6 +1903,11 @@ bool OiAsmParser::ParseDirective(AsmToken DirectiveID) {
 
   if (IDVal == ".word") {
     parseDirectiveWord(4, DirectiveID.getLoc());
+    return false;
+  }
+
+  if (IDVal == ".numargs") {
+    parseDirectiveNumArgs();
     return false;
   }
 

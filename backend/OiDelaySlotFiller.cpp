@@ -38,7 +38,7 @@ STATISTIC(UsefulSlots, "Number of delay slots filled with instructions that"
 
 static cl::opt<bool> DisableDelaySlotFiller(
   "disable-oi-delay-filler",
-  cl::init(false),
+  cl::init(true),
   cl::desc("Fill all delay slots with NOPs."),
   cl::Hidden);
 

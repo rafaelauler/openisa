@@ -1,6 +1,6 @@
 #LLVMCONFIG?=llvm-config
 #LLVMLLC=$(shell $(LLVMCONFIG) --obj-root)/$(shell $(LLVMCONFIG) --build-mode)/bin/llc
-LLVMLLC=llc
+LLVMLLC=llc -relocation-model=static
 #CLANG=clang -c -emit-llvm
 CLANG=clang -ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
 
