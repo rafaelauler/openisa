@@ -51,6 +51,8 @@ bool OiAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
     const_cast<TargetLoweringObjectFile&>(getObjFileLowering())
       .Initialize(OutContext, TM);
   OiFI = MF.getInfo<OiFunctionInfo>();
+  size_t n = MF.getFunction()->arg_size();
+  OutStreamer.EmitRawText("\t.numargs\t" + Twine(n));
   AsmPrinter::runOnMachineFunction(MF);
   return true;
 }
