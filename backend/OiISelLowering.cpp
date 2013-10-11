@@ -2195,7 +2195,9 @@ void OiTargetLowering::
 getOpndList(SmallVectorImpl<SDValue> &Ops,
             std::deque< std::pair<unsigned, SDValue> > &RegsToPass,
             bool IsPICCall, bool GlobalOrExternal, bool InternalLinkage,
-            CallLoweringInfo &CLI, SDValue Callee, SDValue Chain) const {
+            CallLoweringInfo &CLI, SDValue Callee, SDValue Chain,
+            unsigned nargs) const {
+  Ops.push_back(CLI.DAG.getConstant(nargs, MVT::i32, false));
   // Insert node "GP copy globalreg" before call to function.
   //
   // R_MIPS_CALL* operators (emitted when non-internal functions are called
@@ -2414,7 +2416,7 @@ OiTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   SDVTList NodeTys = DAG.getVTList(MVT::Other, MVT::Glue);
 
   getOpndList(Ops, RegsToPass, IsPICCall, GlobalOrExternal, InternalLinkage,
-              CLI, Callee, Chain);
+              CLI, Callee, Chain, RegsToPass.size() + MemOpChains.size());
 
   if (IsTailCall)
     return DAG.getNode(OiISD::TailCall, DL, MVT::Other, &Ops[0], Ops.size());

@@ -369,7 +369,8 @@ void Oi16TargetLowering::
 getOpndList(SmallVectorImpl<SDValue> &Ops,
             std::deque< std::pair<unsigned, SDValue> > &RegsToPass,
             bool IsPICCall, bool GlobalOrExternal, bool InternalLinkage,
-            CallLoweringInfo &CLI, SDValue Callee, SDValue Chain) const {
+            CallLoweringInfo &CLI, SDValue Callee, SDValue Chain,
+            unsigned nargs) const {
   SelectionDAG &DAG = CLI.DAG;
   const char* Oi16HelperFunction = 0;
   bool NeedOi16Helper = false;
@@ -408,7 +409,7 @@ getOpndList(SmallVectorImpl<SDValue> &Ops,
   Ops.push_back(JumpTarget);
 
   OiTargetLowering::getOpndList(Ops, RegsToPass, IsPICCall, GlobalOrExternal,
-                                  InternalLinkage, CLI, Callee, Chain);
+                                InternalLinkage, CLI, Callee, Chain, nargs);
 }
 
 MachineBasicBlock *Oi16TargetLowering::

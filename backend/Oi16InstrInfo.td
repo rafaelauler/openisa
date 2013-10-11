@@ -1272,11 +1272,11 @@ class UncondBranch16_pat<SDNode OpNode, Instruction I>:
     let Predicates = [InOi16Mode];
   }
 
-def : Oi16Pat<(OiJmpLink (i32 tglobaladdr:$dst)),
-                (Jal16 tglobaladdr:$dst)>;
+//def : Oi16Pat<(OiJmpLink (i32 tglobaladdr:$dst)),
+//                (Jal16 tglobaladdr:$dst)>;
 
-def : Oi16Pat<(OiJmpLink (i32 texternalsym:$dst)),
-                (Jal16 texternalsym:$dst)>;
+//def : Oi16Pat<(OiJmpLink (i32 texternalsym:$dst)),
+//                (Jal16 texternalsym:$dst)>;
 
 // Indirect branch
 def: Oi16Pat<
@@ -1284,10 +1284,10 @@ def: Oi16Pat<
   (JrcRx16 CPU16Regs:$rs)>;
 
 // Jump and Link (Call)
-let isCall=1, hasDelaySlot=0 in
-def JumpLinkReg16:
-  FRR16_JALRC<0, 0, 0, (outs), (ins CPU16Regs:$rs),
-              "jalrc \t$rs", [(OiJmpLink CPU16Regs:$rs)], IIBranch>;
+//let isCall=1, hasDelaySlot=0 in
+//def JumpLinkReg16:
+//  FRR16_JALRC<0, 0, 0, (outs), (ins CPU16Regs:$rs),
+//              "jalrc \t$rs", [(OiJmpLink CPU16Regs:$rs)], IIBranch>;
 
 // Oi16 pseudos
 let isReturn=1, isTerminator=1, hasDelaySlot=1, isBarrier=1, hasCtrlDep=1,

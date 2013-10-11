@@ -16,7 +16,8 @@
 // Oi profiles and nodes
 //===----------------------------------------------------------------------===//
 
-def SDT_OiJmpLink      : SDTypeProfile<0, 1, [SDTCisVT<0, iPTR>]>;
+def SDT_OiJmpLink      : SDTypeProfile<0, 2, [SDTCisVT<0, iPTR>, SDTCisVT<1,i32>]>;
+def SDT_OiTailCall      : SDTypeProfile<0, 1, [SDTCisVT<0, iPTR>]>;
 def SDT_OiCMov         : SDTypeProfile<1, 4, [SDTCisSameAs<0, 1>,
                                                 SDTCisSameAs<1, 2>,
                                                 SDTCisSameAs<3, 4>,
@@ -54,7 +55,7 @@ def OiJmpLink : SDNode<"OiISD::JmpLink",SDT_OiJmpLink,
                           SDNPVariadic]>;
 
 // Tail call
-def OiTailCall : SDNode<"OiISD::TailCall", SDT_OiJmpLink,
+def OiTailCall : SDNode<"OiISD::TailCall", SDT_OiTailCall,
                           [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
 // Hi and Lo nodes are used to handle global addresses. Used on
@@ -602,18 +603,18 @@ class RetBase<RegisterClass RC>: JumpFR<RC> {
 // Jump and Link (Call)
 let isCall=1, hasDelaySlot=0, Defs = [RA] in {
   class JumpLink<string opstr> :
-    InstSE<(outs), (ins calltarget:$target), !strconcat(opstr, "\t$target"),
-           [(OiJmpLink imm:$target)], IIBranch, FrmJ> {
+    InstSE<(outs), (ins calltarget:$target, shamt:$numargs), !strconcat(opstr, "\t$target, $numargs"),
+           [(OiJmpLink imm:$target, imm:$numargs)], IIBranch, FrmJ> {
     let DecoderMethod = "DecodeJumpTarget";
   }
 
   class JumpLinkRegPseudo<RegisterClass RC, Instruction JALRInst,
                           Register RetReg>:
-    PseudoSE<(outs), (ins RC:$rs), [(OiJmpLink RC:$rs)], IIBranch>,
-    PseudoInstExpansion<(JALRInst RetReg, RC:$rs)>;
+    PseudoSE<(outs), (ins RC:$rs, shamt:$numargs), [(OiJmpLink RC:$rs, imm:$numargs)], IIBranch>,
+    PseudoInstExpansion<(JALRInst RetReg, RC:$rs, shamt:$numargs)>;
 
   class JumpLinkReg<string opstr, RegisterClass RC>:
-    InstSE<(outs RC:$rd), (ins RC:$rs), !strconcat(opstr, "\t$rd, $rs"),
+    InstSE<(outs RC:$rd), (ins RC:$rs, shamt:$numargs), !strconcat(opstr, "\t$rd, $rs, $numargs"),
            [], IIBranch, FrmR>;
 
   class BGEZAL_FT<string opstr, RegisterOperand RO> :
@@ -1068,9 +1069,9 @@ def : InstAlias<"and $rs, $rt, $imm",
                 (ANDi CPURegsOpnd:$rs, CPURegsOpnd:$rt, simm16:$imm), 0>;
 def : InstAlias<"j $rs", (JR CPURegs:$rs), 0>,
       Requires<[NotOi64]>;
-def : InstAlias<"jalr $rs", (JALR RA, CPURegs:$rs)>, Requires<[NotOi64]>;
-def : InstAlias<"jal $rs", (JALR RA, CPURegs:$rs), 0>, Requires<[NotOi64]>;
-def : InstAlias<"jal $rd,$rs", (JALR CPURegs:$rd, CPURegs:$rs), 0>,
+def : InstAlias<"jalr $rs,$nargs", (JALR RA, CPURegs:$rs, shamt:$nargs)>, Requires<[NotOi64]>;
+def : InstAlias<"jal $rs,$nargs", (JALR RA, CPURegs:$rs, shamt:$nargs), 0>, Requires<[NotOi64]>;
+def : InstAlias<"jal $rd,$rs,$nargs", (JALR CPURegs:$rd, CPURegs:$rs, shamt:$nargs), 0>,
                  Requires<[NotOi64]>;
 def : InstAlias<"not $rt, $rs",
                 (NOR CPURegsOpnd:$rt, CPURegsOpnd:$rs, ZERO), 1>;
@@ -1151,12 +1152,12 @@ let Predicates = [HasStdEnc, NotDSP] in {
 }
 
 // Call
-def : OiPat<(OiJmpLink (i32 tglobaladdr:$dst)),
-              (JAL tglobaladdr:$dst)>;
-def : OiPat<(OiJmpLink (i32 texternalsym:$dst)),
-              (JAL texternalsym:$dst)>;
-//def : OiPat<(OiJmpLink CPURegs:$dst),
-//              (JALR CPURegs:$dst)>;
+def : OiPat<(OiJmpLink (i32 tglobaladdr:$dst), imm:$nargs),
+              (JAL tglobaladdr:$dst, imm:$nargs)>;
+def : OiPat<(OiJmpLink (i32 texternalsym:$dst), imm:$nargs),
+              (JAL texternalsym:$dst, imm:$nargs)>;
+def : OiPat<(OiJmpLink CPURegs:$dst, imm:$nargs),
+              (JALR CPURegs:$dst, imm:$nargs)>;
 
 // Tail call
 def : OiPat<(OiTailCall (iPTR tglobaladdr:$dst)),
