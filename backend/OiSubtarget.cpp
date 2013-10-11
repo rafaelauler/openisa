@@ -66,6 +66,9 @@ OiSubtarget::OiSubtarget(const std::string &TT, const std::string &CPU,
   if (CPUName.empty())
     CPUName = "oi32";
 
+  // Force static relocation XXX: Disable PIC
+  //RM = Reloc::Static;
+
   // Parse features string.
   ParseSubtargetFeatures(CPUName, FS);
 
@@ -76,7 +79,8 @@ OiSubtarget::OiSubtarget(const std::string &TT, const std::string &CPU,
 
   // Set OiABI if it hasn't been set yet.
   if (OiABI == UnknownABI)
-    OiABI = hasOi64() ? N64 : O32;
+    //OiABI = hasOi64() ? N64 : O32;
+    OiABI = O32;
 
   // Check if Architecture and ABI are compatible.
   assert(((!hasOi64() && (isABI_O32() || isABI_EABI())) ||

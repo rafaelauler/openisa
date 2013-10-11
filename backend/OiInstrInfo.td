@@ -528,7 +528,7 @@ class CBranch<string opstr, PatFrag cond_op, RegisterClass RC> :
          FrmI> {
   let isBranch = 1;
   let isTerminator = 1;
-  let hasDelaySlot = 1;
+  let hasDelaySlot = 0;
   let Defs = [AT];
 }
 
@@ -538,7 +538,7 @@ class CBranchZero<string opstr, PatFrag cond_op, RegisterClass RC> :
          [(brcond (i32 (cond_op RC:$rs, 0)), bb:$offset)], IIBranch, FrmI> {
   let isBranch = 1;
   let isTerminator = 1;
-  let hasDelaySlot = 1;
+  let hasDelaySlot = 0;
   let Defs = [AT];
 }
 
@@ -563,7 +563,7 @@ class JumpFJ<DAGOperand opnd, string opstr, SDPatternOperator operator,
          [(operator targetoperator:$target)], IIBranch, FrmJ> {
   let isTerminator=1;
   let isBarrier=1;
-  let hasDelaySlot = 1;
+  let hasDelaySlot = 0;
   let DecoderMethod = "DecodeJumpTarget";
   let Defs = [AT];
 }
@@ -575,13 +575,13 @@ class UncondBranch<string opstr> :
   let isBranch = 1;
   let isTerminator = 1;
   let isBarrier = 1;
-  let hasDelaySlot = 1;
+  let hasDelaySlot = 0;
   let Predicates = [RelocPIC, HasStdEnc];
   let Defs = [AT];
 }
 
 // Base class for indirect branch and return instruction classes.
-let isTerminator=1, isBarrier=1, hasDelaySlot = 1 in
+let isTerminator=1, isBarrier=1, hasDelaySlot = 0 in
 class JumpFR<RegisterClass RC, SDPatternOperator operator = null_frag>:
   InstSE<(outs), (ins RC:$rs), "jr\t$rs", [(operator RC:$rs)], IIBranch, FrmR>;
 
@@ -600,7 +600,7 @@ class RetBase<RegisterClass RC>: JumpFR<RC> {
 }
 
 // Jump and Link (Call)
-let isCall=1, hasDelaySlot=1, Defs = [RA] in {
+let isCall=1, hasDelaySlot=0, Defs = [RA] in {
   class JumpLink<string opstr> :
     InstSE<(outs), (ins calltarget:$target), !strconcat(opstr, "\t$target"),
            [(OiJmpLink imm:$target)], IIBranch, FrmJ> {
@@ -627,7 +627,7 @@ class BAL_FT :
   let isBranch = 1;
   let isTerminator = 1;
   let isBarrier = 1;
-  let hasDelaySlot = 1;
+  let hasDelaySlot = 0;
   let Defs = [RA];
 }
 
@@ -798,7 +798,7 @@ class MFC3OP<dag outs, dag ins, string asmstr> :
 //===----------------------------------------------------------------------===//
 
 // Return RA.
-let isReturn=1, isTerminator=1, hasDelaySlot=1, isBarrier=1, hasCtrlDep=1 in
+let isReturn=1, isTerminator=1, hasDelaySlot=0, isBarrier=1, hasCtrlDep=1 in
 def RetRA : PseudoSE<(outs), (ins), [(OiRet)]>;
 
 let Defs = [SP], Uses = [SP], hasSideEffects = 1 in {
