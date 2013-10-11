@@ -609,7 +609,7 @@ void OiAsmPrinter::PrintDebugValueComment(const MachineInstr *MI,
 // Force static initialization.
 extern "C" void LLVMInitializeOiAsmPrinter() {
   RegisterAsmPrinter<OiAsmPrinter> X(TheOiTarget);
-  RegisterAsmPrinter<OiAsmPrinter> Y(TheOielTarget);
-  RegisterAsmPrinter<OiAsmPrinter> A(TheOi64Target);
-  RegisterAsmPrinter<OiAsmPrinter> B(TheOi64elTarget);
+  //  RegisterAsmPrinter<OiAsmPrinter> Y(TheOielTarget);
+  //  RegisterAsmPrinter<OiAsmPrinter> A(TheOi64Target);
+  //  RegisterAsmPrinter<OiAsmPrinter> B(TheOi64elTarget);
 }

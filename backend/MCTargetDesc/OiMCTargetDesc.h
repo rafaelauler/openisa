@@ -29,9 +29,9 @@ class Target;
 class raw_ostream;
 
 extern Target TheOiTarget;
-extern Target TheOielTarget;
-extern Target TheOi64Target;
-extern Target TheOi64elTarget;
+  //extern Target TheOielTarget;
+  //extern Target TheOi64Target;
+  //extern Target TheOi64elTarget;
 
 MCCodeEmitter *createOiMCCodeEmitterEB(const MCInstrInfo &MCII,
                                          const MCRegisterInfo &MRI,

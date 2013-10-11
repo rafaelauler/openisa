@@ -199,8 +199,8 @@ static DecodeStatus DecodeExtSize(MCInst &Inst,
                                   const void *Decoder);
 
 namespace llvm {
-extern Target TheOielTarget, TheOiTarget, TheOi64Target,
-              TheOi64elTarget;
+  extern Target TheOiTarget; //TheOielTarget, TheOiTarget, TheOi64Target,
+  //TheOi64elTarget;
 }
 
 static MCDisassembler *createOiDisassembler(
@@ -231,12 +231,12 @@ extern "C" void LLVMInitializeOiDisassembler() {
   // Register the disassembler.
   TargetRegistry::RegisterMCDisassembler(TheOiTarget,
                                          createOiDisassembler);
-  TargetRegistry::RegisterMCDisassembler(TheOielTarget,
-                                         createOielDisassembler);
-  TargetRegistry::RegisterMCDisassembler(TheOi64Target,
-                                         createOi64Disassembler);
-  TargetRegistry::RegisterMCDisassembler(TheOi64elTarget,
-                                         createOi64elDisassembler);
+  //  TargetRegistry::RegisterMCDisassembler(TheOielTarget,
+  //                                       createOielDisassembler);
+  //TargetRegistry::RegisterMCDisassembler(TheOi64Target,
+  //                                       createOi64Disassembler);
+  //TargetRegistry::RegisterMCDisassembler(TheOi64elTarget,
+  //                                       createOi64elDisassembler);
 }
 
 

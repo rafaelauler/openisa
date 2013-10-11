@@ -1916,9 +1916,9 @@ bool OiAsmParser::ParseDirective(AsmToken DirectiveID) {
 
 extern "C" void LLVMInitializeOiAsmParser() {
   RegisterMCAsmParser<OiAsmParser> X(TheOiTarget);
-  RegisterMCAsmParser<OiAsmParser> Y(TheOielTarget);
-  RegisterMCAsmParser<OiAsmParser> A(TheOi64Target);
-  RegisterMCAsmParser<OiAsmParser> B(TheOi64elTarget);
+  //  RegisterMCAsmParser<OiAsmParser> Y(TheOielTarget);
+  //RegisterMCAsmParser<OiAsmParser> A(TheOi64Target);
+  //RegisterMCAsmParser<OiAsmParser> B(TheOi64elTarget);
 }
 
 #define GET_REGISTER_MATCHER

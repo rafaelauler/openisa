@@ -9,6 +9,11 @@
 
 #include "MC2IRStreamer.h"
 #include "OiInstrInfo.h"
+#include "llvm/Analysis/Passes.h"
+#include "llvm/Analysis/Verifier.h"
+#include "llvm/PassManager.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/Transforms/Scalar.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
@@ -56,9 +61,11 @@ namespace {
   class OIFrame {
     std::map<unsigned, AllocaInst*> regmap;
     std::map<unsigned, AllocaInst*> framemap;
-    IRBuilder<> Builder;
+    Function *TheFunction;
     
     AllocaInst* allocareg(unsigned num) {
+      IRBuilder<> Builder(&TheFunction->getEntryBlock(),
+                          TheFunction->getEntryBlock().begin());
       AllocaInst* a = 
         Builder.CreateAlloca(Type::getInt32Ty(getGlobalContext()), 0,
                              StringRef("reg") + Twine(num));
@@ -66,6 +73,8 @@ namespace {
       return a;
     }
     AllocaInst* allocaframe(unsigned num) {
+      IRBuilder<> Builder(&TheFunction->getEntryBlock(),
+                          TheFunction->getEntryBlock().begin());
       AllocaInst* a = 
         Builder.CreateAlloca(Type::getInt32Ty(getGlobalContext()), 0,
                              StringRef("frame") + Twine(num));
@@ -74,12 +83,12 @@ namespace {
     }
 
   public:
-    OIFrame() : Builder(getGlobalContext()) {}
+    OIFrame() {}
 
-    void reset(BasicBlock *BB, size_t framesz) {
+    void reset(Function *F, size_t framesz) {
       regmap.clear();
       framemap.clear();
-      Builder.SetInsertPoint(BB);
+      TheFunction = F;
       for (unsigned I = 0; I < framesz; I += 4) {
         allocaframe(I);
       }
@@ -129,6 +138,7 @@ protected:
   OIFrame CurFrame;
   int CurStackPtr;
   int CurReturnAddress;
+  BasicBlock* CurEntryBB;
   //MyASTNode *CurInstr; // Current list of instructions
 private:
 
@@ -182,6 +192,31 @@ public:
       InstPrinter->setCommentStream(CommentStream);
   }
   ~MC2IRStreamer() {
+    FunctionPassManager OurFPM(&*TheModule);
+
+    // Set up the optimizer pipeline.  Start with registering info about how the
+    // target lays out data structures.
+    //    OurFPM.add(new DataLayout(*TheExecutionEngine->getDataLayout()));
+    // Provide basic AliasAnalysis support for GVN.
+    //OurFPM.add(createBasicAliasAnalysisPass());
+    // Promote allocas to registers.
+    //OurFPM.add(createPromoteMemoryToRegisterPass());
+    // Do simple "peephole" optimizations and bit-twiddling optzns.
+    //OurFPM.add(createInstructionCombiningPass());
+    // Reassociate expressions.
+    //OurFPM.add(createReassociatePass());
+    // Eliminate Common SubExpressions.
+    //OurFPM.add(createGVNPass());
+    // Simplify the control flow graph (deleting unreachable blocks, etc).
+    //OurFPM.add(createCFGSimplificationPass());
+
+    OurFPM.doInitialization();
+    
+    for (Module::iterator I = TheModule->begin(); I != TheModule->end(); ++I) {
+      verifyFunction(*I);
+      OurFPM.run(*I);
+    }
+
     TheModule->dump();
   }
 
@@ -1478,7 +1513,7 @@ void MC2IRStreamer::StartFunction(MCSymbol *Symbol) {
   // Make the function type:  double(double,double) etc.
   std::vector<Type*> Doubles(CurNumArgs,
                              Type::getInt32Ty(getGlobalContext()));
-  FunctionType *FT = FunctionType::get(Type::getDoubleTy(getGlobalContext()),
+  FunctionType *FT = FunctionType::get(Type::getVoidTy(getGlobalContext()),
                                        Doubles, false);
   Function *F = Function::Create(FT, Function::ExternalLinkage,
                                  Symbol->getName(), &*TheModule);
@@ -1486,12 +1521,10 @@ void MC2IRStreamer::StartFunction(MCSymbol *Symbol) {
   BasicBlock *BB = BasicBlock::Create(getGlobalContext(), "entry", F);
   Builder.SetInsertPoint(BB);
   
-  CurFrame.reset(BB, CurFrameSize);
+  CurEntryBB = BB;
 
   CurFnName = Symbol->getName();
   //CurInstr = 0;
-  CurStackPtr = Oi::SP; // FIXME: read this from .frame directive
-  CurReturnAddress = Oi::RA; //FIXME: read this from .frame directive
 }
 
 void MC2IRStreamer::SetNumArgs(size_t num) {
@@ -1500,16 +1533,35 @@ void MC2IRStreamer::SetNumArgs(size_t num) {
 
 void MC2IRStreamer::SetFrameSize(size_t num) {
   CurFrameSize = num;
+  CurFrame.reset(TheModule->getFunction(CurFnName), CurFrameSize);
+  CurStackPtr = Oi::SP; // FIXME: read this from .frame directive
+  CurReturnAddress = Oi::RA; //FIXME: read this from .frame directive
+}
+
+unsigned conv32(unsigned regnum) {
+  switch(regnum) {
+  case Oi::AT_64:
+    return Oi::AT;
+  case Oi::SP_64:
+    return Oi::SP;
+  case Oi::RA_64:
+    return Oi::RA;
+  case Oi::ZERO_64:
+    return Oi::ZERO;
+  }
+  return regnum;
 }
 
 bool MC2IRStreamer::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
-    if (o.getReg() == CurStackPtr)
+    unsigned reg = conv32(o.getReg());
+    if (reg == CurStackPtr
+        || reg == CurReturnAddress)
       return false;
-    if (o.getReg() == Oi::ZERO)
+    if (reg == Oi::ZERO)
       V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),0);
     else
-      V = Builder.CreateLoad(CurFrame.ReadReg(o.getReg()));
+      V = Builder.CreateLoad(CurFrame.ReadReg(reg));
     return true;
   } else if (o.isImm()) {
     V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
@@ -1532,10 +1584,11 @@ bool MC2IRStreamer::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
 
 bool MC2IRStreamer::HandleAluDstOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
-    if (o.getReg() == CurStackPtr ||
-        o.getReg() == CurReturnAddress)
+    unsigned reg = conv32(o.getReg());
+    if (reg == CurStackPtr 
+        || reg == CurReturnAddress)
       return false;
-    V = CurFrame.WriteReg(o.getReg());
+    V = CurFrame.WriteReg(reg);
     return true;
   }
   llvm_unreachable("Invalid Dst operand");
@@ -1579,12 +1632,13 @@ bool MC2IRStreamer::HandleLoadExpr(const MCExpr &exp, Value *&V) {
 
 bool MC2IRStreamer::HandleLoadSrcOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
-    if (o.getReg() == CurStackPtr) {
-      V = Builder.CreateLoad(CurFrame.ReadFrame(0));
-    } else if (o.getReg() == Oi::ZERO) {
+    unsigned reg = conv32(o.getReg());
+    if (reg == CurStackPtr)
+      V = CurFrame.ReadFrame(0);
+    else if (reg == Oi::ZERO) {
       return false;
     } else {
-      V = Builder.CreateLoad(CurFrame.ReadReg(o.getReg()));
+      V = Builder.CreateLoad(CurFrame.ReadReg(reg));
     }
     return true;
   } else if (o.isImm()) {
@@ -1639,6 +1693,7 @@ void MC2IRStreamer::EmitInstruction(const MCInst &Inst) {
       Builder.CreateStore(v, o0);
     }
     break;
+  case Oi::LUi:
   case Oi::LUi64: {
     Value *dst, *src;
     if (HandleAluDstOperand(Inst.getOperand(0),dst) &&
@@ -1647,7 +1702,8 @@ void MC2IRStreamer::EmitInstruction(const MCInst &Inst) {
     }
     break;
   }
-  case Oi::LW: {
+  case Oi::LW:
+  case Oi::LW64: {
     Value *dst, *src;
     if (HandleAluDstOperand(Inst.getOperand(0),dst) &&
         HandleLoadSrcOperand(Inst.getOperand(1),src)) {
@@ -1655,6 +1711,16 @@ void MC2IRStreamer::EmitInstruction(const MCInst &Inst) {
     }
     break;
   }
+  case Oi::SW:
+  case Oi::SW64: {
+    Value *dst, *src;
+    if (HandleAluSrcOperand(Inst.getOperand(0),src) &&
+        HandleLoadSrcOperand(Inst.getOperand(1),dst)) {
+      Builder.CreateStore(src, dst);
+    }
+    break;
+  }
+  case Oi::JALR64:
   case Oi::JALR: {
     Value *dst;
     if (HandleAluSrcOperand(Inst.getOperand(0), dst)) {
@@ -1662,8 +1728,10 @@ void MC2IRStreamer::EmitInstruction(const MCInst &Inst) {
     }
     break;
   }
+  case Oi::JR64:
   case Oi::JR: {
-    if (Inst.getOperand(0).getReg() == CurReturnAddress) {
+    if (Inst.getOperand(0).getReg() == CurReturnAddress
+        || Inst.getOperand(0).getReg() == Oi::RA_64) {
       Builder.CreateRetVoid();
     } else {
       llvm_unreachable("Can't handle indirect jumps yet.");
