@@ -171,6 +171,9 @@ private:
   bool HandleAluDstOperand(const MCOperand &o, Value *&V);
   bool HandleLoadSrcOperand(const MCOperand &o, Value *&V);
   bool HandleLoadExpr(const MCExpr &exp, Value *&V);
+  bool HandleCallTarget(const MCOperand &o, unsigned numargs, Value *&V);
+  bool HandleCallParameters(unsigned params, SmallVector<Value*, 8> &V);
+  bool HandleCallReturn(Value *&V);
 public:
 
   MC2IRStreamer(MCContext &Context, formatted_raw_ostream &os,
@@ -213,6 +216,8 @@ public:
     OurFPM.doInitialization();
     
     for (Module::iterator I = TheModule->begin(); I != TheModule->end(); ++I) {
+      if (I->isDeclaration())
+        continue;
       verifyFunction(*I);
       OurFPM.run(*I);
     }
@@ -1594,6 +1599,21 @@ bool MC2IRStreamer::HandleAluDstOperand(const MCOperand &o, Value *&V) {
   llvm_unreachable("Invalid Dst operand");
 }
 
+bool MC2IRStreamer::HandleCallTarget(const MCOperand &o, unsigned numargs,
+                                     Value *&V) {
+  assert(o.isExpr() && "Call target must be an expression");
+  const MCExpr *e = o.getExpr();
+  if (const MCSymbolRefExpr *se = dyn_cast<const MCSymbolRefExpr>(e)) {
+    SmallVector<Type*, 8> args(numargs, Type::getInt32Ty(getGlobalContext()));
+    FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
+                                         args, /*isvararg*/false);
+    V = TheModule->getOrInsertFunction(se->getSymbol().getName(), ft);
+  } else {
+    llvm_unreachable("Call target must be a symbol ref expression");
+  }
+  return true;
+}
+
 bool MC2IRStreamer::HandleLoadExpr(const MCExpr &exp, Value *&V) {
   if (const MCConstantExpr *ce = dyn_cast<const MCConstantExpr>(&exp)) {
     V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
@@ -1660,6 +1680,26 @@ bool MC2IRStreamer::HandleLoadSrcOperand(const MCOperand &o, Value *&V) {
   llvm_unreachable("Invalid Src operand");
 }
 
+bool MC2IRStreamer::HandleCallParameters(unsigned params,
+                                         SmallVector<Value*, 8> &V) {
+  if (params > 0)
+    V.push_back(CurFrame.ReadReg(Oi::A0));
+  if (params > 1)
+    V.push_back(CurFrame.ReadReg(Oi::A1));
+  if (params > 2)
+    V.push_back(CurFrame.ReadReg(Oi::A2));
+  if (params > 3)
+    V.push_back(CurFrame.ReadReg(Oi::A3));
+  if (params > 4)
+    llvm_unreachable("Does not support functions with more than 4 params yet.");
+  return true;
+}
+
+bool MC2IRStreamer::HandleCallReturn(Value *&V) {
+  V = CurFrame.WriteReg(Oi::A0);
+  return true;
+}
+
 
 void MC2IRStreamer::EmitInstruction(const MCInst &Inst) {
   assert(getCurrentSection().first &&
@@ -1724,7 +1764,31 @@ void MC2IRStreamer::EmitInstruction(const MCInst &Inst) {
   case Oi::JALR: {
     Value *dst;
     if (HandleAluSrcOperand(Inst.getOperand(0), dst)) {
-      Builder.CreateCall(dst);
+      SmallVector<Value*, 8> Args;
+      Value *retval;
+      MCOperand o = Inst.getOperand(1);
+      assert (o.isImm() && "Second call operand must be number of regs");
+      if(HandleCallParameters(o.getImm(), Args) &&
+         HandleCallReturn(retval)) {
+        Builder.CreateStore(Builder.CreateCall(dst, Args), retval);
+      }
+    }
+    break;
+  }
+  case Oi::JAL: {
+    Value *dst;
+    SmallVector<Value*, 8> Args;
+    Value *retval;
+    MCOperand o = Inst.getOperand(1);
+    assert (o.isImm() && "Second call operand must be number of regs");
+    if(HandleCallParameters(o.getImm(), Args) &&
+       HandleCallReturn(retval) &&
+       HandleCallTarget(Inst.getOperand(0), o.getImm(), dst)) {
+      SmallVector<Value*, 8> FinalArgs;
+      for (int I = 0, E = Args.size(); I != E; ++I) {
+        FinalArgs.push_back(Builder.CreateLoad(Args[I]));
+      }
+      Builder.CreateStore(Builder.CreateCall(dst, FinalArgs), retval);
     }
     break;
   }
