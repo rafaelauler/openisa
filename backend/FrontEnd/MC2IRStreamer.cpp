@@ -133,13 +133,13 @@ protected:
 
   // Information regarding current assembly being parsed
   StringRef CurFnName; // Current instruction being parsed
+  StringRef CurObjName;
   size_t CurNumArgs; // Currrent num args
   size_t CurFrameSize; // Current frame size
   OIFrame CurFrame;
   int CurStackPtr;
   int CurReturnAddress;
   BasicBlock* CurEntryBB;
-  //MyASTNode *CurInstr; // Current list of instructions
 private:
 
   OwningPtr<MCInstPrinter> InstPrinter;
@@ -167,6 +167,7 @@ private:
   virtual void EmitCFIEndProcImpl(MCDwarfFrameInfo &Frame);
 
   void StartFunction(MCSymbol *Symbol);
+  void StartObject(MCSymbol *Symbol);
   bool HandleAluSrcOperand(const MCOperand &o, Value *&V);
   bool HandleAluDstOperand(const MCOperand &o, Value *&V);
   bool HandleLoadSrcOperand(const MCOperand &o, Value *&V);
@@ -203,7 +204,7 @@ public:
     // Provide basic AliasAnalysis support for GVN.
     //OurFPM.add(createBasicAliasAnalysisPass());
     // Promote allocas to registers.
-    //OurFPM.add(createPromoteMemoryToRegisterPass());
+    OurFPM.add(createPromoteMemoryToRegisterPass());
     // Do simple "peephole" optimizations and bit-twiddling optzns.
     //OurFPM.add(createInstructionCombiningPass());
     // Reassociate expressions.
@@ -595,6 +596,7 @@ void MC2IRStreamer::EmitSymbolAttribute(MCSymbol *Symbol,
     StartFunction(Symbol); 
   case MCSA_ELF_TypeIndFunction: /// .type _foo, STT_GNU_IFUNC
   case MCSA_ELF_TypeObject:      /// .type _foo, STT_OBJECT  # aka @object
+    StartObject(Symbol);
   case MCSA_ELF_TypeTLS:         /// .type _foo, STT_TLS     # aka @tls_object
   case MCSA_ELF_TypeCommon:      /// .type _foo, STT_COMMON  # aka @common
   case MCSA_ELF_TypeNoType:      /// .type _foo, STT_NOTYPE  # aka @notype
@@ -809,6 +811,55 @@ void MC2IRStreamer::EmitBytes(StringRef Data, unsigned AddrSpace) {
   OS << ' ';
   PrintQuotedString(Data, OS);
   EmitEOL();
+
+
+  GlobalVariable *gv = TheModule->getGlobalVariable(CurObjName);
+  if (gv == 0 || !gv->hasInitializer()) {
+    ConstantDataArray *c = 
+      dyn_cast<ConstantDataArray>(ConstantDataArray::get(getGlobalContext(),
+                                                         ArrayRef<uint8_t>(reinterpret_cast<const unsigned char *>(Data.str().data()), Data.str().size())));
+   
+    if (gv != 0) {
+      GlobalVariable *gv2 = new GlobalVariable(*TheModule, c->getType(), false, 
+                                               GlobalValue::ExternalLinkage,
+                                               c, CurObjName);
+      
+      //gv->replaceAllUsesWith(gv2);
+      //while (!gv->use_empty()) {
+      //  User *u = *gv->use_begin();
+      //  u->set(gv2);
+      //} 
+      for (Value::use_iterator I = gv->use_begin(), E = gv->use_end(); I != E;
+           ++I) {
+        User *u = *I;
+        //u->replaceUsesOfWith(gv, gv2);
+        if (ConstantExpr *cexp = dyn_cast<ConstantExpr>(u)) {
+          if (cexp->isCast()) {
+            //Builder.SetInsertPoint(inst);
+            Value *V = Builder.CreateCast(Instruction::PtrToInt, gv2,
+                                          Type::getInt32Ty(getGlobalContext()));
+            cexp->replaceAllUsesWith(V);
+          } else {
+            llvm_unreachable("ConstantExpr type not implemented");
+          }
+        } else {
+          llvm_unreachable("Non-instruction users not implemented");
+        }
+    //  u->set(gv2);
+      }
+      gv->eraseFromParent();
+    } else {
+      gv = new GlobalVariable(*TheModule, c->getType(), false, 
+                              GlobalValue::ExternalLinkage,
+                              c, CurObjName);
+    }
+  } else {
+    Constant* constant = gv->getInitializer();
+    if (ConstantDataArray *cda = dyn_cast<ConstantDataArray>(constant)) {
+      Type *ty = cda->getType();
+      
+    }
+  }
 }
 
 void MC2IRStreamer::EmitIntValue(uint64_t Value, unsigned Size,
@@ -1515,7 +1566,6 @@ void MC2IRStreamer::EmitTCEntry(const MCSymbol &S) {
 }
 
 void MC2IRStreamer::StartFunction(MCSymbol *Symbol) {
-  // Make the function type:  double(double,double) etc.
   std::vector<Type*> Doubles(CurNumArgs,
                              Type::getInt32Ty(getGlobalContext()));
   FunctionType *FT = FunctionType::get(Type::getVoidTy(getGlobalContext()),
@@ -1529,8 +1579,12 @@ void MC2IRStreamer::StartFunction(MCSymbol *Symbol) {
   CurEntryBB = BB;
 
   CurFnName = Symbol->getName();
-  //CurInstr = 0;
 }
+
+void MC2IRStreamer::StartObject(MCSymbol *Symbol) {
+  CurObjName = Symbol->getName();
+}
+
 
 void MC2IRStreamer::SetNumArgs(size_t num) {
   CurNumArgs = num;
@@ -1623,14 +1677,16 @@ bool MC2IRStreamer::HandleLoadExpr(const MCExpr &exp, Value *&V) {
     V = TheModule->getOrInsertGlobal(se->getSymbol().getName(),
                                      Type::getInt32Ty(getGlobalContext()));
     if (se->getKind() == MCSymbolRefExpr::VK_Mips_ABS_HI) {
-      Value *V0 = Builder.CreateLoad(V);
+      Value *V0 = Builder.CreateCast(Instruction::PtrToInt, V,
+                                     Type::getInt32Ty(getGlobalContext()));
       Value *V1 = Builder.CreateLShr(V0, ConstantInt::get
                                      (Type::getInt32Ty(getGlobalContext()), 16));
       Value *V2 = Builder.CreateShl(V1, ConstantInt::get
                                     (Type::getInt32Ty(getGlobalContext()), 16));
       V = V2;      
     } else if (se->getKind() == MCSymbolRefExpr::VK_Mips_ABS_LO) {
-      Value *V0 = Builder.CreateLoad(V);
+      Value *V0 = Builder.CreateCast(Instruction::PtrToInt, V,
+                                     Type::getInt32Ty(getGlobalContext()));
       Value *V1 = Builder.CreateAnd(V0, ConstantInt::get
                                     (Type::getInt32Ty(getGlobalContext()), 
                                      0xFFFF));
