@@ -1,7 +1,8 @@
 #ifndef MC2IRSTREAMER_H_
 #define MC2IRSTREAMER_H_
 
-
+#include "llvm/Pass.h"
+#include "llvm/IR/Function.h"
 #include "llvm/ADT/SmallString.h"
 
 
@@ -31,6 +32,13 @@ MCStreamer *createMC2IRStreamer(MCContext &Ctx, formatted_raw_ostream &OS,
  void setMC2IRFrameSize(MCStreamer *s, size_t FrameSize, int FrameRegNo,
                         int ReturnRegNo);
  Module* takeCurrentModule(MCStreamer *s);
+
+ struct OiCombinePass : public FunctionPass {
+   static char ID;
+   OiCombinePass() : FunctionPass(ID) {}
+   
+   virtual bool runOnFunction(Function &F);
+ };
 
 }
 

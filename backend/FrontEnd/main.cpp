@@ -360,14 +360,16 @@ void OptimizeAndWriteBitcode(MCStreamer *s) {
   //OurFPM.add(createBasicAliasAnalysisPass());
   // Promote allocas to registers.
   OurFPM.add(createPromoteMemoryToRegisterPass());
+  OurFPM.add(new OiCombinePass());
   // Do simple "peephole" optimizations and bit-twiddling optzns.
-  //OurFPM.add(createInstructionCombiningPass());
+  OurFPM.add(createInstructionCombiningPass());
   // Reassociate expressions.
-  //OurFPM.add(createReassociatePass());
+  OurFPM.add(createReassociatePass());
   // Eliminate Common SubExpressions.
-  //OurFPM.add(createGVNPass());
+  OurFPM.add(createGVNPass());
   // Simplify the control flow graph (deleting unreachable blocks, etc).
-  //OurFPM.add(createCFGSimplificationPass());
+  OurFPM.add(createCFGSimplificationPass());
+ 
 
   OurFPM.doInitialization();
     

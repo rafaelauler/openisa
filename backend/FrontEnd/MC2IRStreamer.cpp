@@ -9,6 +9,7 @@
 
 #include "MC2IRStreamer.h"
 #include "OiInstrInfo.h"
+#include "llvm/Support/PatternMatch.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
@@ -36,6 +37,7 @@
 #include "llvm/Support/PathV2.h"
 #include <cctype>
 using namespace llvm;
+using namespace PatternMatch;
 
 namespace {
 
@@ -1798,7 +1800,6 @@ bool MC2IRStreamer::HandleCallReturn(Value *&V) {
   return true;
 }
 
-
 void MC2IRStreamer::EmitInstruction(const MCInst &Inst) {
   assert(getCurrentSection().first &&
          "Cannot emit contents before setting section!");
@@ -1978,3 +1979,31 @@ Module* llvm::takeCurrentModule(MCStreamer *s) {
   }
   return 0;
 }
+
+static void OiCombine(Instruction *v) {
+  Value *X, *Y;  
+  if (match(v, m_Add(m_Shl(m_LShr(m_Value(X),
+                                  m_ConstantInt<16>()),
+                           m_ConstantInt<16>()),
+                     m_And(m_Value(Y),
+                           m_ConstantInt<0xFFFF>())))) {
+    if (X == Y) {
+      v->replaceAllUsesWith(X);
+    }
+  }
+}
+
+bool OiCombinePass::runOnFunction(Function &F) {
+  errs() << "Hello: ";
+  errs().write_escaped(F.getName()) << '\n';
+
+  for (Function::iterator FI = F.begin(), FE = F.end(); FI != FE; ++FI) {
+    for (BasicBlock::iterator BI = FI->begin(), BE = FI->end(); BI != BE; ++BI){
+      OiCombine(&*BI);
+    }
+  }
+  return false;
+}
+
+char OiCombinePass::ID = 0;
+static RegisterPass<OiCombinePass> X("oicombinepass", "OpenISA-specific Combine Pass", false, false);
