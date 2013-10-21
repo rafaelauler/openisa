@@ -1842,8 +1842,28 @@ bool OiAsmParser::parseDirectiveNumArgs() {
 /// parseDirectiveFrame
 ///  ::= .frame [ reg, expression, reg ]
 bool OiAsmParser::parseDirectiveFrame(SMLoc L) {
-  Parser.Lex(); // Consume reg
-  Parser.Lex();
+  int FrameRegNo = -1, ReturnRegNo = -1;
+  if (getLexer().isNot(AsmToken::Dollar)) {
+    reportParseError("unexpected token in statement");
+    return false;
+  }
+  Parser.Lex(); // Eat the '$'.
+  const AsmToken &Reg = Parser.getTok();
+  if (Reg.is(AsmToken::Identifier)) {
+    FrameRegNo = matchCPURegisterName(Reg.getIdentifier());
+  } else if (Reg.is(AsmToken::Integer)) {
+    FrameRegNo = Reg.getIntVal();
+  } else {
+    reportParseError("unexpected token in statement");
+    return false;
+  }
+
+  if (FrameRegNo < 1 || FrameRegNo > 31) {
+    reportParseError("unexpected token in statement");
+    return false;
+  }
+
+  getParser().Lex(); // Eat the register.
   L = getLexer().getLoc();
   if (getLexer().isNot(AsmToken::Comma))
     return Error(L, "unexpected token in directive");
@@ -1851,7 +1871,37 @@ bool OiAsmParser::parseDirectiveFrame(SMLoc L) {
   int64_t Value;
   if (getParser().parseAbsoluteExpression(Value))
     return true;
-  setMC2IRFrameSize(&getParser().getStreamer(), (size_t) Value);
+
+  L = getLexer().getLoc();
+  if (getLexer().isNot(AsmToken::Comma))
+    return Error(L, "unexpected token in directive");
+  Parser.Lex(); // Consume comma
+
+  if (getLexer().isNot(AsmToken::Dollar)) {
+    reportParseError("unexpected token in statement");
+    return false;
+  }
+  Parser.Lex(); // Eat the '$'.
+  const AsmToken &Reg2 = Parser.getTok();
+  if (Reg2.is(AsmToken::Identifier)) {
+    ReturnRegNo = matchCPURegisterName(Reg2.getIdentifier());
+  } else if (Reg2.is(AsmToken::Integer)) {
+    ReturnRegNo = Reg2.getIntVal();
+  } else {
+    reportParseError("unexpected token in statement");
+    return false;
+  }
+
+  if (ReturnRegNo < 1 || ReturnRegNo > 31) {
+    reportParseError("unexpected token in statement");
+    return false;
+  }
+
+  getParser().Lex(); // Eat the register.
+  
+  
+  setMC2IRFrameSize(&getParser().getStreamer(), (size_t) Value, FrameRegNo,
+                    ReturnRegNo);
 
   Parser.eatToEndOfStatement();
   return false;

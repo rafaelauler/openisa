@@ -1,5 +1,12 @@
 #include "Disassembler.h"
 #include "MC2IRStreamer.h"
+#include "llvm/Analysis/Passes.h"
+#include "llvm/Analysis/Verifier.h"
+#include "llvm/PassManager.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -197,9 +204,22 @@ static const Target *GetTarget(const char *ProgName) {
 }
 
 static tool_output_file *GetOutputStream() {
-  if (OutputFilename == "")
-    OutputFilename = "-";
+  //  if (OutputFilename == "")
+  //  OutputFilename = "-";
 
+  std::string Err;
+  tool_output_file *Out = new tool_output_file("-", Err, //OutputFilename.c_str(), Err,
+                                               raw_fd_ostream::F_Binary);
+  if (!Err.empty()) {
+    errs() << Err << '\n';
+    delete Out;
+    return 0;
+  }
+
+  return Out;
+}
+
+static tool_output_file *GetBitcodeOutputStream() {
   std::string Err;
   tool_output_file *Out = new tool_output_file(OutputFilename.c_str(), Err,
                                                raw_fd_ostream::F_Binary);
@@ -211,6 +231,7 @@ static tool_output_file *GetOutputStream() {
 
   return Out;
 }
+
 
 static std::string DwarfDebugFlags;
 static void setDwarfDebugFlags(int argc, char **argv) {
@@ -326,6 +347,47 @@ static int AssembleInput(const char *ProgName, const Target *TheTarget,
   int Res = Parser->Run(NoInitialTextSection);
 
   return Res;
+}
+
+void OptimizeAndWriteBitcode(MCStreamer *s) {
+  Module *m = takeCurrentModule(s);
+  FunctionPassManager OurFPM(m);
+
+  // Set up the optimizer pipeline.  Start with registering info about how the
+  // target lays out data structures.
+  //OurFPM.add(new DataLayout(*TheExecutionEngine->getDataLayout()));
+  // Provide basic AliasAnalysis support for GVN.
+  //OurFPM.add(createBasicAliasAnalysisPass());
+  // Promote allocas to registers.
+  OurFPM.add(createPromoteMemoryToRegisterPass());
+  // Do simple "peephole" optimizations and bit-twiddling optzns.
+  //OurFPM.add(createInstructionCombiningPass());
+  // Reassociate expressions.
+  //OurFPM.add(createReassociatePass());
+  // Eliminate Common SubExpressions.
+  //OurFPM.add(createGVNPass());
+  // Simplify the control flow graph (deleting unreachable blocks, etc).
+  //OurFPM.add(createCFGSimplificationPass());
+
+  OurFPM.doInitialization();
+    
+  for (Module::iterator I = m->begin(); I != m->end(); ++I) {
+    if (I->isDeclaration())
+      continue;
+    verifyFunction(*I);
+    OurFPM.run(*I);
+  }
+
+  m->dump();
+  if (OutputFilename != "") {
+    write(2, "huahua\n", 7);
+    OwningPtr<tool_output_file> outfile(GetBitcodeOutputStream());
+    if (outfile) {
+      WriteBitcodeToFile(m,outfile->os());
+      outfile->keep();
+    }
+  }
+  delete m;
 }
 
 int main(int argc, char **argv) {
@@ -450,6 +512,7 @@ int main(int argc, char **argv) {
     break;
   case AC_Assemble:
     Res = AssembleInput(ProgName, TheTarget, SrcMgr, Ctx, *Str, *MAI, *STI);
+    OptimizeAndWriteBitcode(&*Str);
     break;
   case AC_MDisassemble:
     assert(IP && "Expected assembly output");

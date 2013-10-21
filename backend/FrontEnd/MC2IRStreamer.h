@@ -13,6 +13,7 @@ class formatted_raw_ostream;
 class MCInstPrinter;
 class MCAsmBackend;
 class MCCodeEmitter;
+class Module;
 
 MCStreamer *createMC2IRStreamer(MCContext &Ctx, formatted_raw_ostream &OS,
                                  bool isVerboseAsm,
@@ -27,7 +28,9 @@ MCStreamer *createMC2IRStreamer(MCContext &Ctx, formatted_raw_ostream &OS,
 
 // Functions used by AsmParser to communicate OI-specific info
  void setMC2IRNumArgs(MCStreamer *s, size_t NumArgs);
- void setMC2IRFrameSize(MCStreamer *s, size_t FrameSize);
+ void setMC2IRFrameSize(MCStreamer *s, size_t FrameSize, int FrameRegNo,
+                        int ReturnRegNo);
+ Module* takeCurrentModule(MCStreamer *s);
 
 }
 

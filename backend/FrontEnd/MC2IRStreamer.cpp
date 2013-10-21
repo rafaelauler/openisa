@@ -9,11 +9,6 @@
 
 #include "MC2IRStreamer.h"
 #include "OiInstrInfo.h"
-#include "llvm/Analysis/Passes.h"
-#include "llvm/Analysis/Verifier.h"
-#include "llvm/PassManager.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/Transforms/Scalar.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
@@ -96,7 +91,7 @@ namespace {
 
     AllocaInst* ReadReg(unsigned num) {
       AllocaInst* res = regmap[num];
-      assert(res != 0);
+      assert(res != 0 && "Reading from a reg that was not previously written.");
       return res;
     }
 
@@ -196,38 +191,13 @@ public:
       InstPrinter->setCommentStream(CommentStream);
   }
   ~MC2IRStreamer() {
-    FunctionPassManager OurFPM(&*TheModule);
-
-    // Set up the optimizer pipeline.  Start with registering info about how the
-    // target lays out data structures.
-    //    OurFPM.add(new DataLayout(*TheExecutionEngine->getDataLayout()));
-    // Provide basic AliasAnalysis support for GVN.
-    //OurFPM.add(createBasicAliasAnalysisPass());
-    // Promote allocas to registers.
-    OurFPM.add(createPromoteMemoryToRegisterPass());
-    // Do simple "peephole" optimizations and bit-twiddling optzns.
-    //OurFPM.add(createInstructionCombiningPass());
-    // Reassociate expressions.
-    //OurFPM.add(createReassociatePass());
-    // Eliminate Common SubExpressions.
-    //OurFPM.add(createGVNPass());
-    // Simplify the control flow graph (deleting unreachable blocks, etc).
-    //OurFPM.add(createCFGSimplificationPass());
-
-    OurFPM.doInitialization();
-    
-    for (Module::iterator I = TheModule->begin(); I != TheModule->end(); ++I) {
-      if (I->isDeclaration())
-        continue;
-      verifyFunction(*I);
-      OurFPM.run(*I);
-    }
-
-    TheModule->dump();
   }
 
   void SetNumArgs(size_t num);
-  void SetFrameSize(size_t num);
+  void SetFrameSize(size_t num, int FrameRegNo, int ReturnRegNo);
+  Module* takeModule() {
+    return TheModule.take();
+  }
 
   inline void EmitEOL() {
     // If we don't have any comments, just emit a \n.
@@ -1590,17 +1560,12 @@ void MC2IRStreamer::SetNumArgs(size_t num) {
   CurNumArgs = num;
 }
 
-void MC2IRStreamer::SetFrameSize(size_t num) {
-  CurFrameSize = num;
-  CurFrame.reset(TheModule->getFunction(CurFnName), CurFrameSize);
-  CurStackPtr = Oi::SP; // FIXME: read this from .frame directive
-  CurReturnAddress = Oi::RA; //FIXME: read this from .frame directive
-}
-
 unsigned conv32(unsigned regnum) {
   switch(regnum) {
   case Oi::AT_64:
     return Oi::AT;
+  case Oi::FP_64:
+    return Oi::FP;
   case Oi::SP_64:
     return Oi::SP;
   case Oi::RA_64:
@@ -1611,11 +1576,88 @@ unsigned conv32(unsigned regnum) {
   return regnum;
 }
 
+static unsigned ConvFromDirective(unsigned regnum) {
+  switch(regnum) {
+  case 0:
+    return Oi::ZERO;
+  case 4:
+    return Oi::A0;
+  case 5:
+    return Oi::A1;
+  case 6:
+    return Oi::A2;
+  case 7:
+    return Oi::A3;
+  case 2:
+    return Oi::V0;
+  case 3:
+    return Oi::V1;
+  case 16:
+    return Oi::S0;
+  case 17:
+    return Oi::S1;
+  case 18:
+    return Oi::S2;
+  case 19:
+    return Oi::S3;
+  case 20:
+    return Oi::S4;
+  case 21:
+    return Oi::S5;
+  case 22:
+    return Oi::S6;
+  case 23:
+    return Oi::S7;
+  case 26:
+    return Oi::K0;
+  case 27:
+    return Oi::K1;
+  case 29:
+    return Oi::SP;
+  case 30:
+    return Oi::FP;
+  case 28:
+    return Oi::GP;
+  case 31:
+    return Oi::RA;
+  case 8:
+    return Oi::T0;
+  case 9:
+    return Oi::T1;
+  case 10:
+    return Oi::T2;
+  case 11:
+    return Oi::T3;
+  case 12:
+    return Oi::T4;
+  case 13:
+    return Oi::T5;
+  case 14:
+    return Oi::T6;
+  case 15:
+    return Oi::T7;
+  case 24:
+    return Oi::T8;
+  case 25:
+    return Oi::T9;
+  }
+  return -1;
+}
+
+void MC2IRStreamer::SetFrameSize(size_t num, int FrameRegNo, int ReturnRegNo) {
+  CurFrameSize = num;
+  CurFrame.reset(TheModule->getFunction(CurFnName), CurFrameSize);
+  CurStackPtr = ConvFromDirective(FrameRegNo); 
+  CurReturnAddress = ConvFromDirective(ReturnRegNo);
+}
+
 bool MC2IRStreamer::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
     unsigned reg = conv32(o.getReg());
     if (reg == CurStackPtr
-        || reg == CurReturnAddress)
+        || reg == CurReturnAddress
+        || reg == Oi::FP
+        || reg == Oi::SP)
       return false;
     if (reg == Oi::ZERO)
       V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),0);
@@ -1923,8 +1965,16 @@ void llvm::setMC2IRNumArgs(MCStreamer *s, size_t NumArgs) {
   }
 }
 
-void llvm::setMC2IRFrameSize(MCStreamer *s, size_t FrameSize) {
+void llvm::setMC2IRFrameSize(MCStreamer *s, size_t FrameSize, int FrameRegNo,
+                             int ReturnRegNo) {
   if (MC2IRStreamer *x = dyn_cast<MC2IRStreamer>(s)) {
-    x->SetFrameSize(FrameSize);
+    x->SetFrameSize(FrameSize, FrameRegNo, ReturnRegNo);
   }
+}
+
+Module* llvm::takeCurrentModule(MCStreamer *s) {
+  if (MC2IRStreamer *x = dyn_cast<MC2IRStreamer>(s)) {
+    return x->takeModule();
+  }
+  return 0;
 }
