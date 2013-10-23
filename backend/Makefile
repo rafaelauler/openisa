@@ -66,8 +66,12 @@ ALL_TARGETS=$(PLUGIN) $(FRONTEND)
 CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -MD -MP -I$(SRC_DIR) -I$(ObjDir)
 
-# options for static linking
+# options for static linking (not working in Linux) 
+ifeq ($(shell uname),Darwin)
 LD_STATIC_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags) $(shell $(LLVM_CONFIG) --libs)
+else
+LD_STATIC_OPTIONS+=$(LDFLAGS) -L$(shell $(LLVM_CONFIG) --libdir) -Wl,-Bdynamic -lz -lm -lpthread -Wl,-Bstatic $(shell $(LLVM_CONFIG) --libs) -Wl,-Bdynamic
+endif
 # enable dynamic linking
 LD_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags) -lLLVM-$(shell $(LLVM_CONFIG) --version)
 
@@ -111,7 +115,11 @@ $(PLUGIN): $(PLUGIN_OBJECTS)
 
 $(FRONTEND): $(PLUGIN_OBJECS) $(FRONTEND_OBJECTS)
 	@echo Linking $@
-	$(QUIET)$(CXX) -o $@ $(CXXFLAGS) $(LD_STATIC_OPTIONS) $(PLUGIN_OBJECTS) $(FRONTEND_OBJECTS)
+ifeq ($(shell uname),Darwin)
+	$(QUIET)$(CXX) -o $@ $(LD_STATIC_OPTIONS) $(PLUGIN_OBJECTS) $(FRONTEND_OBJECTS)
+else
+	$(QUIET)$(CXX) -o $@ $(LD_OPTIONS) $(PLUGIN_OBJECTS) $(FRONTEND_OBJECTS)
+endif
 
 include Makefile.tblgen
 
