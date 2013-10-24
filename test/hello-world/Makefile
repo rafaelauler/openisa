@@ -9,13 +9,19 @@ OPT=opt -O3
 #EMITLLVM=-ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
 EMITLLVM=-target mips-unknown-linux -emit-llvm -c
 
-all: hello-oi-ia64
+all: hello-oi-x86
 
 hello-oi-ia64: hello-oi-ia64.s
 	$(CLANG) hello-oi-ia64.s -o hello-oi-ia64
 
 hello-oi-ia64.s: hello-oi.bc
 	$(LLVMLLC) -march=x86-64 hello-oi.bc -o hello-oi-ia64.s
+
+hello-oi-x86: hello-oi-x86.s
+	$(CLANG) hello-oi-x86.s -o hello-oi-x86
+
+hello-oi-x86.s: hello-oi.bc
+	$(LLVMLLC) -march=x86 hello-oi.bc -o hello-oi-x86.s
 
 hello-oi.bc: hello.s
 	../../backend/oife hello.s -o=hello-oi.bc
