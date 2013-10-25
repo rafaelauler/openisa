@@ -40,7 +40,7 @@ using namespace llvm;
 STATISTIC(NumTailCalls, "Number of tail calls");
 
 static cl::opt<bool>
-LargeGOT("mxgot", cl::Hidden,
+LargeGOT("oigot", cl::Hidden,
          cl::desc("OI: Enable GOT larger than 64k."), cl::init(false));
 
 static const uint16_t O32IntRegs[4] = {

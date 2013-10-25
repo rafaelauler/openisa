@@ -35,7 +35,7 @@
 using namespace llvm;
 
 namespace llvm {
-extern Target TheOiTarget;
+  extern Target TheOiTarget, TheOielTarget;
 }
 
 static cl::opt<std::string>
@@ -192,7 +192,7 @@ static const Target *GetTarget(const char *ProgName) {
   Triple TheTriple(Triple::normalize(TripleName));
 
   // Get the target specific parser.
-  const Target *TheTarget = &TheOiTarget; 
+  const Target *TheTarget = &TheOielTarget; 
   if (!TheTarget) {
     errs() << "Could not load OpenISA target.";
     return 0;
@@ -382,7 +382,6 @@ void OptimizeAndWriteBitcode(MCStreamer *s) {
 
   m->dump();
   if (OutputFilename != "") {
-    write(2, "huahua\n", 7);
     OwningPtr<tool_output_file> outfile(GetBitcodeOutputStream());
     if (outfile) {
       WriteBitcodeToFile(m,outfile->os());
@@ -467,7 +466,7 @@ int main(int argc, char **argv) {
     FeaturesStr = Features.getString();
   }
 
-  OwningPtr<tool_output_file> Out(GetOutputStream());
+  OwningPtr<tool_output_file> Out(FileType == OFT_AssemblyFile? GetOutputStream() : GetBitcodeOutputStream());
   if (!Out)
     return 1;
 
@@ -514,7 +513,9 @@ int main(int argc, char **argv) {
     break;
   case AC_Assemble:
     Res = AssembleInput(ProgName, TheTarget, SrcMgr, Ctx, *Str, *MAI, *STI);
-    OptimizeAndWriteBitcode(&*Str);
+    if (FileType == OFT_AssemblyFile) {
+      OptimizeAndWriteBitcode(&*Str);
+    }
     break;
   case AC_MDisassemble:
     assert(IP && "Expected assembly output");

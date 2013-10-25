@@ -7,9 +7,10 @@ LLVMLLC=llc -relocation-model=static -view-dag-combine1-dags
 CLANG=clang
 OPT=opt -O3
 #EMITLLVM=-ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
-EMITLLVM=-target mips-unknown-linux -emit-llvm -c
+EMITLLVM=-target mips-unknown-linux -emit-llvm -c --sysroot=/tools
+CROSS=mipsel-unknown-linux-gnu-gcc
 
-all: hello-oi-x86
+all: hello.oi
 
 hello-oi-ia64: hello-oi-ia64.s
 	$(CLANG) hello-oi-ia64.s -o hello-oi-ia64
@@ -22,6 +23,12 @@ hello-oi-x86: hello-oi-x86.s
 
 hello-oi-x86.s: hello-oi.bc
 	$(LLVMLLC) -march=x86 hello-oi.bc -o hello-oi-x86.s
+
+hello.oi: hello-oi.o
+	$(CROSS) hello-oi.o -o hello.oi
+
+hello-oi.o: hello.s
+	../../backend/oife -assemble -filetype=obj -o=hello-oi.o hello.s
 
 hello-oi.bc: hello.s
 	../../backend/oife hello.s -o=hello-oi.bc
@@ -37,4 +44,4 @@ hello.bc: hello.c
 	$(OPT) hello.bc -o hello.bc
 
 clean:
-	-rm -rf hello.s hello.bc hello-oi.bc hello-oi-ia64.s hello-oi-ia64
+	-rm -rf hello.s hello.bc hello-oi.bc hello-oi-ia64.s hello-oi-ia64 hello-oi-x86.s hello-oi-x86 hello-oi.o hello.oi

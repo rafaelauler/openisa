@@ -138,78 +138,78 @@ static MCStreamer *createMCStreamer(const Target &T, StringRef TT,
 extern "C" void LLVMInitializeOiTargetMC() {
   // Register the MC asm info.
   RegisterMCAsmInfoFn X(TheOiTarget, createOiMCAsmInfo);
-  //  RegisterMCAsmInfoFn Y(TheOielTarget, createOiMCAsmInfo);
-  //  RegisterMCAsmInfoFn A(TheOi64Target, createOiMCAsmInfo);
-  //  RegisterMCAsmInfoFn B(TheOi64elTarget, createOiMCAsmInfo);
+  RegisterMCAsmInfoFn Y(TheOielTarget, createOiMCAsmInfo);
+  RegisterMCAsmInfoFn A(TheOi64Target, createOiMCAsmInfo);
+  RegisterMCAsmInfoFn B(TheOi64elTarget, createOiMCAsmInfo);
 
   // Register the MC codegen info.
   TargetRegistry::RegisterMCCodeGenInfo(TheOiTarget,
                                         createOiMCCodeGenInfo);
-  //  TargetRegistry::RegisterMCCodeGenInfo(TheOielTarget,
-  //                                       createOiMCCodeGenInfo);
-  //TargetRegistry::RegisterMCCodeGenInfo(TheOi64Target,
-  //                                        createOiMCCodeGenInfo);
-  //  TargetRegistry::RegisterMCCodeGenInfo(TheOi64elTarget,
-  //                                        createOiMCCodeGenInfo);
+  TargetRegistry::RegisterMCCodeGenInfo(TheOielTarget,
+                                        createOiMCCodeGenInfo);
+  TargetRegistry::RegisterMCCodeGenInfo(TheOi64Target,
+                                        createOiMCCodeGenInfo);
+  TargetRegistry::RegisterMCCodeGenInfo(TheOi64elTarget,
+                                        createOiMCCodeGenInfo);
 
   // Register the MC instruction info.
   TargetRegistry::RegisterMCInstrInfo(TheOiTarget, createOiMCInstrInfo);
-  //  TargetRegistry::RegisterMCInstrInfo(TheOielTarget, createOiMCInstrInfo);
-  //  TargetRegistry::RegisterMCInstrInfo(TheOi64Target, createOiMCInstrInfo);
-  //  TargetRegistry::RegisterMCInstrInfo(TheOi64elTarget,
-  //                                      createOiMCInstrInfo);
+  TargetRegistry::RegisterMCInstrInfo(TheOielTarget, createOiMCInstrInfo);
+  TargetRegistry::RegisterMCInstrInfo(TheOi64Target, createOiMCInstrInfo);
+  TargetRegistry::RegisterMCInstrInfo(TheOi64elTarget,
+                                      createOiMCInstrInfo);
 
   // Register the MC register info.
   TargetRegistry::RegisterMCRegInfo(TheOiTarget, createOiMCRegisterInfo);
-  //  TargetRegistry::RegisterMCRegInfo(TheOielTarget, createOiMCRegisterInfo);
-  //  TargetRegistry::RegisterMCRegInfo(TheOi64Target, createOiMCRegisterInfo);
-  //  TargetRegistry::RegisterMCRegInfo(TheOi64elTarget,
-  //                                    createOiMCRegisterInfo);
+  TargetRegistry::RegisterMCRegInfo(TheOielTarget, createOiMCRegisterInfo);
+  TargetRegistry::RegisterMCRegInfo(TheOi64Target, createOiMCRegisterInfo);
+  TargetRegistry::RegisterMCRegInfo(TheOi64elTarget,
+                                    createOiMCRegisterInfo);
 
   // Register the MC Code Emitter
   TargetRegistry::RegisterMCCodeEmitter(TheOiTarget,
                                         createOiMCCodeEmitterEB);
-  //  TargetRegistry::RegisterMCCodeEmitter(TheOielTarget,
-  //                                        createOiMCCodeEmitterEL);
-  //  TargetRegistry::RegisterMCCodeEmitter(TheOi64Target,
-  //                                        createOiMCCodeEmitterEB);
-  //  TargetRegistry::RegisterMCCodeEmitter(TheOi64elTarget,
-  //                                        createOiMCCodeEmitterEL);
+  TargetRegistry::RegisterMCCodeEmitter(TheOielTarget,
+                                        createOiMCCodeEmitterEL);
+  TargetRegistry::RegisterMCCodeEmitter(TheOi64Target,
+                                        createOiMCCodeEmitterEB);
+  TargetRegistry::RegisterMCCodeEmitter(TheOi64elTarget,
+                                        createOiMCCodeEmitterEL);
 
   // Register the object streamer.
   TargetRegistry::RegisterMCObjectStreamer(TheOiTarget, createMCStreamer);
-  //  TargetRegistry::RegisterMCObjectStreamer(TheOielTarget, createMCStreamer);
-  //  TargetRegistry::RegisterMCObjectStreamer(TheOi64Target, createMCStreamer);
-  //  TargetRegistry::RegisterMCObjectStreamer(TheOi64elTarget,
-  //                                           createMCStreamer);
+  TargetRegistry::RegisterMCObjectStreamer(TheOielTarget, createMCStreamer);
+  TargetRegistry::RegisterMCObjectStreamer(TheOi64Target, createMCStreamer);
+  TargetRegistry::RegisterMCObjectStreamer(TheOi64elTarget,
+                                           createMCStreamer);
 
   // Register the asm backend.
   TargetRegistry::RegisterMCAsmBackend(TheOiTarget,
                                        createOiAsmBackendEB32);
-  //  TargetRegistry::RegisterMCAsmBackend(TheOielTarget,
-  //                                       createOiAsmBackendEL32);
-  //  TargetRegistry::RegisterMCAsmBackend(TheOi64Target,
-  //                                       createOiAsmBackendEB64);
-  //  TargetRegistry::RegisterMCAsmBackend(TheOi64elTarget,
-  //                                       createOiAsmBackendEL64);
+  TargetRegistry::RegisterMCAsmBackend(TheOielTarget,
+                                       createOiAsmBackendEL32);
+  TargetRegistry::RegisterMCAsmBackend(TheOi64Target,
+                                       createOiAsmBackendEB64);
+  TargetRegistry::RegisterMCAsmBackend(TheOi64elTarget,
+                                       createOiAsmBackendEL64);
 
   // Register the MC subtarget info.
   TargetRegistry::RegisterMCSubtargetInfo(TheOiTarget,
                                           createOiMCSubtargetInfo);
-  //  TargetRegistry::RegisterMCSubtargetInfo(TheOielTarget,
-  //                                          createOiMCSubtargetInfo);
-  //  TargetRegistry::RegisterMCSubtargetInfo(TheOi64Target,
-  //                                          createOiMCSubtargetInfo);
-  //  TargetRegistry::RegisterMCSubtargetInfo(TheOi64elTarget,
-  //                                          createOiMCSubtargetInfo);
+  TargetRegistry::RegisterMCSubtargetInfo(TheOielTarget,
+                                          createOiMCSubtargetInfo);
+  TargetRegistry::RegisterMCSubtargetInfo(TheOi64Target,
+                                          createOiMCSubtargetInfo);
+  TargetRegistry::RegisterMCSubtargetInfo(TheOi64elTarget,
+                                          createOiMCSubtargetInfo);
 
   // Register the MCInstPrinter.
   TargetRegistry::RegisterMCInstPrinter(TheOiTarget,
                                         createOiMCInstPrinter);
-  //  TargetRegistry::RegisterMCInstPrinter(TheOielTarget,
-  //                                        createOiMCInstPrinter);
-  //  TargetRegistry::RegisterMCInstPrinter(TheOi64Target,
-  //                                        createOiMCInstPrinter);
-  //  TargetRegistry::RegisterMCInstPrinter(TheOi64elTarget,
-  //                                        createOiMCInstPrinter);
+  TargetRegistry::RegisterMCInstPrinter(TheOielTarget,
+                                        createOiMCInstPrinter);
+  TargetRegistry::RegisterMCInstPrinter(TheOi64Target,
+                                        createOiMCInstPrinter);
+  TargetRegistry::RegisterMCInstPrinter(TheOi64elTarget,
+                                        createOiMCInstPrinter);
 }

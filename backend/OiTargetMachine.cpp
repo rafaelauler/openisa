@@ -38,9 +38,9 @@ using namespace llvm;
 extern "C" void LLVMInitializeOiTarget() {
   // Register the target.
   RegisterTargetMachine<OiebTargetMachine> X(TheOiTarget);
-  //RegisterTargetMachine<OielTargetMachine> Y(TheOielTarget);
-  //RegisterTargetMachine<OiebTargetMachine> A(TheOi64Target);
-  //RegisterTargetMachine<OielTargetMachine> B(TheOi64elTarget);
+  RegisterTargetMachine<OielTargetMachine> Y(TheOielTarget);
+  RegisterTargetMachine<OiebTargetMachine> A(TheOi64Target);
+  RegisterTargetMachine<OielTargetMachine> B(TheOi64elTarget);
 }
 
 // DataLayout --> Big-endian, 32-bit pointer/ABI/alignment

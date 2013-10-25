@@ -12,22 +12,22 @@
 #include "llvm/Support/TargetRegistry.h"
 using namespace llvm;
 
-Target llvm::TheOiTarget;//, llvm::TheOielTarget;
-//Target llvm::TheOi64Target, llvm::TheOi64elTarget;
+Target llvm::TheOiTarget, llvm::TheOielTarget;
+Target llvm::TheOi64Target, llvm::TheOi64elTarget;
 
 extern "C" void LLVMInitializeOiTargetInfo() {
   RegisterTarget<Triple::UnknownArch,
         /*HasJIT=*/true> X(TheOiTarget, "oi", "Oi");
 
-  //  RegisterTarget<Triple::UnknownArch,
-  //        /*HasJIT=*/true> Y(TheOielTarget, "oiel", "Oiel");
+  RegisterTarget<Triple::UnknownArch,
+        /*HasJIT=*/true> Y(TheOielTarget, "oiel", "Oiel");
 
-  //  RegisterTarget<Triple::UnknownArch,
-  //        /*HasJIT=*/false> A(TheOi64Target, "oi64", "Oi64 [experimental]");
+  RegisterTarget<Triple::UnknownArch,
+        /*HasJIT=*/false> A(TheOi64Target, "oi64", "Oi64 [experimental]");
 
-  //  RegisterTarget<Triple::UnknownArch,
-  //        /*HasJIT=*/false> B(TheOi64elTarget,
-  //                            "oi64el", "Oi64el [experimental]");
+  RegisterTarget<Triple::UnknownArch,
+        /*HasJIT=*/false> B(TheOi64elTarget,
+                            "oi64el", "Oi64el [experimental]");
 }
   
 

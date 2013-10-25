@@ -42,6 +42,7 @@ BUILT_SOURCES = $(BUILT_SOURCES_raw:%=$(ObjDir)/%)
 
 PLUGIN=$(BIN_DIR)/OIBackend.so
 FRONTEND=$(BIN_DIR)/oife
+FRONTEND2=$(BIN_DIR)/oisbt
 
 Sources := $(notdir $(wildcard $(SRC_DIR)/*.cpp \
            $(SRC_DIR)/TargetInfo/*.cpp \
@@ -52,16 +53,22 @@ Sources := $(notdir $(wildcard $(SRC_DIR)/*.cpp \
 
 FrontEndSources := $(notdir $(wildcard $(SRC_DIR)/FrontEnd/*.cpp))
 
+FrontEnd2Sources := $(notdir $(wildcard $(SRC_DIR)/FrontEnd2/*.cpp))
+
 BaseNameSources := $(sort $(basename $(Sources)))
 
 FrontEndBaseNameSources := $(sort $(basename $(FrontEndSources)))
+
+FrontEnd2BaseNameSources := $(sort $(basename $(FrontEnd2Sources)))
 
 PLUGIN_OBJECTS := $(BaseNameSources:%=$(ObjDir)/%.o)
 
 FRONTEND_OBJECTS := $(FrontEndBaseNameSources:%=$(ObjDir)/%.o)
 
-ALL_OBJECTS=$(PLUGIN_OBJECTS) $(FRONTEND_OBJECTS)
-ALL_TARGETS=$(PLUGIN) $(FRONTEND)
+FRONTEND2_OBJECTS := $(FrontEnd2BaseNameSources:%=$(ObjDir)/%.o) $(ObjDir)/MC2IRStreamer.o
+
+ALL_OBJECTS=$(PLUGIN_OBJECTS) $(FRONTEND_OBJECTS) $(FRONTEND2_OBJECTS)
+ALL_TARGETS=$(PLUGIN) $(FRONTEND) $(FRONTEND2)
 
 CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -MD -MP -I$(SRC_DIR) -I$(ObjDir)
@@ -76,7 +83,7 @@ endif
 LD_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags) -lLLVM-$(shell $(LLVM_CONFIG) --version)
 
 # Basic makefile initialization
-VPATH=$(SRC_DIR):$(SRC_DIR)/TargetInfo:$(SRC_DIR)/MCTargetDesc:$(SRC_DIR)/InstPrinter:$(SRC_DIR)/Disassembler:$(SRC_DIR)/AsmParser:$(SRC_DIR)/FrontEnd
+VPATH=$(SRC_DIR):$(SRC_DIR)/TargetInfo:$(SRC_DIR)/MCTargetDesc:$(SRC_DIR)/InstPrinter:$(SRC_DIR)/Disassembler:$(SRC_DIR)/AsmParser:$(SRC_DIR)/FrontEnd:$(SRC_DIR)/FrontEnd2
 .PHONY: default clean
 # .PRECIOUS: $(ObjDir) $(ALL_OBJECTS)
 
@@ -121,11 +128,20 @@ else
 	$(QUIET)$(CXX) -o $@ $(LD_OPTIONS) $(PLUGIN_OBJECTS) $(FRONTEND_OBJECTS)
 endif
 
+$(FRONTEND2): $(PLUGIN_OBJECS) $(FRONTEND2_OBJECTS)
+	@echo Linking $@
+ifeq ($(shell uname),Darwin)
+	$(QUIET)$(CXX) -o $@ $(LD_STATIC_OPTIONS) $(PLUGIN_OBJECTS) $(FRONTEND2_OBJECTS)
+else
+	$(QUIET)$(CXX) -o $@ $(LD_OPTIONS) $(PLUGIN_OBJECTS) $(FRONTEND2_OBJECTS)
+endif
+
+
 include Makefile.tblgen
 
 clean::
 	$(QUIET)rm -f $(SRC_DIR)/*~ $(SRC_DIR)/TargetInfo/*~ \
-        $(SRC_DIR)/MCTargetDesc/*~ $(BUILT_SOURCES) $(ALL_OBJECTS) *.d $(PLUGIN) $(FRONTEND)
+        $(SRC_DIR)/MCTargetDesc/*~ $(BUILT_SOURCES) $(ALL_OBJECTS) *.d $(PLUGIN) $(FRONTEND) $(FRONTEND2)
 	$(QUIET)rm -rf $(ObjDir)
 
 -include $(ALL_OBJECTS:.o=.d)
