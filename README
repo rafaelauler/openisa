@@ -1,0 +1,93 @@
+                                  OpenISA Tools
+
+1. Clang C frontend
+--------------------------------------------------------------------------------
+
+The Clang C frontend translates C code to LLVM IR. Use it as follows:
+
+$ clang -target mips-unknown-linux -emit-llvm -c --sysroot=/tools \
+in.c -o out.bc
+
+Each parameter is detailed below.
+
+-target mips-unknown-linux
+
+The LLVM IR has a light dependence on the target architecture. This instructs
+Clang to generate type sizes according to MIPS for Linux, which is compatible
+with OpenISA. 
+
+-emit-llvm -c
+
+Instructs clang to generate LLVM IR code instead of going all the way down to
+full compilation.
+
+-sysroot=/tools
+
+Instructs clang to use the include files from this folder (libc interface). 
+You need a mips cross-compiler installed in this folder, which has C headers
+compatible with OpenISA.
+
+1. OIBackend.so 
+-------------------------------------------------------------------------------
+
+The OpenISA backend translates LLVM IR to an OpenISA assembly file. Use it as
+follows:
+
+$ llc -load=${backend}/OIBackend.so -march=oi in.bc -o out.s
+
+Each parameter is detailed below.
+
+-load=${backend}/OIBackend.so
+
+"backend" is a shell environment variable set with the path where the shared
+library OIBackend.so is located. Typically it is compiled into the backend
+folder. The effect of this parameter is to make llc load this shared library,
+which has the complete OpenISA backend.
+
+-march=oi
+
+Selects the OpenISA backend.
+
+2.a. OpenISA assembler
+-------------------------------------------------------------------------------
+
+The assembler processes OpenISA text assembly files and outputs OpenISA Linux
+ELF relocatable object files, i.e. intermediate object files. Use it as
+follows:
+
+$ oife -assemble -filetype=obj -o=out.o in.s
+
+Each parameter is detailed below.
+
+-assemble
+
+Tells the OpenISA FrontEnd "oife" to act as an assembler.
+
+-filetype=obj
+
+Specifies that the output is an ELF object file.
+
+2.b. OpenISA Assembly-Level Translation Layer (ATL)
+-------------------------------------------------------------------------------
+
+The OpenISA Assembly-Level Translation Layer (ATL) is able to revert the
+OpenISA backend process and generate LLVM IR from the OpenISA text assembly
+file. Use it as follows:
+
+$ oife in.s -o out.bc
+
+The output LLVM bitcode file can then be translated to other architectures
+using the LLVM backends, finishing the recompilation process to other machine.
+An example appears below, assuming the host architecture is Intel x86:
+
+$ llc -march=x86 in.bc -o intermediate.s
+$ gcc intermediate.s -o final
+
+3. Linker
+-------------------------------------------------------------------------------
+
+Since OpenISA lacks a linker, we will rely on a mips cross compiler linker, 
+which is compatible with OpenISA. You will need a mips cross compiler installed
+in "/cross".
+
+$ /cross/bin/mipsel-unknown-linux-gcc in.o -o out
