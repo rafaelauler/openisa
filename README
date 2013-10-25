@@ -1,5 +1,60 @@
                                   OpenISA Tools
 
+Before compiling...
+-------------------------------------------------------------------------------
+> Make sure you download and install LLVM 3.3 as follows:
+
+$ cd where-you-want-llvm-to-live
+$ svn co http://llvm.org/svn/llvm-project/llvm/tags/RELEASE_33/final llvm
+$ cd llvm/tools
+$ svn co http://llvm.org/svn/llvm-project/cfe/tags/RELEASE_33/final clang
+$ cd ../projects
+$ svn co http://llvm.org/svn/llvm-project/compiler-rt/tags/RELEASE_33/final \
+compiler-rt
+
+Configure and build as follows:
+
+$ cd where-you-want-to-build-llvm (different from src dir)
+$ ../llvm/configure --prefix=your-install-directory --enable-shared
+$ make
+$ make install
+
+Put LLVM into your path:
+$ export PATH=$PATH:your-install-directory
+
+Put the LLVM3.3 shared library into your dynamic linker and loader path:
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(llvm-config --libdir)
+
+Compile OpenISA tools as follows:
+
+$ cd where-openisa-tools-is/backend
+$ make
+
+> Make sure you have a cross compiler for the target mipsel-unknown-linux,
+which is compatible with OpenISA and will help fill the gaps for compilation
+when there is no OpenISA tool available (e.g. linker, libc and kernel header
+files).
+
+You can download the header files as follows.
+
+$ wget http://www.ic.unicamp.br/~auler/mips-cross-sysroot.tar.bz2
+$ tar xjvf mips-cross-sysroot.tar.bz2  (unpack where convenient)
+$ sudo ln -s $(pwd)/tools /tools
+
+You can download the cross compiler compiled for Linux 2.6.32-38 x86 Ubuntu as
+follows.
+
+$ wget http://www.ic.unicamp.br/~auler/mips-cross.tar.bz2
+$ tar xjvf mips-cross.tar.bz2  (unpack where convenient)
+$ sudo ln -s $(pwd)/cross /cross
+
+Or you can compile your own mipsel-unknown-linux cross compiler using
+instructions from the Linux From Scratch project at:
+
+http://cross-lfs.org/view/CLFS-2.1.0/mips/
+
+Read sections II and III.
+
 1. Clang C frontend
 --------------------------------------------------------------------------------
 
@@ -27,7 +82,7 @@ Instructs clang to use the include files from this folder (libc interface).
 You need a mips cross-compiler installed in this folder, which has C headers
 compatible with OpenISA.
 
-1. OIBackend.so 
+2. OIBackend.so 
 -------------------------------------------------------------------------------
 
 The OpenISA backend translates LLVM IR to an OpenISA assembly file. Use it as
@@ -48,7 +103,7 @@ which has the complete OpenISA backend.
 
 Selects the OpenISA backend.
 
-2.a. OpenISA assembler
+3.a. OpenISA assembler
 -------------------------------------------------------------------------------
 
 The assembler processes OpenISA text assembly files and outputs OpenISA Linux
@@ -67,7 +122,7 @@ Tells the OpenISA FrontEnd "oife" to act as an assembler.
 
 Specifies that the output is an ELF object file.
 
-2.b. OpenISA Assembly-Level Translation Layer (ATL)
+3.b. OpenISA Assembly-Level Translation Layer (ATL)
 -------------------------------------------------------------------------------
 
 The OpenISA Assembly-Level Translation Layer (ATL) is able to revert the
@@ -83,7 +138,7 @@ An example appears below, assuming the host architecture is Intel x86:
 $ llc -march=x86 in.bc -o intermediate.s
 $ gcc intermediate.s -o final
 
-3. Linker
+4. Linker
 -------------------------------------------------------------------------------
 
 Since OpenISA lacks a linker, we will rely on a mips cross compiler linker, 
