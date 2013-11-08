@@ -19,6 +19,13 @@
 #include "llvm-objdump.h"
 #include "OiInstTranslate.h"
 #include "MCFunction.h"
+#include "llvm/Analysis/Passes.h"
+#include "llvm/Analysis/Verifier.h"
+#include "llvm/PassManager.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
@@ -51,6 +58,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/system_error.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include <algorithm>
 #include <cctype>
 #include <cstring>
@@ -63,6 +71,10 @@ namespace llvm {
 
 static cl::list<std::string>
 InputFilenames(cl::Positional, cl::desc("<input object files>"),cl::ZeroOrMore);
+
+static cl::opt<std::string>
+OutputFilename("o", cl::desc("Output filename"),
+               cl::value_desc("filename"));
 
 static cl::opt<bool>
 Disassemble("disassemble", cl::init(true),
@@ -194,6 +206,61 @@ bool llvm::RelocAddressLess(RelocationRef a, RelocationRef b) {
   return a_addr < b_addr;
 }
 
+static tool_output_file *GetBitcodeOutputStream() {
+  std::string Err;
+  tool_output_file *Out = new tool_output_file(OutputFilename.c_str(), Err,
+                                               raw_fd_ostream::F_Binary);
+  if (!Err.empty()) {
+    errs() << Err << '\n';
+    delete Out;
+    return 0;
+  }
+
+  return Out;
+}
+
+void OptimizeAndWriteBitcode(OiInstTranslate *oit) {
+  Module *m = oit->takeModule();
+  FunctionPassManager OurFPM(m);
+
+  // Set up the optimizer pipeline.  Start with registering info about how the
+  // target lays out data structures.
+  //OurFPM.add(new DataLayout(*TheExecutionEngine->getDataLayout()));
+  // Provide basic AliasAnalysis support for GVN.
+  //OurFPM.add(createBasicAliasAnalysisPass());
+  // Promote allocas to registers.
+  //  OurFPM.add(createPromoteMemoryToRegisterPass());
+  //  OurFPM.add(new OiCombinePass());
+  // Do simple "peephole" optimizations and bit-twiddling optzns.
+  //  OurFPM.add(createInstructionCombiningPass());
+  // Reassociate expressions.
+  //  OurFPM.add(createReassociatePass());
+  // Eliminate Common SubExpressions.
+  //  OurFPM.add(createGVNPass());
+  // Simplify the control flow graph (deleting unreachable blocks, etc).
+  //  OurFPM.add(createCFGSimplificationPass());
+ 
+
+  OurFPM.doInitialization();
+    
+  for (Module::iterator I = m->begin(); I != m->end(); ++I) {
+    if (I->isDeclaration())
+      continue;
+    verifyFunction(*I);
+    OurFPM.run(*I);
+  }
+
+  //m->dump();
+  if (OutputFilename != "") {
+    OwningPtr<tool_output_file> outfile(GetBitcodeOutputStream());
+    if (outfile) {
+      WriteBitcodeToFile(m,outfile->os());
+      outfile->keep();
+    }
+  }
+  delete m;
+}
+
 static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
   const Target *TheTarget = getTarget(Obj);
   // getTarget() will have already issued a diagnostic if necessary, so
@@ -208,6 +275,51 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
     for (unsigned i = 0; i != MAttrs.size(); ++i)
       Features.AddFeature(MAttrs[i]);
     FeaturesStr = Features.getString();
+  }
+
+  // Set up disassembler.
+  OwningPtr<const MCAsmInfo> AsmInfo(TheTarget->createMCAsmInfo(TripleName));
+
+  if (!AsmInfo) {
+    errs() << "error: no assembly info for target " << TripleName << "\n";
+    return;
+  }
+
+  OwningPtr<const MCSubtargetInfo> STI(
+          TheTarget->createMCSubtargetInfo(TripleName, "", FeaturesStr));
+
+  if (!STI) {
+    errs() << "error: no subtarget info for target " << TripleName << "\n";
+    return;
+  }
+
+  OwningPtr<const MCDisassembler> DisAsm(
+          TheTarget->createMCDisassembler(*STI));
+  if (!DisAsm) {
+    errs() << "error: no disassembler for target " << TripleName << "\n";
+    return;
+  }
+
+  OwningPtr<const MCRegisterInfo> MRI(TheTarget->createMCRegInfo(TripleName));
+  if (!MRI) {
+    errs() << "error: no register info for target " << TripleName << "\n";
+    return;
+  }
+
+  OwningPtr<const MCInstrInfo> MII(TheTarget->createMCInstrInfo());
+  if (!MII) {
+    errs() << "error: no instruction info for target " << TripleName << "\n";
+    return;
+  }
+
+  int AsmPrinterVariant = AsmInfo->getAssemblerDialect();
+
+  OwningPtr<OiInstTranslate> IP(new OiInstTranslate(*AsmInfo, *MII, *MRI, Obj));
+  // TheTarget->createMCInstPrinter(AsmPrinterVariant, *AsmInfo, *MII, *MRI, *STI));
+  if (!IP) {
+    errs() << "error: no instruction printer for target " << TripleName
+           << '\n';
+    return;
   }
 
   error_code ec;
@@ -275,51 +387,6 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
     if (Symbols.empty())
       Symbols.push_back(std::make_pair(0, name));
 
-    // Set up disassembler.
-    OwningPtr<const MCAsmInfo> AsmInfo(TheTarget->createMCAsmInfo(TripleName));
-
-    if (!AsmInfo) {
-      errs() << "error: no assembly info for target " << TripleName << "\n";
-      return;
-    }
-
-    OwningPtr<const MCSubtargetInfo> STI(
-      TheTarget->createMCSubtargetInfo(TripleName, "", FeaturesStr));
-
-    if (!STI) {
-      errs() << "error: no subtarget info for target " << TripleName << "\n";
-      return;
-    }
-
-    OwningPtr<const MCDisassembler> DisAsm(
-      TheTarget->createMCDisassembler(*STI));
-    if (!DisAsm) {
-      errs() << "error: no disassembler for target " << TripleName << "\n";
-      return;
-    }
-
-    OwningPtr<const MCRegisterInfo> MRI(TheTarget->createMCRegInfo(TripleName));
-    if (!MRI) {
-      errs() << "error: no register info for target " << TripleName << "\n";
-      return;
-    }
-
-    OwningPtr<const MCInstrInfo> MII(TheTarget->createMCInstrInfo());
-    if (!MII) {
-      errs() << "error: no instruction info for target " << TripleName << "\n";
-      return;
-    }
-
-    int AsmPrinterVariant = AsmInfo->getAssemblerDialect();
-
-    OwningPtr<MCInstPrinter> IP(new OiInstTranslate(*AsmInfo, *MII, *MRI));
-    // TheTarget->createMCInstPrinter(AsmPrinterVariant, *AsmInfo, *MII, *MRI, *STI));
-    if (!IP) {
-      errs() << "error: no instruction printer for target " << TripleName
-             << '\n';
-      return;
-    }
-
     StringRef Bytes;
     if (error(i->getContents(Bytes))) break;
     StringRefMemoryObject memoryObject(Bytes);
@@ -352,7 +419,8 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
 #else
         raw_ostream &DebugOut = nulls();
 #endif
-
+      Twine n = Twine("a").concat(Twine::utohexstr(SectionAddr + Index));
+      IP->StartFunction(n);
       for (Index = Start; Index < End; Index += Size) {
         MCInst Inst;
 
@@ -395,8 +463,10 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
           ++rel_cur;
         }
       }
-    }
+      IP->FinishFunction();
+    }    
   }
+  OptimizeAndWriteBitcode(&*IP);
 }
 
 static void PrintRelocations(const ObjectFile *o) {

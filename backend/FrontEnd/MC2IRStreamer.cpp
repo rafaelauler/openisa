@@ -1562,7 +1562,7 @@ void MC2IRStreamer::SetNumArgs(size_t num) {
   CurNumArgs = num;
 }
 
-unsigned conv32(unsigned regnum) {
+static unsigned conv32(unsigned regnum) {
   switch(regnum) {
   case Oi::AT_64:
     return Oi::AT;
