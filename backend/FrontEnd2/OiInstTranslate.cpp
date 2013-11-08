@@ -308,13 +308,14 @@ void OiInstTranslate::StartFunction(Twine &N) {
   // Create a function with no parameters
   FunctionType *FT = FunctionType::get(Type::getVoidTy(getGlobalContext()),
                                        false);
+  Function *F = 0;
   if (FirstFunction) {
-     Function *F = Function::Create(FT, Function::ExternalLinkage,
-                                    "main", &*TheModule);
+     F = Function::Create(FT, Function::ExternalLinkage,
+                          "main", &*TheModule);
      FirstFunction = false;
   } else {
-     Function *F = Function::Create(FT, Function::ExternalLinkage,
-                                   N, &*TheModule);
+     F = Function::Create(FT, Function::ExternalLinkage,
+                          N, &*TheModule);
   }
 
   BasicBlock *BB = BasicBlock::Create(getGlobalContext(), "entry", F);
@@ -346,17 +347,18 @@ bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
     if(o.getExpr()->EvaluateAsAbsolute(val)) {
       V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), val);
     } else {
-      return HandleLoadExpr(*o.getExpr(), V);
+      llvm_unreachable("Invalid src operand");
     }
     return true;
   }
   llvm_unreachable("Invalid Src operand");
 }
 
-bool OiInstTranslate::HandleLoadExpr(const MCExpr &exp, Value *&V) {
+bool OiInstTranslate::HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad) {
   if (const MCConstantExpr *ce = dyn_cast<const MCConstantExpr>(&exp)) {
-    V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
-                        ce->getValue());
+    Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                                  ce->getValue());
+    V = AccessShadowMemory32(idx, IsLoad);
     return true;
   } else if (const MCSymbolRefExpr *se = dyn_cast<const MCSymbolRefExpr>(&exp)){
     V = TheModule->getOrInsertGlobal(se->getSymbol().getName(),
@@ -391,6 +393,43 @@ bool OiInstTranslate::HandleLoadExpr(const MCExpr &exp, Value *&V) {
   llvm_unreachable("Invalid Load Expr");
 }
 
+Value *OiInstTranslate::AccessShadowMemory32(Value *Idx, bool IsLoad) {
+  SmallVector<Value*,4> Idxs;
+  Idxs.push_back(Idx);
+  Value *gep = Builder.CreateGEP(ShadowImageValue, Idxs);
+  Value *ptr = Builder.CreateBitCast(gep, Type::getInt32PtrTy(getGlobalContext()));
+  if (IsLoad)
+    return Builder.CreateLoad(ptr);
+  return ptr;
+}
+
+bool OiInstTranslate::HandleMemOperand(const MCOperand &o, Value *&V, bool IsLoad) {
+  if (o.isReg()) {
+    unsigned reg = conv32(o.getReg());
+    Value *idx = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
+    V = AccessShadowMemory32(idx, IsLoad);
+    return true;
+  } else if (o.isImm()) {
+    Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                                  o.getImm());
+    V = AccessShadowMemory32(idx, IsLoad);
+    return true;
+  } else if (o.isFPImm()) {
+    llvm_unreachable("Invalid load src operand");
+    return false;
+  } else if (o.isExpr()) {
+    int64_t val;
+    if(o.getExpr()->EvaluateAsAbsolute(val)) { 
+      Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), val);
+      V = AccessShadowMemory32(idx, IsLoad);
+    } else {
+      return HandleMemExpr(*o.getExpr(), V, IsLoad);
+    }
+    return true;
+  }
+  llvm_unreachable("Invalid Src operand");
+}
+
 bool OiInstTranslate::HandleAluDstOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
     unsigned reg = conv32(o.getReg());
@@ -398,6 +437,18 @@ bool OiInstTranslate::HandleAluDstOperand(const MCOperand &o, Value *&V) {
     return true;
   }
   llvm_unreachable("Invalid Dst operand");
+  return false;
+}
+
+bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V) {
+  if (o.isImm()) {
+    Twine T("a");
+    T.concat(Twine::utohexstr(o.getImm()));
+    Function *f = TheModule->getFunction(T.str());
+    assert(f && "Invalid function call");
+    V = f;
+    return true;
+  }
   return false;
 }
 
@@ -417,8 +468,8 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::LUi:
   case Oi::LUi64: {
     Value *dst, *src;
-    if (HandleAluDstOperand(Inst.getOperand(0),dst) &&
-        HandleLoadSrcOperand(Inst.getOperand(1),src)) {
+    if (HandleAluDstOperand(MI->getOperand(0),dst) &&
+        HandleMemOperand(MI->getOperand(1), src, true)) {
       Builder.CreateStore(src, dst);
     }
     break;
@@ -426,8 +477,8 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::LW:
   case Oi::LW64: {
     Value *dst, *src;
-    if (HandleAluDstOperand(Inst.getOperand(0),dst) &&
-        HandleLoadSrcOperand(Inst.getOperand(1),src)) {
+    if (HandleAluDstOperand(MI->getOperand(0),dst) &&
+        HandleMemOperand(MI->getOperand(1), src, true)) {
       Builder.CreateStore(Builder.CreateLoad(src), dst);
     }
     break;
@@ -435,48 +486,28 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::SW:
   case Oi::SW64: {
     Value *dst, *src;
-    if (HandleAluSrcOperand(Inst.getOperand(0),src) &&
-        HandleLoadSrcOperand(Inst.getOperand(1),dst)) {
+    if (HandleAluSrcOperand(MI->getOperand(0),src) &&
+        HandleMemOperand(MI->getOperand(1), dst, false)) {
       Builder.CreateStore(src, dst);
     }
     break;
   }
   case Oi::JALR64:
   case Oi::JALR: {
-    Value *dst;
-    if (HandleAluSrcOperand(Inst.getOperand(0), dst)) {
-      SmallVector<Value*, 8> Args;
-      Value *retval;
-      MCOperand o = Inst.getOperand(1);
-      assert (o.isImm() && "Second call operand must be number of regs");
-      if(HandleCallParameters(o.getImm(), Args) &&
-         HandleCallReturn(retval)) {
-        Builder.CreateStore(Builder.CreateCall(dst, Args), retval);
-      }
-    }
+    llvm_unreachable("Can't handle indirect jumps yet.");
     break;
   }
   case Oi::JAL: {
     Value *dst;
-    SmallVector<Value*, 8> Args;
-    Value *retval;
-    MCOperand o = Inst.getOperand(1);
-    assert (o.isImm() && "Second call operand must be number of regs");
-    if(HandleCallParameters(o.getImm(), Args) &&
-       HandleCallReturn(retval) &&
-       HandleCallTarget(Inst.getOperand(0), o.getImm(), dst)) {
-      SmallVector<Value*, 8> FinalArgs;
-      for (int I = 0, E = Args.size(); I != E; ++I) {
-        FinalArgs.push_back(Builder.CreateLoad(Args[I]));
-      }
-      Builder.CreateStore(Builder.CreateCall(dst, FinalArgs), retval);
+    if(HandleCallTarget(MI->getOperand(0), dst)) {
+      Builder.CreateCall(dst);
     }
     break;
   }
   case Oi::JR64:
   case Oi::JR: {
-    if (Inst.getOperand(0).getReg() == CurReturnAddress
-        || Inst.getOperand(0).getReg() == Oi::RA_64) {
+    if (MI->getOperand(0).getReg() == Oi::RA
+        || MI->getOperand(0).getReg() == Oi::RA_64) {
       Builder.CreateRetVoid();
     } else {
       llvm_unreachable("Can't handle indirect jumps yet.");

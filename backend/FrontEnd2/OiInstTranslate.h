@@ -69,7 +69,10 @@ private:
 
   bool HandleAluSrcOperand(const MCOperand &o, Value *&V);
   bool HandleAluDstOperand(const MCOperand &o, Value *&V);
-  bool HandleLoadExpr(const MCExpr &exp, Value *&V);
+  bool HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad);
+  bool HandleMemOperand(const MCOperand &o, Value *&V, bool IsLoad);
+  bool HandleCallTarget(const MCOperand &o, Value *&V);
+  Value *AccessShadowMemory32(Value *Idx, bool IsLoad);
 
   void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printUnsignedImm(const MCInst *MI, int opNum, raw_ostream &O);
