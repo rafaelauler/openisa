@@ -246,11 +246,11 @@ void OptimizeAndWriteBitcode(OiInstTranslate *oit) {
   for (Module::iterator I = m->begin(); I != m->end(); ++I) {
     if (I->isDeclaration())
       continue;
-    verifyFunction(*I);
+    //    verifyFunction(*I);
     OurFPM.run(*I);
   }
 
-  //m->dump();
+  m->dump();
   if (OutputFilename != "") {
     OwningPtr<tool_output_file> outfile(GetBitcodeOutputStream());
     if (outfile) {
@@ -330,6 +330,8 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
     bool text;
     if (error(i->isText(text))) break;
     if (!text) continue;
+
+    IP->SetCurSection(&i);
 
     uint64_t SectionAddr;
     if (error(i->getAddress(SectionAddr))) break;
@@ -419,11 +421,12 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
 #else
         raw_ostream &DebugOut = nulls();
 #endif
-      Twine n = Twine("a").concat(Twine::utohexstr(SectionAddr + Index));
+      Twine n = Twine("a").concat(Twine::utohexstr(Start));
       IP->StartFunction(n);
       for (Index = Start; Index < End; Index += Size) {
         MCInst Inst;
 
+        IP->UpdateCurAddr(Index);
         if (DisAsm->getInstruction(Inst, Size, memoryObject, Index,
                                    DebugOut, nulls())) {
           outs() << format("%8" PRIx64 ":", SectionAddr + Index);

@@ -15,6 +15,7 @@
 #ifndef OIINSTTRANSLATE_H
 #define OIINSTTRANSLATE_H
 #include "llvm/MC/MCInstPrinter.h"
+#include "llvm/Object/ObjectFile.h"
 #include "InstPrinter/OiInstPrinter.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/IR/LLVMContext.h"
@@ -38,7 +39,7 @@ public:
     : MCInstPrinter(MAI, MII, MRI),
       TheModule(new Module("outputtest", getGlobalContext())),
       Builder(getGlobalContext()), Obj(obj), Regs(SmallVector<Value*,32>(32)),
-      FirstFunction(false)
+      FirstFunction(false), CurAddr(0), CurSection(0) 
   {
     BuildShadowImage();
     BuildRegisterFile();
@@ -56,6 +57,12 @@ public:
   Module* takeModule();
   void StartFunction(Twine &N);
   void FinishFunction();
+  void UpdateCurAddr(uint64_t val) {
+    CurAddr = val;
+  }
+  void SetCurSection(section_iterator *i) {
+    CurSection = i;
+  }
 
 private:
   OwningPtr<Module> TheModule;
@@ -66,13 +73,17 @@ private:
   SmallVector<Value*, 32> Regs;
   Value* ShadowImageValue;
   bool FirstFunction;
+  uint64_t CurAddr;
+  section_iterator* CurSection;
 
   bool HandleAluSrcOperand(const MCOperand &o, Value *&V);
   bool HandleAluDstOperand(const MCOperand &o, Value *&V);
   bool HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad);
   bool HandleMemOperand(const MCOperand &o, Value *&V, bool IsLoad);
   bool HandleCallTarget(const MCOperand &o, Value *&V);
+  bool HandleSyscallWrite(Value *&V);
   Value *AccessShadowMemory32(Value *Idx, bool IsLoad);
+  bool CheckRelocation(relocation_iterator &Rel, StringRef &Name);
 
   void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printUnsignedImm(const MCInst *MI, int opNum, raw_ostream &O);

@@ -16,11 +16,12 @@
 #include "OiInstTranslate.h"
 #include "OiInstrInfo.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Object/ObjectFile.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm-objdump.h"
 using namespace llvm;
 
@@ -323,7 +324,7 @@ void OiInstTranslate::StartFunction(Twine &N) {
 }
 
 void OiInstTranslate::FinishFunction() {
-  Builder.CreateRetVoid();
+  //Builder.CreateRetVoid();
 }
 
 Module* OiInstTranslate::takeModule() {
@@ -440,55 +441,125 @@ bool OiInstTranslate::HandleAluDstOperand(const MCOperand &o, Value *&V) {
   return false;
 }
 
+bool OiInstTranslate::CheckRelocation(relocation_iterator &Rel, StringRef &Name) {
+  error_code ec;
+  for (relocation_iterator ri = (*CurSection)->begin_relocations(),
+         re = (*CurSection)->end_relocations();
+       ri != re; ri.increment(ec)) {
+    if (error(ec)) break;
+    uint64_t addr;
+    if (error(ri->getOffset(addr))) break;
+    if (addr != CurAddr)
+      continue;
+
+    Rel = ri;
+    SymbolRef symb;
+    if (!error(ri->getSymbol(symb))) {
+      if (!error(symb.getName(Name))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V) {
   if (o.isImm()) {
     Twine T("a");
-    T.concat(Twine::utohexstr(o.getImm()));
-    Function *f = TheModule->getFunction(T.str());
-    assert(f && "Invalid function call");
-    V = f;
+    if (o.getImm() != 0U) {
+      T.concat(Twine::utohexstr(o.getImm()));
+      FunctionType *FT = FunctionType::get(Type::getVoidTy(getGlobalContext()),
+                                           false);
+      Constant *f = TheModule->getOrInsertFunction(T.str(), FT);
+      
+      //    Function *f = TheModule->getFunction(T.str());
+      assert(f && "Invalid function call");
+      V = f;
     return true;
+    } else { // Need to handle the relocation to find the correct jump address
+      relocation_iterator ri = (*CurSection)->end_relocations();
+      StringRef val;
+      if (CheckRelocation(ri, val)) {
+        if (val == "write") 
+          return HandleSyscallWrite(V);        
+      }
+      llvm_unreachable("Unrecognized function call");
+    }
+    llvm_unreachable("Unrecognized function call");
+    return false;
   }
   return false;
 }
 
+bool OiInstTranslate::HandleSyscallWrite(Value *&V) {
+  SmallVector<Type*, 8> args(3, Type::getInt32Ty(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
+                                       args, /*isvararg*/false);
+  Value *fun = TheModule->getOrInsertFunction("write", ft);
+  SmallVector<Value*, 8> params;
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]));
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]));
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]));
+
+  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
+                                                                (Oi::A0)]);
+
+  return true;
+}
+
 void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
+#ifndef NDEBUG
+  raw_ostream &DebugOut = dbgs();
+#else
+  raw_ostream &DebugOut = nulls();
+#endif
+
   switch (MI->getOpcode()) {
   case Oi::ADDiu:
   case Oi::ADDi:
+  case Oi::ADDu:
   case Oi::ADD:
+    DebugOut << "Handling ADDiu, ADDi, ADDu, ADD\n";
     Value *o0, *o1, *o2;
     if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
         HandleAluSrcOperand(MI->getOperand(2), o2) &&
         HandleAluDstOperand(MI->getOperand(0), o0)) {      
       Value *v = Builder.CreateAdd(o1, o2);
-      Builder.CreateStore(v, o0);
+      Value *v2 = Builder.CreateStore(v, o0);
+      v2->dump();
     }
     break;
   case Oi::LUi:
   case Oi::LUi64: {
+    DebugOut << "Handling LUi\n";
     Value *dst, *src;
     if (HandleAluDstOperand(MI->getOperand(0),dst) &&
         HandleMemOperand(MI->getOperand(1), src, true)) {
-      Builder.CreateStore(src, dst);
+      Value *v = Builder.CreateStore(src, dst);
+      v->dump();
     }
     break;
   }
   case Oi::LW:
   case Oi::LW64: {
+    DebugOut << "Handling LW\n";
     Value *dst, *src;
     if (HandleAluDstOperand(MI->getOperand(0),dst) &&
         HandleMemOperand(MI->getOperand(1), src, true)) {
-      Builder.CreateStore(Builder.CreateLoad(src), dst);
+      Value *v = Builder.CreateStore(src, dst);
+      v->dump();
     }
     break;
   }
   case Oi::SW:
   case Oi::SW64: {
+    DebugOut << "Handling SW\n";
     Value *dst, *src;
     if (HandleAluSrcOperand(MI->getOperand(0),src) &&
         HandleMemOperand(MI->getOperand(1), dst, false)) {
-      Builder.CreateStore(src, dst);
+      Value *v = Builder.CreateStore(src, dst);
+      v->dump();
     }
     break;
   }
@@ -498,22 +569,28 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     break;
   }
   case Oi::JAL: {
-    Value *dst;
-    if(HandleCallTarget(MI->getOperand(0), dst)) {
-      Builder.CreateCall(dst);
+    DebugOut << "Handling JAL\n";
+    Value *call;
+    if(HandleCallTarget(MI->getOperand(0), call)) {
+      call->dump();
     }
     break;
   }
   case Oi::JR64:
   case Oi::JR: {
+    DebugOut << "Handling JR\n";
     if (MI->getOperand(0).getReg() == Oi::RA
         || MI->getOperand(0).getReg() == Oi::RA_64) {
-      Builder.CreateRetVoid();
+      Value *v = Builder.CreateRetVoid();
+      v->dump();
     } else {
       llvm_unreachable("Can't handle indirect jumps yet.");
     }
     break;
   }
+  case Oi::NOP:
+    DebugOut << "Handling NOP\n";
+    break;
   default: O << "huahua"; return;
   }
   return;
