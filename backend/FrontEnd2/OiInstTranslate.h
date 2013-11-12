@@ -18,6 +18,8 @@
 #include "llvm/Object/ObjectFile.h"
 #include "InstPrinter/OiInstPrinter.h"
 #include "llvm/ADT/OwningPtr.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
@@ -39,7 +41,8 @@ public:
     : MCInstPrinter(MAI, MII, MRI),
       TheModule(new Module("outputtest", getGlobalContext())),
       Builder(getGlobalContext()), Obj(obj), Regs(SmallVector<Value*,32>(32)),
-      FirstFunction(true), CurAddr(0), CurSection(0) 
+      FirstFunction(true), CurAddr(0), CurSection(0), BBMap(), InsMap(),
+      CurBlockAddr(0)
   {
     BuildShadowImage();
     BuildRegisterFile();
@@ -59,6 +62,7 @@ public:
   void FinishFunction();
   void UpdateCurAddr(uint64_t val) {
     CurAddr = val;
+    UpdateInsertPoint();
   }
   void SetCurSection(section_iterator *i) {
     CurSection = i;
@@ -75,6 +79,9 @@ private:
   bool FirstFunction;
   uint64_t CurAddr;
   section_iterator* CurSection;
+  StringMap<BasicBlock*> BBMap;
+  DenseMap<int64_t, Instruction*> InsMap;
+  uint64_t CurBlockAddr;
 
   bool HandleAluSrcOperand(const MCOperand &o, Value *&V);
   bool HandleAluDstOperand(const MCOperand &o, Value *&V);
@@ -83,12 +90,16 @@ private:
                         bool IsLoad);
   bool HandleLUiOperand(const MCOperand &o, Value *&V, bool IsLoad);
   bool HandleCallTarget(const MCOperand &o, Value *&V);
+  bool HandleBranchTarget(const MCOperand &o, BasicBlock *&Addr);
+  bool HandleBackEdge(uint64_t Addr, BasicBlock *&Target);
   bool HandleSyscallWrite(Value *&V);
   bool HandleLocalCall(StringRef Name, Value *&V);
   Value *AccessShadowMemory32(Value *Idx, bool IsLoad);
   bool CheckRelocation(relocation_iterator &Rel, StringRef &Name);
   bool ResolveRelocation(uint64_t &Res, uint64_t *Type = 0);
   void InsertStartupCode();
+  BasicBlock* CreateBB(uint64_t Addr = 0, Function *F = 0);
+  void UpdateInsertPoint();
 
   void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printUnsignedImm(const MCInst *MI, int opNum, raw_ostream &O);

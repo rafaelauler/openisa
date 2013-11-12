@@ -329,6 +329,34 @@ void OiInstTranslate::InsertStartupCode() {
   Builder.CreateStore(size, Regs[ConvToDirective(Oi::SP)]);
 }
 
+BasicBlock* OiInstTranslate::CreateBB(uint64_t Addr, Function *F) {
+  if (Addr == 0)
+    Addr = CurAddr;
+  Twine T("bb");
+  T = T.concat(Twine::utohexstr(Addr));
+  std::string Idx = T.str();
+
+  if (BBMap[Idx] == 0) {
+    if (F == 0)
+      F = Builder.GetInsertBlock()->getParent();
+    BBMap[Idx] = BasicBlock::Create(getGlobalContext(), Idx, F);
+  }
+  return BBMap[Idx];
+}
+
+void OiInstTranslate::UpdateInsertPoint() {
+  Twine T("bb");
+  T = T.concat(Twine::utohexstr(CurAddr));
+  std::string Idx = T.str();
+
+  if (BBMap[Idx] != 0) {
+    if (Builder.GetInsertBlock() != BBMap[Idx]) {
+      CurBlockAddr = CurAddr;
+      Builder.SetInsertPoint(BBMap[Idx]);
+    }
+  }
+}
+
 void OiInstTranslate::StartFunction(Twine &N) {
   // Create a function with no parameters
   FunctionType *FT = FunctionType::get(Type::getVoidTy(getGlobalContext()),
@@ -338,16 +366,14 @@ void OiInstTranslate::StartFunction(Twine &N) {
     F = Function::Create(FT, Function::ExternalLinkage,
                          "main", &*TheModule);
     FirstFunction = false;
-    
-    BasicBlock *BB = BasicBlock::Create(getGlobalContext(), "entry", F);
-    Builder.SetInsertPoint(BB);
+    CreateBB(0, F);
+    UpdateInsertPoint();
     InsertStartupCode();
   } else {
     F = reinterpret_cast<Function *>(TheModule->getOrInsertFunction(N.str(), FT));
-    BasicBlock *BB = BasicBlock::Create(getGlobalContext(), "entry", F);
-    Builder.SetInsertPoint(BB);
+    CreateBB(0, F);
+    UpdateInsertPoint();
   }
-
 }
 
 void OiInstTranslate::FinishFunction() {
@@ -601,6 +627,80 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V) {
   return false;
 }
 
+bool OiInstTranslate::HandleBranchTarget(const MCOperand &o, BasicBlock *&Target) {
+  if (o.isImm()) {
+    Twine T("a");
+    if (o.getImm() != 0U) {
+      uint64_t tgtaddr = (CurAddr + o.getImm()) & 0xFFFFFFFFULL;
+      assert (tgtaddr != CurAddr);
+      if (tgtaddr < CurAddr)
+        return HandleBackEdge(tgtaddr, Target);
+      Target = CreateBB(CurAddr + o.getImm());
+      return true;
+    } else { // Need to handle the relocation to find the correct jump address
+      uint64_t targetaddr;
+      if (ResolveRelocation(targetaddr)) {
+        Target = CreateBB(targetaddr);
+        return true;
+      }
+    }
+  }
+  llvm_unreachable("Unrecognized branch target");
+}
+
+bool OiInstTranslate::HandleBackEdge(uint64_t Addr, BasicBlock *&Target) {
+  Twine T("bb");
+  T = T.concat(Twine::utohexstr(Addr));
+  std::string Idx = T.str();
+
+  if (BBMap[Idx] != 0) {
+    Target = BBMap[Idx];
+    return true;
+  }
+
+  Instruction *TgtIns = InsMap[Addr];
+  while (TgtIns == 0 && Addr < CurAddr) {
+    Addr += 4;
+    TgtIns = InsMap[Addr];
+  }
+    
+  assert(TgtIns && "Backedge out of range");
+  assert(TgtIns->getParent()->getParent() 
+         == Builder.GetInsertBlock()->getParent() && "Backedge out of range");
+
+  Twine T2("bb");
+  T2 = T2.concat(Twine::utohexstr(Addr));
+  Idx = T2.str();
+  if (BBMap[Idx] != 0) {
+    Target = BBMap[Idx];
+    return true;
+  }
+  BasicBlock *BB = TgtIns->getParent();
+  BasicBlock::iterator I, E;
+  for (I = BB->begin(), E = BB->end(); I != E; ++I) {
+    if (&*I == TgtIns)
+      break;
+  }
+  assert (I != E);
+  if (BB->getTerminator()) {
+    Target = BB->splitBasicBlock(I, Idx);    
+    BBMap[Idx] = Target;
+    return true;
+  }
+
+  //Insert dummy terminator
+  assert(Builder.GetInsertBlock() == BB && CurBlockAddr < Addr);
+  Instruction *dummy = dyn_cast<Instruction>(Builder.CreateRetVoid());
+  assert(dummy);
+  Target = BB->splitBasicBlock(I, Idx);    
+  BBMap[Idx] = Target;
+  CurBlockAddr = Addr;
+  dummy->eraseFromParent();
+  Builder.SetInsertPoint(Target, Target->end());
+  
+  return true;
+}
+
 bool OiInstTranslate::HandleLocalCall(StringRef Name, Value *&V) {
   FunctionType *ft = FunctionType::get(Type::getVoidTy(getGlobalContext()),
                                        /*isvararg*/false);
@@ -647,12 +747,25 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         HandleAluDstOperand(MI->getOperand(0), o0)) {      
       Value *v = Builder.CreateAdd(o1, o2);
       Value *v2 = Builder.CreateStore(v, o0);
+      InsMap[CurAddr] = dyn_cast<Instruction>(v2);
       v2->dump();
     }
     break;
   case Oi::BNE:
-    DebugOut << "Handling BNE\n";
-    break;
+    {
+      DebugOut << "Handling BNE\n";
+      Value *o1, *o2;
+      BasicBlock *True = 0;
+      if (HandleAluSrcOperand(MI->getOperand(0), o1) &&
+          HandleAluSrcOperand(MI->getOperand(1), o2) &&
+          HandleBranchTarget(MI->getOperand(2), True)) {
+        Value *cmp = Builder.CreateICmpNE(o1, o2);
+        Value *v = Builder.CreateCondBr(cmp, True, CreateBB(CurAddr+4));
+        InsMap[CurAddr] = dyn_cast<Instruction>(v);
+        v->dump();
+      }
+      break;
+    }
   case Oi::LUi:
   case Oi::LUi64: {
     DebugOut << "Handling LUi\n";
@@ -660,6 +773,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     if (HandleAluDstOperand(MI->getOperand(0),dst) &&
         HandleLUiOperand(MI->getOperand(1), src, true)) {
       Value *v = Builder.CreateStore(src, dst);
+      InsMap[CurAddr] = dyn_cast<Instruction>(v);
       v->dump();
     }
     break;
@@ -671,6 +785,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     if (HandleAluDstOperand(MI->getOperand(0),dst) &&
         HandleMemOperand(MI->getOperand(1), MI->getOperand(2), src, true)) {
       Value *v = Builder.CreateStore(src, dst);
+      InsMap[CurAddr] = dyn_cast<Instruction>(v);
       v->dump();
     }
     break;
@@ -682,6 +797,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     if (HandleAluSrcOperand(MI->getOperand(0),src) &&
         HandleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, false)) {
       Value *v = Builder.CreateStore(src, dst);
+      InsMap[CurAddr] = dyn_cast<Instruction>(v);
       v->dump();
     }
     break;
@@ -695,6 +811,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     DebugOut << "Handling JAL\n";
     Value *call;
     if(HandleCallTarget(MI->getOperand(0), call)) {
+      InsMap[CurAddr] = dyn_cast<Instruction>(call);
       call->dump();
     }
     break;
@@ -705,6 +822,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     if (MI->getOperand(0).getReg() == Oi::RA
         || MI->getOperand(0).getReg() == Oi::RA_64) {
       Value *v = Builder.CreateRetVoid();
+      InsMap[CurAddr] = dyn_cast<Instruction>(v);
       v->dump();
     } else {
       llvm_unreachable("Can't handle indirect jumps yet.");
