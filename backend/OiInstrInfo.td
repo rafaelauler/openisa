@@ -1054,12 +1054,12 @@ def MTC2_3OP : MFC3OP<(outs CPURegsOpnd:$rd, uimm16:$sel),
 //===----------------------------------------------------------------------===//
 // Instruction aliases
 //===----------------------------------------------------------------------===//
-def : InstAlias<"move $dst, $src",
-                (ADDu CPURegsOpnd:$dst, CPURegsOpnd:$src,ZERO), 1>,
-      Requires<[NotOi64]>;
-def : InstAlias<"move $dst, $src",
-                (OR CPURegsOpnd:$dst, CPURegsOpnd:$src,ZERO), 1>,
-      Requires<[NotOi64]>;
+//def : InstAlias<"move $dst, $src",
+//                (ADDu CPURegsOpnd:$dst, CPURegsOpnd:$src,ZERO), 1>;
+  //    Requires<[NotOi64]>;
+//def : InstAlias<"move $dst, $src",
+ //               (OR CPURegsOpnd:$dst, CPURegsOpnd:$src,ZERO), 1>;
+//      Requires<[NotOi64]>;
 def : InstAlias<"bal $offset", (BGEZAL RA, brtarget:$offset), 1>;
 def : InstAlias<"addu $rs, $rt, $imm",
                 (ADDiu CPURegsOpnd:$rs, CPURegsOpnd:$rt, simm16:$imm), 0>;

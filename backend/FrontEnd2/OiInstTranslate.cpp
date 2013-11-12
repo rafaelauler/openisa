@@ -755,6 +755,21 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       v2->dump();
     }
     break;
+  case Oi::ORi:
+  case Oi::OR:
+    {
+      DebugOut << "Handling ORi, OR\n";
+      Value *o0, *o1, *o2;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+          HandleAluDstOperand(MI->getOperand(0), o0)) {      
+        Value *v = Builder.CreateOr(o1, o2);
+        Value *v2 = Builder.CreateStore(v, o0);
+        InsMap[CurAddr] = dyn_cast<Instruction>(v);
+        v2->dump();
+      }
+      break;
+    }
   case Oi::SLTiu:
   case Oi::SLTu:
   case Oi::SLTi:
