@@ -18,6 +18,7 @@
 
 #include "llvm-objdump.h"
 #include "OiInstTranslate.h"
+#include "FrontEnd/MC2IRStreamer.h"
 #include "MCFunction.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/Verifier.h"
@@ -75,6 +76,12 @@ InputFilenames(cl::Positional, cl::desc("<input object files>"),cl::ZeroOrMore);
 static cl::opt<std::string>
 OutputFilename("o", cl::desc("Output filename"),
                cl::value_desc("filename"));
+
+static cl::opt<bool>
+Optimize("optimize", cl::desc("Optimize the output LLVM bitcode file"));
+
+static cl::opt<bool>
+Dump("dump", cl::desc("Dump the output LLVM bitcode file"));
 
 static cl::opt<bool>
 Disassemble("disassemble", cl::init(true),
@@ -223,6 +230,26 @@ void OptimizeAndWriteBitcode(OiInstTranslate *oit) {
   Module *m = oit->takeModule();
   FunctionPassManager OurFPM(m);
 
+  if (Optimize) {
+    OurFPM.add(createPromoteMemoryToRegisterPass());
+    OurFPM.add(new OiCombinePass());
+    OurFPM.add(createInstructionCombiningPass());
+    OurFPM.add(createReassociatePass());
+    OurFPM.add(createGVNPass());
+    OurFPM.add(createCFGSimplificationPass());
+
+
+    OurFPM.doInitialization();
+    
+    for (Module::iterator I = m->begin(); I != m->end(); ++I) {
+      if (I->isDeclaration())
+        continue;
+      verifyFunction(*I);
+      OurFPM.run(*I);
+    }
+
+  }
+
   // Set up the optimizer pipeline.  Start with registering info about how the
   // target lays out data structures.
   //OurFPM.add(new DataLayout(*TheExecutionEngine->getDataLayout()));
@@ -240,17 +267,9 @@ void OptimizeAndWriteBitcode(OiInstTranslate *oit) {
   // Simplify the control flow graph (deleting unreachable blocks, etc).
   //  OurFPM.add(createCFGSimplificationPass());
  
-
-  OurFPM.doInitialization();
-    
-  for (Module::iterator I = m->begin(); I != m->end(); ++I) {
-    if (I->isDeclaration())
-      continue;
-    //    verifyFunction(*I);
-    OurFPM.run(*I);
+  if (Dump) {
+    m->dump();
   }
-
-  m->dump();
   if (OutputFilename != "") {
     OwningPtr<tool_output_file> outfile(GetBitcodeOutputStream());
     if (outfile) {

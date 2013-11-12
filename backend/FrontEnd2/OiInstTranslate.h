@@ -39,7 +39,7 @@ public:
     : MCInstPrinter(MAI, MII, MRI),
       TheModule(new Module("outputtest", getGlobalContext())),
       Builder(getGlobalContext()), Obj(obj), Regs(SmallVector<Value*,32>(32)),
-      FirstFunction(false), CurAddr(0), CurSection(0) 
+      FirstFunction(true), CurAddr(0), CurSection(0) 
   {
     BuildShadowImage();
     BuildRegisterFile();
@@ -79,11 +79,15 @@ private:
   bool HandleAluSrcOperand(const MCOperand &o, Value *&V);
   bool HandleAluDstOperand(const MCOperand &o, Value *&V);
   bool HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad);
-  bool HandleMemOperand(const MCOperand &o, Value *&V, bool IsLoad);
+  bool HandleMemOperand(const MCOperand &o, const MCOperand &o2, Value *&V,
+                        bool IsLoad);
+  bool HandleLUiOperand(const MCOperand &o, Value *&V, bool IsLoad);
   bool HandleCallTarget(const MCOperand &o, Value *&V);
   bool HandleSyscallWrite(Value *&V);
   Value *AccessShadowMemory32(Value *Idx, bool IsLoad);
   bool CheckRelocation(relocation_iterator &Rel, StringRef &Name);
+  bool ResolveRelocation(uint64_t &Res, uint64_t *Type = 0);
+  void InsertStartupCode();
 
   void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printUnsignedImm(const MCInst *MI, int opNum, raw_ostream &O);

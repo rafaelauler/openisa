@@ -22,6 +22,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/Object/ELF.h"
 #include "llvm-objdump.h"
 using namespace llvm;
 
@@ -31,6 +32,13 @@ static bool error(error_code ec) {
   outs() << "error reading file: " << ec.message() << ".\n";
   outs().flush();
   return true;
+}
+
+static uint64_t GetELFOffset(section_iterator &i) {
+  DataRefImpl Sec = i->getRawDataRefImpl();
+  const object::Elf_Shdr_Impl<object::ELFType<support::little, 2, false> > *sec =
+    reinterpret_cast<const object::Elf_Shdr_Impl<object::ELFType<support::little, 2, false> > *>(Sec.p);
+  return sec->sh_offset;
 }
 
 
@@ -45,11 +53,17 @@ void OiInstTranslate::BuildShadowImage() {
 
     uint64_t SectionAddr;
     if (error(i->getAddress(SectionAddr))) break;
+    if (SectionAddr == 0) 
+      SectionAddr = GetELFOffset(i);
     uint64_t SectSize;
     if (error(i->getSize(SectSize))) break;
     if (SectSize + SectionAddr > ShadowSize)
       ShadowSize = SectSize + SectionAddr;
   }
+
+  //Allocate some space for the stack
+  //ShadowSize += 10 << 20;
+  ShadowSize += 300;
   ShadowImage.reset(new uint8_t[ShadowSize]);
  
   for (section_iterator i = Obj->begin_sections(),
@@ -59,13 +73,16 @@ void OiInstTranslate::BuildShadowImage() {
     if (error(i->getAddress(SectionAddr))) break;
     uint64_t SectSize;
     if (error(i->getSize(SectSize))) break;
-    if (SectSize + SectionAddr > ShadowSize)
-      ShadowSize = SectSize + SectionAddr;
+
+    uint64_t Offset = 0;
+    if (SectionAddr == 0) 
+      Offset = GetELFOffset(i);
+    
     StringRef Bytes;
     if (error(i->getContents(Bytes))) break;
     StringRefMemoryObject memoryObject(Bytes);
     memoryObject.readBytes(SectionAddr, SectSize, 
-                           &ShadowImage[0] + SectionAddr, 0); 
+                           &ShadowImage[0] + SectionAddr + Offset, 0); 
   }
 
   ConstantDataArray *c = 
@@ -300,9 +317,16 @@ void OiInstTranslate::BuildRegisterFile() {
     Constant *ci = ConstantInt::get(ty, 0U);
     GlobalVariable *gv = new GlobalVariable(*TheModule, ty, false, 
                                             GlobalValue::ExternalLinkage,
-                                            ci, "reg1");
+                                            ci, "reg");
     Regs[I] = gv;
   }
+}
+
+void OiInstTranslate::InsertStartupCode() {
+  // Initialize the stack
+  Value *size = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                                  ShadowSize);
+  Builder.CreateStore(size, Regs[ConvToDirective(Oi::SP)]);
 }
 
 void OiInstTranslate::StartFunction(Twine &N) {
@@ -314,13 +338,17 @@ void OiInstTranslate::StartFunction(Twine &N) {
      F = Function::Create(FT, Function::ExternalLinkage,
                           "main", &*TheModule);
      FirstFunction = false;
+
+     BasicBlock *BB = BasicBlock::Create(getGlobalContext(), "entry", F);
+     Builder.SetInsertPoint(BB);
+     InsertStartupCode();
   } else {
      F = Function::Create(FT, Function::ExternalLinkage,
                           N, &*TheModule);
+     BasicBlock *BB = BasicBlock::Create(getGlobalContext(), "entry", F);
+     Builder.SetInsertPoint(BB);
   }
 
-  BasicBlock *BB = BasicBlock::Create(getGlobalContext(), "entry", F);
-  Builder.SetInsertPoint(BB);
 }
 
 void OiInstTranslate::FinishFunction() {
@@ -337,8 +365,21 @@ bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
     V = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
     return true;
   } else if (o.isImm()) {
+    uint64_t myimm = o.getImm();
+    uint64_t reltype = 0;
+    if (ResolveRelocation(myimm, &reltype)) {
+      if (reltype == ELF::R_MIPS_LO16) {
+        Value *V0 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                                     myimm);
+        Value *V1 = Builder.CreateAnd(V0, ConstantInt::get
+                                      (Type::getInt32Ty(getGlobalContext()), 
+                                       0xFFFF));
+        V = V1;
+        return true;
+      }
+    }
     V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
-                         o.getImm());
+                         myimm);
     return true;
   } else if (o.isFPImm()) {
     V = ConstantFP::get(getGlobalContext(), APFloat(o.getFPImm()));
@@ -396,6 +437,7 @@ bool OiInstTranslate::HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad) {
 
 Value *OiInstTranslate::AccessShadowMemory32(Value *Idx, bool IsLoad) {
   SmallVector<Value*,4> Idxs;
+  Idxs.push_back(ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U));
   Idxs.push_back(Idx);
   Value *gep = Builder.CreateGEP(ShadowImageValue, Idxs);
   Value *ptr = Builder.CreateBitCast(gep, Type::getInt32PtrTy(getGlobalContext()));
@@ -404,30 +446,45 @@ Value *OiInstTranslate::AccessShadowMemory32(Value *Idx, bool IsLoad) {
   return ptr;
 }
 
-bool OiInstTranslate::HandleMemOperand(const MCOperand &o, Value *&V, bool IsLoad) {
-  if (o.isReg()) {
-    unsigned reg = conv32(o.getReg());
-    Value *idx = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
-    V = AccessShadowMemory32(idx, IsLoad);
-    return true;
-  } else if (o.isImm()) {
-    Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
-                                  o.getImm());
-    V = AccessShadowMemory32(idx, IsLoad);
-    return true;
-  } else if (o.isFPImm()) {
-    llvm_unreachable("Invalid load src operand");
-    return false;
-  } else if (o.isExpr()) {
-    int64_t val;
-    if(o.getExpr()->EvaluateAsAbsolute(val)) { 
-      Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), val);
-      V = AccessShadowMemory32(idx, IsLoad);
-    } else {
-      return HandleMemExpr(*o.getExpr(), V, IsLoad);
-    }
+bool OiInstTranslate::HandleLUiOperand(const MCOperand &o, Value *&V,
+                                       bool IsLoad) {
+  if (o.isImm()) {
+    uint64_t addr = o.getImm();
+
+    ResolveRelocation(addr);
+    Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), addr);
+    Value *V1 = Builder.CreateLShr(idx, ConstantInt::get
+                                   (Type::getInt32Ty(getGlobalContext()), 16));
+    Value *V2 = Builder.CreateShl(V1, ConstantInt::get
+                                  (Type::getInt32Ty(getGlobalContext()), 16));
+    V = V2;
     return true;
   }
+  llvm_unreachable("Invalid Src operand");
+}
+
+bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
+                                       Value *&V, bool IsLoad) {
+  if (o.isReg() && o2.isImm()) {
+    unsigned reg = conv32(o.getReg());
+    Value *base = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
+    Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                                  o2.getImm());
+    Value *addr = Builder.CreateAdd(base, idx);
+    V = AccessShadowMemory32(addr, IsLoad);
+    return true;
+  } 
+
+  //  } else if (o.isExpr()) {
+  //  int64_t val;
+  //  if(o.getExpr()->EvaluateAsAbsolute(val)) { 
+  //    Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), val);
+  //    V = AccessShadowMemory32(idx, IsLoad);
+  //  } else {
+  //    return HandleMemExpr(*o.getExpr(), V, IsLoad);
+  //  }
+  //  return true;
+  //}
   llvm_unreachable("Invalid Src operand");
 }
 
@@ -438,6 +495,39 @@ bool OiInstTranslate::HandleAluDstOperand(const MCOperand &o, Value *&V) {
     return true;
   }
   llvm_unreachable("Invalid Dst operand");
+  return false;
+}
+
+bool OiInstTranslate::ResolveRelocation(uint64_t &Res, uint64_t *Type) {
+  relocation_iterator Rel = (*CurSection)->end_relocations();
+  error_code ec;
+  StringRef Name;
+  if (!CheckRelocation(Rel, Name))
+    return false;
+  for (section_iterator i = Obj->begin_sections(),
+         e = Obj->end_sections();
+       i != e; i.increment(ec)) {
+    if (error(ec)) break;
+    StringRef SecName;
+    if (error(i->getName(SecName))) break;
+    if (SecName != Name)
+      continue;
+    
+    uint64_t SectionAddr;
+    if (error(i->getAddress(SectionAddr))) break;
+
+    // Relocatable file
+    if (SectionAddr == 0) {
+      SectionAddr = GetELFOffset(i);
+    }
+
+    Res = SectionAddr;
+    if (Type) {
+      if (error(Rel->getType(*Type)))
+        llvm_unreachable("Error getting relocation type");
+    }
+    return true;
+  }
   return false;
 }
 
@@ -499,7 +589,10 @@ bool OiInstTranslate::HandleSyscallWrite(Value *&V) {
   Value *fun = TheModule->getOrInsertFunction("write", ft);
   SmallVector<Value*, 8> params;
   params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]));
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]));
+  Value *addrbuf = AccessShadowMemory32
+    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]), false);
+  params.push_back(Builder.CreatePtrToInt(addrbuf,
+                                          Type::getInt32Ty(getGlobalContext())));
   params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]));
 
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
@@ -535,7 +628,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     DebugOut << "Handling LUi\n";
     Value *dst, *src;
     if (HandleAluDstOperand(MI->getOperand(0),dst) &&
-        HandleMemOperand(MI->getOperand(1), src, true)) {
+        HandleLUiOperand(MI->getOperand(1), src, true)) {
       Value *v = Builder.CreateStore(src, dst);
       v->dump();
     }
@@ -546,7 +639,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     DebugOut << "Handling LW\n";
     Value *dst, *src;
     if (HandleAluDstOperand(MI->getOperand(0),dst) &&
-        HandleMemOperand(MI->getOperand(1), src, true)) {
+        HandleMemOperand(MI->getOperand(1), MI->getOperand(2), src, true)) {
       Value *v = Builder.CreateStore(src, dst);
       v->dump();
     }
@@ -557,7 +650,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     DebugOut << "Handling SW\n";
     Value *dst, *src;
     if (HandleAluSrcOperand(MI->getOperand(0),src) &&
-        HandleMemOperand(MI->getOperand(1), dst, false)) {
+        HandleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, false)) {
       Value *v = Builder.CreateStore(src, dst);
       v->dump();
     }
