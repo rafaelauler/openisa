@@ -387,6 +387,10 @@ Module* OiInstTranslate::takeModule() {
 bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
     unsigned reg = conv32(o.getReg());
+    if (ConvToDirective(reg) == 0) {
+      V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0);
+      return true;
+    }
     V = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
     return true;
   } else if (o.isImm()) {
