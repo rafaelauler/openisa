@@ -63,7 +63,7 @@ void OiInstTranslate::BuildShadowImage() {
 
   //Allocate some space for the stack
   //ShadowSize += 10 << 20;
-  ShadowSize += 300;
+  ShadowSize += StackSize;
   ShadowImage.reset(new uint8_t[ShadowSize]);
  
   for (section_iterator i = Obj->begin_sections(),
@@ -747,10 +747,51 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         HandleAluDstOperand(MI->getOperand(0), o0)) {      
       Value *v = Builder.CreateAdd(o1, o2);
       Value *v2 = Builder.CreateStore(v, o0);
-      InsMap[CurAddr] = dyn_cast<Instruction>(v2);
+      InsMap[CurAddr] = dyn_cast<Instruction>(v);
       v2->dump();
     }
     break;
+  case Oi::SLTiu:
+  case Oi::SLTu:
+  case Oi::SLTi:
+  case Oi::SLT:
+    {
+      DebugOut << "Handling SLT\n";
+      Value *o0, *o1, *o2;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+          HandleAluDstOperand(MI->getOperand(0), o0)) {      
+
+        Function *F = Builder.GetInsertBlock()->getParent();
+        BasicBlock *BB1 = BasicBlock::Create(getGlobalContext(), "", F);
+        BasicBlock *BB2 = BasicBlock::Create(getGlobalContext(), "", F);
+        BasicBlock *FT = CreateBB(CurAddr+4);
+
+        Value *cmp = 0;
+        if (MI->getOpcode() == Oi::SLTiu ||
+            MI->getOpcode() == Oi::SLTu)
+          cmp = Builder.CreateICmpULT(o1, o2);
+        else
+          cmp = Builder.CreateICmpSLT(o1, o2);
+        Builder.CreateCondBr(cmp, BB1, BB2);
+        
+        Value *one = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 1U);
+        Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
+
+        Builder.SetInsertPoint(BB1);
+        Builder.CreateStore(one, o0);
+        Builder.CreateBr(FT);
+        Builder.SetInsertPoint(BB2);
+        Builder.CreateStore(zero, o0);
+        Builder.CreateBr(FT);
+        Builder.SetInsertPoint(FT);
+        CurBlockAddr = CurAddr+4;
+
+        InsMap[CurAddr] = dyn_cast<Instruction>(cmp);
+        cmp->dump();
+      }      
+      break;
+    }
   case Oi::BNE:
     {
       DebugOut << "Handling BNE\n";
@@ -761,7 +802,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           HandleBranchTarget(MI->getOperand(2), True)) {
         Value *cmp = Builder.CreateICmpNE(o1, o2);
         Value *v = Builder.CreateCondBr(cmp, True, CreateBB(CurAddr+4));
-        InsMap[CurAddr] = dyn_cast<Instruction>(v);
+        InsMap[CurAddr] = dyn_cast<Instruction>(cmp);
         v->dump();
       }
       break;

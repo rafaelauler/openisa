@@ -83,6 +83,11 @@ Optimize("optimize", cl::desc("Optimize the output LLVM bitcode file"));
 static cl::opt<bool>
 Dump("dump", cl::desc("Dump the output LLVM bitcode file"));
 
+static cl::opt<uint64_t>
+StackSize("stacksize", cl::desc("Specifies the space reserved for the stack"
+                                "(Default 300B)"),
+          cl::init(300ULL));
+
 static cl::opt<bool>
 Disassemble("disassemble", cl::init(true),
   cl::desc("Display assembler mnemonics for the machine instructions"));
@@ -333,7 +338,8 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
 
   int AsmPrinterVariant = AsmInfo->getAssemblerDialect();
 
-  OwningPtr<OiInstTranslate> IP(new OiInstTranslate(*AsmInfo, *MII, *MRI, Obj));
+  OwningPtr<OiInstTranslate> IP(new OiInstTranslate(*AsmInfo, *MII, *MRI, Obj,
+                                                    StackSize));
   // TheTarget->createMCInstPrinter(AsmPrinterVariant, *AsmInfo, *MII, *MRI, *STI));
   if (!IP) {
     errs() << "error: no instruction printer for target " << TripleName

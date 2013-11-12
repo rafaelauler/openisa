@@ -23,7 +23,7 @@ fib-oi-ia64.s: fib-oi.bc
 	$(LLVMLLC) -march=x86-64 fib-oi.bc -o fib-oi-ia64.s
 
 fib-oi-x86: fib-oi-x86.s
-	$(CLANG) fib-oi-x86.s -o fib-oi-x86
+	$(CLANG) -g fib-oi-x86.s -o fib-oi-x86
 
 fib-oi-x86.s: fib-oi.bc
 	$(LLVMLLC) -march=x86 fib-oi.bc -o fib-oi-x86.s
@@ -37,7 +37,7 @@ fib-oi.o: fib.s
 # Two methods to translate OpenISA code, one translates the .s assembly file,
 # while other translates object files. Use object files as default.
 fib-oi.bc: fib-oi.o
-	../../backend/oisbt -optimize fib-oi.o -o=fib-oi.bc
+	../../backend/oisbt -stacksize 4000 -optimize fib-oi.o -o=fib-oi.bc
 
 # Method 2: Translate OpenISA directly from the assembly file (assembly
 # translation layer).

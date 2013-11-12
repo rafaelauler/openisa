@@ -37,12 +37,13 @@ using namespace object;
 class OiInstTranslate : public MCInstPrinter {
 public:
   OiInstTranslate(const MCAsmInfo &MAI, const MCInstrInfo &MII,
-                  const MCRegisterInfo &MRI, const ObjectFile *obj)
+                  const MCRegisterInfo &MRI, const ObjectFile *obj,
+                  uint64_t Stacksz)
     : MCInstPrinter(MAI, MII, MRI),
       TheModule(new Module("outputtest", getGlobalContext())),
       Builder(getGlobalContext()), Obj(obj), Regs(SmallVector<Value*,32>(32)),
       FirstFunction(true), CurAddr(0), CurSection(0), BBMap(), InsMap(),
-      CurBlockAddr(0)
+      CurBlockAddr(0), StackSize(Stacksz)
   {
     BuildShadowImage();
     BuildRegisterFile();
@@ -82,6 +83,7 @@ private:
   StringMap<BasicBlock*> BBMap;
   DenseMap<int64_t, Instruction*> InsMap;
   uint64_t CurBlockAddr;
+  uint64_t StackSize;
 
   bool HandleAluSrcOperand(const MCOperand &o, Value *&V);
   bool HandleAluDstOperand(const MCOperand &o, Value *&V);
