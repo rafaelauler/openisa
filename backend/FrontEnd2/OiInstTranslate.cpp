@@ -335,18 +335,17 @@ void OiInstTranslate::StartFunction(Twine &N) {
                                        false);
   Function *F = 0;
   if (FirstFunction) {
-     F = Function::Create(FT, Function::ExternalLinkage,
-                          "main", &*TheModule);
-     FirstFunction = false;
-
-     BasicBlock *BB = BasicBlock::Create(getGlobalContext(), "entry", F);
-     Builder.SetInsertPoint(BB);
-     InsertStartupCode();
+    F = Function::Create(FT, Function::ExternalLinkage,
+                         "main", &*TheModule);
+    FirstFunction = false;
+    
+    BasicBlock *BB = BasicBlock::Create(getGlobalContext(), "entry", F);
+    Builder.SetInsertPoint(BB);
+    InsertStartupCode();
   } else {
-     F = Function::Create(FT, Function::ExternalLinkage,
-                          N, &*TheModule);
-     BasicBlock *BB = BasicBlock::Create(getGlobalContext(), "entry", F);
-     Builder.SetInsertPoint(BB);
+    F = reinterpret_cast<Function *>(TheModule->getOrInsertFunction(N.str(), FT));
+    BasicBlock *BB = BasicBlock::Create(getGlobalContext(), "entry", F);
+    Builder.SetInsertPoint(BB);
   }
 
 }
@@ -528,6 +527,28 @@ bool OiInstTranslate::ResolveRelocation(uint64_t &Res, uint64_t *Type) {
     }
     return true;
   }
+
+  for (symbol_iterator si = Obj->begin_symbols(),
+         se = Obj->end_symbols();
+       si != se; si.increment(ec)) {
+    StringRef SName;
+    if (error(si->getName(SName))) break;
+    if (Name != SName)
+      continue;
+
+    uint64_t Address;
+    if (error(si->getAddress(Address))) break;
+    if (Address == UnknownAddressOrSize) continue;
+    //        Address -= SectionAddr;
+    Res = Address;
+
+    if (Type) {
+      if (error(Rel->getType(*Type)))
+        llvm_unreachable("Error getting relocation type");
+    }
+    return true;
+  }
+
   return false;
 }
 
@@ -558,15 +579,8 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V) {
   if (o.isImm()) {
     Twine T("a");
     if (o.getImm() != 0U) {
-      T.concat(Twine::utohexstr(o.getImm()));
-      FunctionType *FT = FunctionType::get(Type::getVoidTy(getGlobalContext()),
-                                           false);
-      Constant *f = TheModule->getOrInsertFunction(T.str(), FT);
-      
-      //    Function *f = TheModule->getFunction(T.str());
-      assert(f && "Invalid function call");
-      V = f;
-    return true;
+      T = T.concat(Twine::utohexstr(o.getImm()));
+      return HandleLocalCall(StringRef(T.str()), V);
     } else { // Need to handle the relocation to find the correct jump address
       relocation_iterator ri = (*CurSection)->end_relocations();
       StringRef val;
@@ -574,12 +588,25 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V) {
         if (val == "write") 
           return HandleSyscallWrite(V);        
       }
+      uint64_t targetaddr;
+      if (ResolveRelocation(targetaddr)) {
+        T = T.concat(Twine::utohexstr(targetaddr));
+        return HandleLocalCall(StringRef(T.str()), V);
+      }
       llvm_unreachable("Unrecognized function call");
     }
     llvm_unreachable("Unrecognized function call");
     return false;
   }
   return false;
+}
+
+bool OiInstTranslate::HandleLocalCall(StringRef Name, Value *&V) {
+  FunctionType *ft = FunctionType::get(Type::getVoidTy(getGlobalContext()),
+                                       /*isvararg*/false);
+  Value *fun = TheModule->getOrInsertFunction(Name, ft);
+  V = Builder.CreateCall(fun);
+  return true;
 }
 
 bool OiInstTranslate::HandleSyscallWrite(Value *&V) {
@@ -622,6 +649,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       Value *v2 = Builder.CreateStore(v, o0);
       v2->dump();
     }
+    break;
+  case Oi::BNE:
+    DebugOut << "Handling BNE\n";
     break;
   case Oi::LUi:
   case Oi::LUi64: {

@@ -84,6 +84,7 @@ private:
   bool HandleLUiOperand(const MCOperand &o, Value *&V, bool IsLoad);
   bool HandleCallTarget(const MCOperand &o, Value *&V);
   bool HandleSyscallWrite(Value *&V);
+  bool HandleLocalCall(StringRef Name, Value *&V);
   Value *AccessShadowMemory32(Value *Idx, bool IsLoad);
   bool CheckRelocation(relocation_iterator &Rel, StringRef &Name);
   bool ResolveRelocation(uint64_t &Res, uint64_t *Type = 0);
