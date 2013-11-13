@@ -95,6 +95,11 @@ private:
   bool HandleBranchTarget(const MCOperand &o, BasicBlock *&Addr);
   bool HandleBackEdge(uint64_t Addr, BasicBlock *&Target);
   bool HandleSyscallWrite(Value *&V);
+  bool HandleLibcAtoi(Value *&V);
+  bool HandleLibcMalloc(Value *&V);
+  bool HandleLibcFree(Value *&V);
+  bool HandleLibcPrintf(Value *&V);
+  bool HandleLibcScanf(Value *&V);
   bool HandleLocalCall(StringRef Name, Value *&V);
   Value *AccessShadowMemory32(Value *Idx, bool IsLoad);
   bool CheckRelocation(relocation_iterator &Rel, StringRef &Name);

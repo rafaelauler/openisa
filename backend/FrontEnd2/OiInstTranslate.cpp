@@ -617,6 +617,16 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V) {
       if (CheckRelocation(ri, val)) {
         if (val == "write") 
           return HandleSyscallWrite(V);        
+        if (val == "atoi")
+          return HandleLibcAtoi(V);
+        if (val == "malloc")
+          return HandleLibcMalloc(V);
+        if (val == "free")
+          return HandleLibcFree(V);
+        if (val == "printf")
+          return HandleLibcPrintf(V);
+        if (val == "scanf")
+          return HandleLibcScanf(V);
       }
       uint64_t targetaddr;
       if (ResolveRelocation(targetaddr)) {
@@ -710,6 +720,96 @@ bool OiInstTranslate::HandleLocalCall(StringRef Name, Value *&V) {
                                        /*isvararg*/false);
   Value *fun = TheModule->getOrInsertFunction(Name, ft);
   V = Builder.CreateCall(fun);
+  return true;
+}
+
+bool OiInstTranslate::HandleLibcAtoi(Value *&V) {
+  SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
+                                       args, /*isvararg*/false);
+  Value *fun = TheModule->getOrInsertFunction("atoi", ft);
+  SmallVector<Value*, 8> params;
+  Value *addrbuf = AccessShadowMemory32
+    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]), false);
+  params.push_back(Builder.CreatePtrToInt(addrbuf,
+                                          Type::getInt32Ty(getGlobalContext())));
+  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
+                                                                (Oi::A0)]);
+  return true;
+}
+
+bool OiInstTranslate::HandleLibcMalloc(Value *&V) {
+  SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
+                                       args, /*isvararg*/false);
+  Value *fun = TheModule->getOrInsertFunction("malloc", ft);
+  SmallVector<Value*, 8> params;
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]));
+  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
+                                                                (Oi::A0)]);
+  return true;
+}
+
+bool OiInstTranslate::HandleLibcFree(Value *&V) {
+  SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getVoidTy(getGlobalContext()),
+                                       args, /*isvararg*/false);
+  Value *fun = TheModule->getOrInsertFunction("free", ft);
+  SmallVector<Value*, 8> params;
+  Value *addrbuf = AccessShadowMemory32
+    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]), false);
+  params.push_back(Builder.CreatePtrToInt(addrbuf,
+                                          Type::getInt32Ty(getGlobalContext())));
+  V = Builder.CreateCall(fun, params);
+  return true;
+}
+
+// XXX: Handling a fixed number of 4 arguments, since we cannot infer how many
+// arguments the program is using with printf
+bool OiInstTranslate::HandleLibcPrintf(Value *&V) {
+  SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
+                                       args, /*isvararg*/true);
+  Value *fun = TheModule->getOrInsertFunction("printf", ft);
+  SmallVector<Value*, 8> params;
+  Value *addrbuf = AccessShadowMemory32
+    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]), false);
+  params.push_back(Builder.CreatePtrToInt(addrbuf,
+                                          Type::getInt32Ty(getGlobalContext())));
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]));
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]));
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A3)]));
+  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
+                                                                (Oi::A0)]);
+  return true;
+}
+
+// XXX: Handling a fixed number of 4 arguments, since we cannot infer how many
+// arguments the program is using with scanf
+bool OiInstTranslate::HandleLibcScanf(Value *&V) {
+  SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
+                                       args, /*isvararg*/true);
+  Value *fun = TheModule->getOrInsertFunction("scanf", ft);
+  SmallVector<Value*, 8> params;
+  Value *addrbuf0 = AccessShadowMemory32
+    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]), false);
+  Value *addrbuf1 = AccessShadowMemory32
+    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]), false);
+  Value *addrbuf2 = AccessShadowMemory32
+    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]), false);
+  Value *addrbuf3 = AccessShadowMemory32
+    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A3)]), false);
+  params.push_back(Builder.CreatePtrToInt(addrbuf0,
+                                          Type::getInt32Ty(getGlobalContext())));
+  params.push_back(Builder.CreatePtrToInt(addrbuf1,
+                                          Type::getInt32Ty(getGlobalContext())));
+  params.push_back(Builder.CreatePtrToInt(addrbuf2,
+                                          Type::getInt32Ty(getGlobalContext())));
+  params.push_back(Builder.CreatePtrToInt(addrbuf3,
+                                          Type::getInt32Ty(getGlobalContext())));
+  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
+                                                                (Oi::A0)]);
   return true;
 }
 
