@@ -184,6 +184,9 @@ class OiAsmParser : public MCTargetAsmParser {
   bool processInstruction(MCInst &Inst, SMLoc IDLoc,
                         SmallVectorImpl<MCInst> &Instructions);
 
+  unsigned validateTargetOperandClass(MCParsedAsmOperand *Op,
+                                      unsigned Kind);
+
 public:
   OiAsmParser(MCSubtargetInfo &sti, MCAsmParser &parser)
     : MCTargetAsmParser(), STI(sti), Parser(parser) {
@@ -407,7 +410,6 @@ public:
   }
 
   virtual void print(raw_ostream &OS) const {
-    llvm_unreachable("unimplemented!");
   }
 }; // class OiOperand
 }  // namespace
@@ -1907,7 +1909,6 @@ bool OiAsmParser::parseDirectiveFrame(SMLoc L) {
   return false;
 }
 
-
 bool OiAsmParser::ParseDirective(AsmToken DirectiveID) {
 
   StringRef IDVal = DirectiveID.getString();
@@ -1974,3 +1975,89 @@ extern "C" void LLVMInitializeOiAsmParser() {
 #define GET_REGISTER_MATCHER
 #define GET_MATCHER_IMPLEMENTATION
 #include "OiGenAsmMatcher.inc"
+
+
+unsigned OiAsmParser::validateTargetOperandClass(MCParsedAsmOperand *Op,
+                                                 unsigned Kind) {
+  //    write(1, "hallo\n", 7);
+  OiOperand &Operand = *(OiOperand*)Op;
+  if (Operand.isReg()) {
+    MatchClassKind OpKind;
+    switch(Operand.getReg()) {
+    case Oi::ZERO_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::AT_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::V0_64: OpKind = MCK_Reg1; break;
+    case Oi::V1_64: OpKind = MCK_Reg1; break;
+    case Oi::A0_64: OpKind = MCK_Reg1; break;
+    case Oi::A1_64: OpKind = MCK_Reg1; break;
+    case Oi::A2_64: OpKind = MCK_Reg1; break;
+    case Oi::A3_64: OpKind = MCK_Reg1; break;
+    case Oi::T0_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::T1_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::T2_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::T3_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::T4_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::T5_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::T6_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::T7_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::S0_64: OpKind = MCK_Reg1; break;
+    case Oi::S1_64: OpKind = MCK_Reg1; break;
+    case Oi::S2_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::S3_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::S4_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::S5_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::S6_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::S7_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::T8_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::T9_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::K0_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::K1_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::GP_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::SP_64: OpKind = MCK_Reg7; break;
+    case Oi::FP_64: OpKind = MCK_CPU64Regs; break;
+    case Oi::RA_64: OpKind = MCK_Reg8; break;
+    case Oi::D0_64: OpKind = MCK_FGR64; break;
+    case Oi::D1_64: OpKind = MCK_FGR64; break;
+    case Oi::D2_64: OpKind = MCK_FGR64; break;
+    case Oi::D3_64: OpKind = MCK_FGR64; break;
+    case Oi::D4_64: OpKind = MCK_FGR64; break;
+    case Oi::D5_64: OpKind = MCK_FGR64; break;
+    case Oi::D6_64: OpKind = MCK_FGR64; break;
+    case Oi::D7_64: OpKind = MCK_FGR64; break;
+    case Oi::D8_64: OpKind = MCK_FGR64; break;
+    case Oi::D9_64: OpKind = MCK_FGR64; break;
+    case Oi::D10_64: OpKind = MCK_FGR64; break;
+    case Oi::D11_64: OpKind = MCK_FGR64; break;
+    case Oi::D12_64: OpKind = MCK_FGR64; break;
+    case Oi::D13_64: OpKind = MCK_FGR64; break;
+    case Oi::D14_64: OpKind = MCK_FGR64; break;
+    case Oi::D15_64: OpKind = MCK_FGR64; break;
+    case Oi::D16_64: OpKind = MCK_FGR64; break;
+    case Oi::D17_64: OpKind = MCK_FGR64; break;
+    case Oi::D18_64: OpKind = MCK_FGR64; break;
+    case Oi::D19_64: OpKind = MCK_FGR64; break;
+    case Oi::D20_64: OpKind = MCK_FGR64; break;
+    case Oi::D21_64: OpKind = MCK_FGR64; break;
+    case Oi::D22_64: OpKind = MCK_FGR64; break;
+    case Oi::D23_64: OpKind = MCK_FGR64; break;
+    case Oi::D24_64: OpKind = MCK_FGR64; break;
+    case Oi::D25_64: OpKind = MCK_FGR64; break;
+    case Oi::D26_64: OpKind = MCK_FGR64; break;
+    case Oi::D27_64: OpKind = MCK_FGR64; break;
+    case Oi::D28_64: OpKind = MCK_FGR64; break;
+    case Oi::D29_64: OpKind = MCK_FGR64; break;
+    case Oi::D30_64: OpKind = MCK_FGR64; break;
+    case Oi::D31_64: OpKind = MCK_FGR64; break;
+    default:
+      return Match_InvalidOperand;
+    }
+    if (OpKind == MCK_FGR64) {
+      if (Kind == MCK_FGR32)
+        return Match_Success;
+      return Match_InvalidOperand;
+    }
+    if (Kind == MCK_CPURegs)
+      return Match_Success;
+  }  
+  return Match_InvalidOperand;
+}
