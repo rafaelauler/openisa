@@ -308,12 +308,11 @@ static unsigned ConvToDirective(unsigned regnum) {
 
 
 void OiInstTranslate::BuildRegisterFile() {
-  ConstantDataArray *c = 
-    dyn_cast<ConstantDataArray>(ConstantDataArray::get(getGlobalContext(),
-      ArrayRef<uint8_t>(reinterpret_cast<const unsigned char *>(&ShadowImage[0]), 
-                        ShadowSize)));
   Type *ty = Type::getInt32Ty(getGlobalContext());
-  for (int I = 0; I < 32; ++I) {
+  // 32 base regs
+  // LO
+  // HI
+  for (int I = 0; I < 34; ++I) {
     Constant *ci = ConstantInt::get(ty, 0U);
     GlobalVariable *gv = new GlobalVariable(*TheModule, ty, false, 
                                             GlobalValue::ExternalLinkage,
@@ -855,6 +854,145 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       v2->dump();
     }
     break;
+  case Oi::SUBu:
+  case Oi::SUB:
+    {
+      DebugOut << "Handling SUBu, SUB\n";
+      Value *o0, *o1, *o2;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+          HandleAluDstOperand(MI->getOperand(0), o0)) {      
+        Value *v = Builder.CreateSub(o1, o2);
+        Value *v2 = Builder.CreateStore(v, o0);
+        InsMap[CurAddr] = dyn_cast<Instruction>(v);
+        v2->dump();
+      }
+      break;
+    }
+  case Oi::MUL:
+    {
+      DebugOut << "Handling MUL\n";
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+          HandleAluDstOperand(MI->getOperand(0), o0)) {      
+        Value *v = Builder.CreateMul(o1, o2);
+        Value *v2 = Builder.CreateStore(v, o0);
+        InsMap[CurAddr] = dyn_cast<Instruction>(v);
+        v2->dump();
+      }
+      break;
+    }
+  case Oi::MULT:
+    {
+      DebugOut << "Handling MULT\n";
+      if (HandleAluSrcOperand(MI->getOperand(0), o0) &&
+          HandleAluSrcOperand(MI->getOperand(1), o1)) {      
+        Value *o0se = Builder.CreateSExtOrTrunc(o0, Type::getInt64Ty(getGlobalContext()));
+        Value *o1se = Builder.CreateSExtOrTrunc(o1, Type::getInt64Ty(getGlobalContext()));
+        Value *v = Builder.CreateMul(o0se, o1se);
+        Value *V1 = Builder.CreateLShr(v, ConstantInt::get
+                                       (Type::getInt64Ty(getGlobalContext()), 32));
+        Value *V2 = Builder.CreateSExtOrTrunc(V1, Type::getInt32Ty(getGlobalContext()));
+        Value *V3 = Builder.CreateSExtOrTrunc(v, Type::getInt32Ty(getGlobalContext()));
+        Value *v4 = Builder.CreateStore(V2, Regs[33]);
+        Value *v5 = Builder.CreateStore(V3, Regs[32]);
+        InsMap[CurAddr] = dyn_cast<Instruction>(o0se);
+        o0se->dump();
+      }
+      break;
+    }
+  case Oi::MFHI:
+    {
+      DebugOut << "Handling MFHI\n";
+      if (HandleAluDstOperand(MI->getOperand(0), o0)) {
+        Value *v = Builder.CreateLoad(Regs[33]);
+        Value *v2 = Builder.CreateStore(v, o0);
+        InsMap[CurAddr] = dyn_cast<Instruction>(v);
+        v2->dump();
+      }
+      break;
+    }
+  case Oi::MFLO:
+    {
+      DebugOut << "Handling MFLO\n";
+      if (HandleAluDstOperand(MI->getOperand(0), o0)) {
+        Value *v = Builder.CreateLoad(Regs[32]);
+        Value *v2 = Builder.CreateStore(v, o0);
+        InsMap[CurAddr] = dyn_cast<Instruction>(v);
+        v2->dump();
+      }
+      break;
+    }
+  case Oi::MFC1:
+    {
+      DebugOut << "Handling MFC1\n";
+      break;
+    }
+  case Oi::MTC1:
+    {
+      DebugOut << "Handling MTC1\n";
+      break;
+    }
+  case Oi::BC1F:
+    {
+      DebugOut << "Handling BC1F\n";
+      break;
+    }
+  case Oi::J:
+    {
+      DebugOut << "Handling J\n";
+      Value *o1;
+      BasicBlock *Target = 0;
+      if (HandleBranchTarget(MI->getOperand(0), Target)) {
+        Value *v = Builder.CreateBr(Target);
+        InsMap[CurAddr] = dyn_cast<Instruction>(v);
+        CreateBB(CurAddr+4);
+        v->dump();
+      }
+      break;
+    }
+  case Oi::SRA:
+    {
+      DebugOut << "Handling SRA\n";
+      Value *o0, *o1, *o2;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+          HandleAluDstOperand(MI->getOperand(0), o0)) {      
+        Value *v = Builder.CreateAShr(o1, o2);
+        Value *v2 = Builder.CreateStore(v, o0);
+        InsMap[CurAddr] = dyn_cast<Instruction>(v);
+        v2->dump();
+      }
+      break;
+    }
+  case Oi::SRL:
+    {
+      DebugOut << "Handling SRL\n";
+      Value *o0, *o1, *o2;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+          HandleAluDstOperand(MI->getOperand(0), o0)) {      
+        Value *v = Builder.CreateLShr(o1, o2);
+        Value *v2 = Builder.CreateStore(v, o0);
+        InsMap[CurAddr] = dyn_cast<Instruction>(v);
+        v2->dump();
+      }
+      break;
+    }
+  case Oi::SLL:
+    {
+      DebugOut << "Handling SLL\n";
+      Value *o0, *o1, *o2;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+          HandleAluDstOperand(MI->getOperand(0), o0)) {      
+        Value *v = Builder.CreateShl(o1, o2);
+        Value *v2 = Builder.CreateStore(v, o0);
+        InsMap[CurAddr] = dyn_cast<Instruction>(v);
+        v2->dump();
+      }
+      break;
+    }
   case Oi::ORi:
   case Oi::OR:
     {
@@ -909,6 +1047,21 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         InsMap[CurAddr] = dyn_cast<Instruction>(cmp);
         cmp->dump();
       }      
+      break;
+    }
+  case Oi::BEQ:
+    {
+      DebugOut << "Handling BEQ\n";
+      Value *o1, *o2;
+      BasicBlock *True = 0;
+      if (HandleAluSrcOperand(MI->getOperand(0), o1) &&
+          HandleAluSrcOperand(MI->getOperand(1), o2) &&
+          HandleBranchTarget(MI->getOperand(2), True)) {
+        Value *cmp = Builder.CreateICmpEQ(o1, o2);
+        Value *v = Builder.CreateCondBr(cmp, True, CreateBB(CurAddr+4));
+        InsMap[CurAddr] = dyn_cast<Instruction>(cmp);
+        v->dump();
+      }
       break;
     }
   case Oi::BNE:

@@ -4,7 +4,7 @@ int fib(int n);
 
 int
 main() {
-  return fib(39);
+  return fib(45);
 }
 
 int

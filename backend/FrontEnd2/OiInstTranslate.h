@@ -41,7 +41,7 @@ public:
                   uint64_t Stacksz)
     : MCInstPrinter(MAI, MII, MRI),
       TheModule(new Module("outputtest", getGlobalContext())),
-      Builder(getGlobalContext()), Obj(obj), Regs(SmallVector<Value*,32>(32)),
+      Builder(getGlobalContext()), Obj(obj), Regs(SmallVector<Value*,34>(34)),
       FirstFunction(true), CurAddr(0), CurSection(0), BBMap(), InsMap(),
       CurBlockAddr(0), StackSize(Stacksz)
   {
@@ -75,7 +75,7 @@ private:
   const ObjectFile *Obj;
   OwningArrayPtr<uint8_t> ShadowImage;
   uint64_t ShadowSize;
-  SmallVector<Value*, 32> Regs;
+  SmallVector<Value*, 34> Regs;
   Value* ShadowImageValue;
   bool FirstFunction;
   uint64_t CurAddr;
