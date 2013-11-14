@@ -563,14 +563,29 @@ bool OiInstTranslate::HandleDoubleDstOperand(const MCOperand &o, Value *&V1, Val
 bool OiInstTranslate::HandleDoubleMemOperand(const MCOperand &o, const MCOperand &o2,
                                        Value *&V1, Value *&V2, bool IsLoad) {
   if (o.isReg() && o2.isImm()) {
+    uint64_t myimm = o2.getImm();
+    uint64_t reltype = 0;
+    Value *idx;
+    if (ResolveRelocation(myimm, &reltype)) {
+      if (reltype == ELF::R_MIPS_LO16) {
+        Value *V0 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                                     myimm + o2.getImm());
+        Value *V1 = Builder.CreateAnd(V0, ConstantInt::get
+                                      (Type::getInt32Ty(getGlobalContext()), 
+                                       0xFFFF));
+        idx = V1;
+      } else {
+        llvm_unreachable("Don't know how to handle this relocation");
+      }      
+    } else {
+      idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                             myimm);
+    }
     unsigned reg = conv32(o.getReg());
     Value *base = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
-    Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
-                                  o2.getImm());
     Value *addr = Builder.CreateAdd(base, idx);
     V1 = AccessShadowMemory32(addr, IsLoad);
-    Value *idx2 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
-                                   o2.getImm()+4);
+    Value *idx2 = Builder.CreateAdd(idx, ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 4U));
     Value *addr2 = Builder.CreateAdd(base, idx2);
     V2 = AccessShadowMemory32(addr2, IsLoad);
     return true;
@@ -735,6 +750,21 @@ bool OiInstTranslate::ResolveRelocation(uint64_t &Res, uint64_t *Type) {
     if (Address == UnknownAddressOrSize) continue;
     //        Address -= SectionAddr;
     Res = Address;
+
+    section_iterator seci = Obj->end_sections();
+    // Check if it is relative to a section
+    if ((!error(si->getSection(seci)))
+        && seci != Obj->end_sections()) {
+      uint64_t SectionAddr;
+      if (error(seci->getAddress(SectionAddr))) 
+        llvm_unreachable("Error getting section address");
+
+      // Relocatable file
+      if (SectionAddr == 0) {
+        SectionAddr = GetELFOffset(seci);
+      }
+      Res += SectionAddr;
+    }
 
     if (Type) {
       if (error(Rel->getType(*Type)))
