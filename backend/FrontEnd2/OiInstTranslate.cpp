@@ -409,11 +409,12 @@ static unsigned ConvToDirective(unsigned regnum) {
 
 void OiInstTranslate::BuildRegisterFile() {
   Type *ty = Type::getInt32Ty(getGlobalContext());
-  // 32 base regs
-  // LO
-  // HI
-  // 32 fp regs
-  for (int I = 0; I < 66; ++I) {
+  // 32 base regs  0-31
+  // LO 32
+  // HI 33
+  // 32 fp regs 34-65
+  // FPCondCode 66
+  for (int I = 0; I < 67; ++I) {
     Constant *ci = ConstantInt::get(ty, 0U);
     GlobalVariable *gv = new GlobalVariable(*TheModule, ty, false, 
                                             GlobalValue::ExternalLinkage,
@@ -551,6 +552,25 @@ bool OiInstTranslate::HandleDoubleDstOperand(const MCOperand &o, Value *&V1, Val
   llvm_unreachable("Invalid dst operand");
 }
 
+bool OiInstTranslate::HandleDoubleMemOperand(const MCOperand &o, const MCOperand &o2,
+                                       Value *&V1, Value *&V2, bool IsLoad) {
+  if (o.isReg() && o2.isImm()) {
+    unsigned reg = conv32(o.getReg());
+    Value *base = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
+    Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                                  o2.getImm());
+    Value *addr = Builder.CreateAdd(base, idx);
+    V1 = AccessShadowMemory32(addr, IsLoad);
+    Value *idx2 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                                   o2.getImm()+4);
+    Value *addr2 = Builder.CreateAdd(base, idx2);
+    V2 = AccessShadowMemory32(addr2, IsLoad);
+    return true;
+  } 
+
+  llvm_unreachable("Invalid Src operand");
+}
+
 bool OiInstTranslate::HandleSaveDouble(Value *In, Value *&Out1, Value *&Out2) {
   Value *v1 = Builder.CreateBitCast(In, Type::getInt64Ty(getGlobalContext()));
   Value *v2 = Builder.CreateLShr(v1, ConstantInt::get
@@ -651,26 +671,6 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
   //}
   llvm_unreachable("Invalid Src operand");
 }
-
-bool OiInstTranslate::HandleLDCOperand(const MCOperand &o, const MCOperand &o2,
-                                       Value *&V1, Value *&V2, bool IsLoad) {
-  if (o.isReg() && o2.isImm()) {
-    unsigned reg = conv32(o.getReg());
-    Value *base = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
-    Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
-                                  o2.getImm());
-    Value *addr = Builder.CreateAdd(base, idx);
-    V1 = AccessShadowMemory32(addr, IsLoad);
-    Value *idx2 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
-                                   o2.getImm()+4);
-    Value *addr2 = Builder.CreateAdd(base, idx2);
-    V2 = AccessShadowMemory32(addr2, IsLoad);
-    return true;
-  } 
-
-  llvm_unreachable("Invalid Src operand");
-}
-
 
 bool OiInstTranslate::HandleAluDstOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
@@ -793,6 +793,76 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V) {
     llvm_unreachable("Unrecognized function call");
     return false;
   }
+  return false;
+}
+
+bool OiInstTranslate::HandleFCmpOperand(const MCOperand &o, Value *o0, Value *o1, Value *&V) {
+  if (o.isImm()) {
+    uint64_t cond = o.getImm();
+    Value *cmp = 0;
+    switch (cond) {
+    case 0: // OI_FCOND_F  false
+      cmp = ConstantInt::get(Type::getInt1Ty(getGlobalContext()), 0);
+      break;
+    case 1: // OI_FCOND_UN unordered - true if either nans
+      cmp = Builder.CreateFCmpUNO(o0, o1);
+      break;
+    case 2: // OI_FCOND_OEQ equal
+      cmp = Builder.CreateFCmpOEQ(o0, o1);
+      break;
+    case 3: // OI_FCOND_UEQ unordered or equal
+      cmp = Builder.CreateFCmpUEQ(o0, o1);
+      break;
+    case 4: // OI_FCOND_OLT
+      cmp = Builder.CreateFCmpOLT(o0, o1);
+      break;
+    case 5: // OI_FCOND_ULT
+      cmp = Builder.CreateFCmpULT(o0, o1);
+      break;
+    case 6: // OI_FCOND_OLE
+      cmp = Builder.CreateFCmpOLE(o0, o1);
+      break;
+    case 7: // OI_FCOND_ULE
+      cmp = Builder.CreateFCmpULE(o0, o1);
+      break;
+    case 8: // OI_FCOND_SF
+      // Exception not implemented
+      cmp = ConstantInt::get(Type::getInt1Ty(getGlobalContext()), 0);
+      break;
+    case 9: // OI_FCOND_NGLE - compare not greater or less than equal double 
+            // (w/ except.)
+      cmp = Builder.CreateFCmpOLE(o0, o1);
+      llvm_unreachable("Unimplemented FCmp Operand");
+      break;
+    case 10: // OI_FCOND_SEQ
+      cmp = Builder.CreateFCmpOEQ(o0, o1);
+      llvm_unreachable("Unimplemented FCmp Operand");
+      break;
+    case 11: // OI_FCOND_NGL
+      cmp = Builder.CreateFCmpULE(o0, o1);
+      llvm_unreachable("Unimplemented FCmp Operand");
+      break;
+    case 12: // OI_FCOND_LT
+      cmp = Builder.CreateFCmpULE(o0, o1);
+      llvm_unreachable("Unimplemented FCmp Operand");
+      break;
+    case 13: // OI_FCOND_NGE
+      cmp = Builder.CreateFCmpULE(o0, o1);
+      llvm_unreachable("Unimplemented FCmp Operand");
+      break;
+    case 14: // OI_FCOND_LE
+      cmp = Builder.CreateFCmpULE(o0, o1);
+      llvm_unreachable("Unimplemented FCmp Operand");
+      break;
+    case 15: // OI_FCOND_NGT
+      cmp = Builder.CreateFCmpULE(o0, o1);
+      llvm_unreachable("Unimplemented FCmp Operand");
+      break;
+    }    
+    V = cmp;
+    return true;
+  }
+  llvm_unreachable("Unrecognized FCmp Operand");
   return false;
 }
 
@@ -1084,7 +1154,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       DebugOut << "Handling LDC1\n";
       Value *dst, *src1, *src2;
       if (HandleAluDstOperand(MI->getOperand(0),dst) &&
-          HandleLDCOperand(MI->getOperand(1), MI->getOperand(2), src1, src2, true)) {
+          HandleDoubleMemOperand(MI->getOperand(1), MI->getOperand(2), src1, src2, true)) {
         Value *v = Builder.CreateStore(src1, dst);
         Value *v2 = Builder.CreateStore(src2, Regs[ConvToDirective(conv32(MI->getOperand(0).getReg()))+1]);
         InsMap[CurAddr] = dyn_cast<Instruction>(v);
@@ -1095,6 +1165,35 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::SDC1:
     {
       DebugOut << "Handling SDC1\n";
+      Value *dst_hi, *dst_lo, *src;
+      if (HandleDoubleSrcOperand(MI->getOperand(0), src) &&
+          HandleDoubleMemOperand(MI->getOperand(1), MI->getOperand(2), dst_hi, dst_lo, false)) {
+        Value *hi, *lo;
+        HandleSaveDouble(src, hi, lo);
+        Builder.CreateStore(hi, dst_hi);
+        Builder.CreateStore(lo, dst_lo);
+        InsMap[CurAddr] = dyn_cast<Instruction>(src);
+        src->dump();
+      }
+      break;
+    }
+  case Oi::FCMP_D32:
+    {
+      DebugOut << "Handling FCMP_D32\n";
+      uint32_t cond;
+      Value *o0, *o1;
+      if (HandleDoubleSrcOperand(MI->getOperand(0), o0) &&
+          HandleDoubleSrcOperand(MI->getOperand(1), o1)) {
+        Value *cmp;
+        if (HandleFCmpOperand(MI->getOperand(2), o0, o1, cmp)) {
+          Value *one = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 1U);
+          Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
+          Value *select = Builder.CreateSelect(cmp, one, zero);
+          Builder.CreateStore(select, Regs[66]);
+          InsMap[CurAddr] = dyn_cast<Instruction>(o0);
+          select->dump();
+        }
+      }
       break;
     }
   case Oi::FMUL_D32:

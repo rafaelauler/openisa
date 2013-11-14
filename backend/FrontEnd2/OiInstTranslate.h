@@ -41,7 +41,7 @@ public:
                   uint64_t Stacksz)
     : MCInstPrinter(MAI, MII, MRI),
       TheModule(new Module("outputtest", getGlobalContext())),
-      Builder(getGlobalContext()), Obj(obj), Regs(SmallVector<Value*,66>(66)),
+      Builder(getGlobalContext()), Obj(obj), Regs(SmallVector<Value*,67>(67)),
       FirstFunction(true), CurAddr(0), CurSection(0), BBMap(), InsMap(),
       CurBlockAddr(0), StackSize(Stacksz)
   {
@@ -75,7 +75,7 @@ private:
   const ObjectFile *Obj;
   OwningArrayPtr<uint8_t> ShadowImage;
   uint64_t ShadowSize;
-  SmallVector<Value*, 66> Regs;
+  SmallVector<Value*, 67> Regs;
   Value* ShadowImageValue;
   bool FirstFunction;
   uint64_t CurAddr;
@@ -90,10 +90,11 @@ private:
   bool HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad);
   bool HandleMemOperand(const MCOperand &o, const MCOperand &o2, Value *&V,
                         bool IsLoad);
-  bool HandleLDCOperand(const MCOperand &o, const MCOperand &o2,
+  bool HandleDoubleMemOperand(const MCOperand &o, const MCOperand &o2,
                         Value *&V1, Value *&V2, bool IsLoad);
   bool HandleLUiOperand(const MCOperand &o, Value *&V, bool IsLoad);
   bool HandleCallTarget(const MCOperand &o, Value *&V);
+  bool HandleFCmpOperand(const MCOperand &o, Value *o0, Value *o1, Value *&V);
   bool HandleBranchTarget(const MCOperand &o, BasicBlock *&Addr);
   bool HandleBackEdge(uint64_t Addr, BasicBlock *&Target);
   bool HandleSyscallWrite(Value *&V);
