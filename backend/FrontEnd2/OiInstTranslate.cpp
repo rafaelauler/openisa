@@ -162,6 +162,23 @@ static unsigned conv32(unsigned regnum) {
     return Oi::T8;
   case Oi::T9_64:
     return Oi::T9; 
+  case Oi::D0_64:
+  case Oi::D1_64:
+  case Oi::D2_64:
+  case Oi::D3_64:
+  case Oi::D4_64:
+  case Oi::D5_64:
+  case Oi::D6_64:
+  case Oi::D7_64:
+  case Oi::D8_64:
+  case Oi::D9_64:
+  case Oi::D10_64:
+  case Oi::D11_64:
+  case Oi::D12_64:
+  case Oi::D13_64:
+  case Oi::D14_64:
+  case Oi::D15_64:
+    return regnum - 1;
   }
   return regnum;
 }
@@ -302,7 +319,90 @@ static unsigned ConvToDirective(unsigned regnum) {
     return 24;
   case Oi::T9:
     return 25;
+    // Floating point registers
+  case Oi::D0:
+  case Oi::F0:
+    return 34;
+  case Oi::F1:
+    return 35;
+  case Oi::D1:
+  case Oi::F2:
+    return 36;
+  case Oi::F3:
+    return 37;
+  case Oi::D2:
+  case Oi::F4:
+    return 38;
+  case Oi::F5:
+    return 39;
+  case Oi::D3:
+  case Oi::F6:
+    return 40;
+  case Oi::F7:
+    return 41;
+  case Oi::D4:
+  case Oi::F8:
+    return 42;
+  case Oi::F9:
+    return 43;
+  case Oi::D5:
+  case Oi::F10:
+    return 44;
+  case Oi::F11:
+    return 45;
+  case Oi::D6:
+  case Oi::F12:
+    return 46;
+  case Oi::F13:
+    return 47;
+  case Oi::D7:
+  case Oi::F14:
+    return 48;
+  case Oi::F15:
+    return 49;
+  case Oi::D8:
+  case Oi::F16:
+    return 50;
+  case Oi::F17:
+    return 51;
+  case Oi::D9:
+  case Oi::F18:
+    return 52;
+  case Oi::F19:
+    return 53;
+  case Oi::D10:
+  case Oi::F20:
+    return 54;
+  case Oi::F21:
+    return 55;
+  case Oi::D11:
+  case Oi::F22:
+    return 56;
+  case Oi::F23:
+    return 57;
+  case Oi::D12:
+  case Oi::F24:
+    return 58;
+  case Oi::F25:
+    return 59;
+  case Oi::D13:
+  case Oi::F26:
+    return 60;
+  case Oi::F27:
+    return 61;
+  case Oi::D14:
+  case Oi::F28:
+    return 62;
+  case Oi::F29:
+    return 63;
+  case Oi::D15:
+  case Oi::F30:
+    return 64;
+  case Oi::F31:
+    return 65;
+
   }
+  llvm_unreachable("Invalid register");
   return -1;
 }
 
@@ -312,7 +412,8 @@ void OiInstTranslate::BuildRegisterFile() {
   // 32 base regs
   // LO
   // HI
-  for (int I = 0; I < 34; ++I) {
+  // 32 fp regs
+  for (int I = 0; I < 66; ++I) {
     Constant *ci = ConstantInt::get(ty, 0U);
     GlobalVariable *gv = new GlobalVariable(*TheModule, ty, false, 
                                             GlobalValue::ExternalLinkage,
@@ -424,6 +525,41 @@ bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
   llvm_unreachable("Invalid Src operand");
 }
 
+bool OiInstTranslate::HandleDoubleSrcOperand(const MCOperand &o, Value *&V) {
+  if (o.isReg()) {
+    unsigned reg = conv32(o.getReg());
+    Value *v1 = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
+    Value *v2 = Builder.CreateLoad(Regs[ConvToDirective(reg)+1]);
+    Value *v3 = Builder.CreateZExtOrTrunc(v1, Type::getInt64Ty(getGlobalContext()));
+    Value *v4 = Builder.CreateZExtOrTrunc(v2, Type::getInt64Ty(getGlobalContext()));
+    Value *v5 = Builder.CreateShl(v3, ConstantInt::get
+                                   (Type::getInt64Ty(getGlobalContext()), 32));
+    Value *v6 = Builder.CreateOr(v5,v4);
+    V = Builder.CreateBitCast(v6, Type::getDoubleTy(getGlobalContext()));
+    return true;
+  } 
+  llvm_unreachable("Invalid Src operand");
+}
+
+bool OiInstTranslate::HandleDoubleDstOperand(const MCOperand &o, Value *&V1, Value *&V2) {
+  if (o.isReg()) {
+    unsigned reg = conv32(o.getReg());
+    V1 = Regs[ConvToDirective(reg)];
+    V2 = Regs[ConvToDirective(reg)+1];
+    return true;
+  }
+  llvm_unreachable("Invalid dst operand");
+}
+
+bool OiInstTranslate::HandleSaveDouble(Value *In, Value *&Out1, Value *&Out2) {
+  Value *v1 = Builder.CreateBitCast(In, Type::getInt64Ty(getGlobalContext()));
+  Value *v2 = Builder.CreateLShr(v1, ConstantInt::get
+                                 (Type::getInt64Ty(getGlobalContext()), 32));
+  Out1 = Builder.CreateSExtOrTrunc(v2, Type::getInt32Ty(getGlobalContext()));
+  Out2 = Builder.CreateSExtOrTrunc(v1, Type::getInt32Ty(getGlobalContext()));
+  return true;
+}
+
 bool OiInstTranslate::HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad) {
   if (const MCConstantExpr *ce = dyn_cast<const MCConstantExpr>(&exp)) {
     Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
@@ -515,6 +651,26 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
   //}
   llvm_unreachable("Invalid Src operand");
 }
+
+bool OiInstTranslate::HandleLDCOperand(const MCOperand &o, const MCOperand &o2,
+                                       Value *&V1, Value *&V2, bool IsLoad) {
+  if (o.isReg() && o2.isImm()) {
+    unsigned reg = conv32(o.getReg());
+    Value *base = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
+    Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                                  o2.getImm());
+    Value *addr = Builder.CreateAdd(base, idx);
+    V1 = AccessShadowMemory32(addr, IsLoad);
+    Value *idx2 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                                   o2.getImm()+4);
+    Value *addr2 = Builder.CreateAdd(base, idx2);
+    V2 = AccessShadowMemory32(addr2, IsLoad);
+    return true;
+  } 
+
+  llvm_unreachable("Invalid Src operand");
+}
+
 
 bool OiInstTranslate::HandleAluDstOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
@@ -923,19 +1079,100 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       }
       break;
     }
-  case Oi::MFC1:
+  case Oi::LDC1:
     {
-      DebugOut << "Handling MFC1\n";
+      DebugOut << "Handling LDC1\n";
+      Value *dst, *src1, *src2;
+      if (HandleAluDstOperand(MI->getOperand(0),dst) &&
+          HandleLDCOperand(MI->getOperand(1), MI->getOperand(2), src1, src2, true)) {
+        Value *v = Builder.CreateStore(src1, dst);
+        Value *v2 = Builder.CreateStore(src2, Regs[ConvToDirective(conv32(MI->getOperand(0).getReg()))+1]);
+        InsMap[CurAddr] = dyn_cast<Instruction>(v);
+        v->dump();
+      }
       break;
     }
+  case Oi::SDC1:
+    {
+      DebugOut << "Handling SDC1\n";
+      break;
+    }
+  case Oi::FMUL_D32:
+    {
+      DebugOut << "Handling FMUL\n";
+      Value *o01, *o02, *o1, *o2;
+      if (HandleDoubleSrcOperand(MI->getOperand(1), o1) &&       
+          HandleDoubleSrcOperand(MI->getOperand(2), o2) &&       
+          HandleDoubleDstOperand(MI->getOperand(0), o01, o02)) {      
+        Value *high, *low;
+        Value *V = Builder.CreateFMul(o1, o2);
+        HandleSaveDouble(V, high, low);
+        Builder.CreateStore(high, o01);
+        Builder.CreateStore(low, o02);
+        InsMap[CurAddr] = dyn_cast<Instruction>(o1);
+        o1->dump();
+      }      
+      break;
+    }
+  case Oi::FDIV_D32:
+    {
+      DebugOut << "Handling FMUL\n";
+      Value *o01, *o02, *o1, *o2;
+      if (HandleDoubleSrcOperand(MI->getOperand(1), o1) &&       
+          HandleDoubleSrcOperand(MI->getOperand(2), o2) &&       
+          HandleDoubleDstOperand(MI->getOperand(0), o01, o02)) {      
+        Value *high, *low;
+        Value *V = Builder.CreateFDiv(o1, o2);
+        HandleSaveDouble(V, high, low);
+        Builder.CreateStore(high, o01);
+        Builder.CreateStore(low, o02);
+        InsMap[CurAddr] = dyn_cast<Instruction>(o1);
+        o1->dump();
+      }      
+      break;
+    }
+  case Oi::CVT_D32_W:
+    {
+      DebugOut << "Handling CVT.D.W\n";
+      Value *o0, *o1;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&       
+          HandleAluDstOperand(MI->getOperand(0), o0)) {      
+        Value *high, *low;
+        Value *v1 = Builder.CreateSIToFP(o1, Type::getDoubleTy(getGlobalContext()));
+        HandleSaveDouble(v1, high, low);
+        Value *v2 = Builder.CreateStore(high, o0);
+        Value *v3 = Builder.CreateStore(low, Regs[conv32(MI->getOperand(0).getReg())+1]);
+        InsMap[CurAddr] = dyn_cast<Instruction>(v1);
+        v1->dump();
+      }      
+      break;
+    }
+  case Oi::MFC1:
   case Oi::MTC1:
     {
-      DebugOut << "Handling MTC1\n";
+      DebugOut << "Handling MFC1, MTC1\n";
+      Value *o0, *o1;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&       
+          HandleAluDstOperand(MI->getOperand(0), o0)) {      
+        Value *v = Builder.CreateStore(o1, o0);
+        InsMap[CurAddr] = dyn_cast<Instruction>(v);
+        v->dump();
+      }
       break;
     }
   case Oi::BC1F:
     {
       DebugOut << "Handling BC1F\n";
+      //      Value *o1, *o2;
+      //      BasicBlock *True = 0;
+      //      if (HandleAluSrcOperand(MI->getOperand(0), o1) &&
+      //          HandleAluSrcOperand(MI->getOperand(1), o2) &&
+      //          HandleBranchTarget(MI->getOperand(2), True)) {
+      //        Value *cmp = Builder.CreateICmpNE(o1, o2);
+      //        Value *v = Builder.CreateCondBr(cmp, True, CreateBB(CurAddr+4));
+      //        InsMap[CurAddr] = dyn_cast<Instruction>(cmp);
+      //        v->dump();
+      //      }
       break;
     }
   case Oi::J:

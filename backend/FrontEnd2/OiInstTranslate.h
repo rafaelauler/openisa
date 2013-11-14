@@ -41,7 +41,7 @@ public:
                   uint64_t Stacksz)
     : MCInstPrinter(MAI, MII, MRI),
       TheModule(new Module("outputtest", getGlobalContext())),
-      Builder(getGlobalContext()), Obj(obj), Regs(SmallVector<Value*,34>(34)),
+      Builder(getGlobalContext()), Obj(obj), Regs(SmallVector<Value*,66>(66)),
       FirstFunction(true), CurAddr(0), CurSection(0), BBMap(), InsMap(),
       CurBlockAddr(0), StackSize(Stacksz)
   {
@@ -75,7 +75,7 @@ private:
   const ObjectFile *Obj;
   OwningArrayPtr<uint8_t> ShadowImage;
   uint64_t ShadowSize;
-  SmallVector<Value*, 34> Regs;
+  SmallVector<Value*, 66> Regs;
   Value* ShadowImageValue;
   bool FirstFunction;
   uint64_t CurAddr;
@@ -90,6 +90,8 @@ private:
   bool HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad);
   bool HandleMemOperand(const MCOperand &o, const MCOperand &o2, Value *&V,
                         bool IsLoad);
+  bool HandleLDCOperand(const MCOperand &o, const MCOperand &o2,
+                        Value *&V1, Value *&V2, bool IsLoad);
   bool HandleLUiOperand(const MCOperand &o, Value *&V, bool IsLoad);
   bool HandleCallTarget(const MCOperand &o, Value *&V);
   bool HandleBranchTarget(const MCOperand &o, BasicBlock *&Addr);
@@ -107,6 +109,9 @@ private:
   void InsertStartupCode();
   BasicBlock* CreateBB(uint64_t Addr = 0, Function *F = 0);
   void UpdateInsertPoint();
+  bool HandleSaveDouble(Value *In, Value *&Out1, Value *&Out2);
+  bool HandleDoubleSrcOperand(const MCOperand &o, Value *&V);
+  bool HandleDoubleDstOperand(const MCOperand &o, Value *&V1, Value *&V2);
 
   void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printUnsignedImm(const MCInst *MI, int opNum, raw_ostream &O);
