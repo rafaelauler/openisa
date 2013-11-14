@@ -51,7 +51,8 @@ static std::string ParseOiTriple(StringRef TT, StringRef CPU) {
     TheTriple = TT.substr(0,DashPosition);
   }
 
-  if (TheTriple == "oi" || TheTriple == "oiel") {
+  if (TheTriple == "oi" || TheTriple == "oiel"
+      || TheTriple == "mips" || TheTriple == "mipsel") {
     if (CPU.empty() || CPU == "oi32") {
       OiArchFeature = "+oi32";
     } else if (CPU == "oi32r2") {
