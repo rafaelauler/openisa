@@ -452,6 +452,14 @@ void OiInstTranslate::UpdateInsertPoint() {
 
   if (BBMap[Idx] != 0) {
     if (Builder.GetInsertBlock() != BBMap[Idx]) {
+      // First check if we need to add a fall-through terminator to the
+      // current basic block
+      BasicBlock *BB = Builder.GetInsertBlock();
+      if (BB != 0) {
+        if (BB->getTerminator() == 0) {
+          Builder.CreateBr(BBMap[Idx]);
+        }
+      }
       CurBlockAddr = CurAddr;
       Builder.SetInsertPoint(BBMap[Idx]);
     }
@@ -827,6 +835,7 @@ bool OiInstTranslate::HandleFCmpOperand(const MCOperand &o, Value *o0, Value *o1
       break;
     case 8: // OI_FCOND_SF
       // Exception not implemented
+      llvm_unreachable("Unimplemented FCmp Operand");
       cmp = ConstantInt::get(Type::getInt1Ty(getGlobalContext()), 0);
       break;
     case 9: // OI_FCOND_NGLE - compare not greater or less than equal double 
@@ -866,15 +875,21 @@ bool OiInstTranslate::HandleFCmpOperand(const MCOperand &o, Value *o0, Value *o1
   return false;
 }
 
-bool OiInstTranslate::HandleBranchTarget(const MCOperand &o, BasicBlock *&Target) {
+bool OiInstTranslate::HandleBranchTarget(const MCOperand &o, BasicBlock *&Target,
+                                         bool IsRelative) {
   if (o.isImm()) {
     Twine T("a");
     if (o.getImm() != 0U) {
-      uint64_t tgtaddr = (CurAddr + o.getImm()) & 0xFFFFFFFFULL;
+
+      uint64_t tgtaddr;
+      if (IsRelative)
+        tgtaddr = (CurAddr + o.getImm()) & 0xFFFFFFFFULL;
+      else
+        tgtaddr = o.getImm();
       assert (tgtaddr != CurAddr);
       if (tgtaddr < CurAddr)
         return HandleBackEdge(tgtaddr, Target);
-      Target = CreateBB(CurAddr + o.getImm());
+      Target = CreateBB(tgtaddr);
       return true;
     } else { // Need to handle the relocation to find the correct jump address
       uint64_t targetaddr;
@@ -1259,19 +1274,25 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       }
       break;
     }
+  case Oi::BC1T:
   case Oi::BC1F:
     {
-      DebugOut << "Handling BC1F\n";
-      //      Value *o1, *o2;
-      //      BasicBlock *True = 0;
-      //      if (HandleAluSrcOperand(MI->getOperand(0), o1) &&
-      //          HandleAluSrcOperand(MI->getOperand(1), o2) &&
-      //          HandleBranchTarget(MI->getOperand(2), True)) {
-      //        Value *cmp = Builder.CreateICmpNE(o1, o2);
-      //        Value *v = Builder.CreateCondBr(cmp, True, CreateBB(CurAddr+4));
-      //        InsMap[CurAddr] = dyn_cast<Instruction>(cmp);
-      //        v->dump();
-      //      }
+      DebugOut << "Handling BC1F, BC1T\n";
+      BasicBlock *True = 0;
+      if (HandleBranchTarget(MI->getOperand(0), True)) {
+        Value *cmp;
+        if (MI->getOpcode() == Oi::BC1T) {
+          cmp = Builder.CreateSExtOrTrunc(Builder.CreateLoad(Regs[66]),
+                                    Type::getInt1Ty(getGlobalContext()));
+        } else {
+          cmp = Builder.CreateICmpEQ(Builder.CreateLoad(Regs[66]),
+                             ConstantInt::get(Type::getInt32Ty
+                                              (getGlobalContext()), 0U));
+        }
+        Value *v = Builder.CreateCondBr(cmp, True, CreateBB(CurAddr+4));
+        InsMap[CurAddr] = dyn_cast<Instruction>(cmp);
+        v->dump();
+      }
       break;
     }
   case Oi::J:
@@ -1279,7 +1300,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       DebugOut << "Handling J\n";
       Value *o1;
       BasicBlock *Target = 0;
-      if (HandleBranchTarget(MI->getOperand(0), Target)) {
+      if (HandleBranchTarget(MI->getOperand(0), Target, false)) {
         Value *v = Builder.CreateBr(Target);
         InsMap[CurAddr] = dyn_cast<Instruction>(v);
         CreateBB(CurAddr+4);

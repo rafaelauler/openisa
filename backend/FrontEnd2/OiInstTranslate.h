@@ -95,7 +95,7 @@ private:
   bool HandleLUiOperand(const MCOperand &o, Value *&V, bool IsLoad);
   bool HandleCallTarget(const MCOperand &o, Value *&V);
   bool HandleFCmpOperand(const MCOperand &o, Value *o0, Value *o1, Value *&V);
-  bool HandleBranchTarget(const MCOperand &o, BasicBlock *&Addr);
+  bool HandleBranchTarget(const MCOperand &o, BasicBlock *&Addr, bool IsRelative = true);
   bool HandleBackEdge(uint64_t Addr, BasicBlock *&Target);
   bool HandleSyscallWrite(Value *&V);
   bool HandleLibcAtoi(Value *&V);
