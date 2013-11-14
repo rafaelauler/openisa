@@ -508,7 +508,7 @@ bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
     if (ResolveRelocation(myimm, &reltype)) {
       if (reltype == ELF::R_MIPS_LO16) {
         Value *V0 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
-                                     myimm);
+                                     myimm + o.getImm());
         Value *V1 = Builder.CreateAnd(V0, ConstantInt::get
                                       (Type::getInt32Ty(getGlobalContext()), 
                                        0xFFFF));
@@ -643,7 +643,8 @@ bool OiInstTranslate::HandleLUiOperand(const MCOperand &o, Value *&V,
   if (o.isImm()) {
     uint64_t addr = o.getImm();
 
-    ResolveRelocation(addr);
+    if (ResolveRelocation(addr))
+      addr += o.getImm();
     Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), addr);
     Value *V1 = Builder.CreateLShr(idx, ConstantInt::get
                                    (Type::getInt32Ty(getGlobalContext()), 16));
@@ -788,7 +789,7 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V) {
           return HandleLibcFree(V);
         if (val == "printf")
           return HandleLibcPrintf(V);
-        if (val == "scanf")
+        if (val == "__isoc99_scanf")
           return HandleLibcScanf(V);
       }
       uint64_t targetaddr;
@@ -1030,7 +1031,7 @@ bool OiInstTranslate::HandleLibcScanf(Value *&V) {
   SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
   FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
                                        args, /*isvararg*/true);
-  Value *fun = TheModule->getOrInsertFunction("scanf", ft);
+  Value *fun = TheModule->getOrInsertFunction("__isoc99_scanf", ft);
   SmallVector<Value*, 8> params;
   Value *addrbuf0 = AccessShadowMemory32
     (Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]), false);
