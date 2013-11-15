@@ -163,22 +163,38 @@ static unsigned conv32(unsigned regnum) {
   case Oi::T9_64:
     return Oi::T9; 
   case Oi::D0_64:
+    return Oi::F0;
   case Oi::D1_64:
+    return Oi::F1;
   case Oi::D2_64:
+    return Oi::F2;
   case Oi::D3_64:
+    return Oi::F3;
   case Oi::D4_64:
+    return Oi::F4;
   case Oi::D5_64:
+    return Oi::F5;
   case Oi::D6_64:
+    return Oi::F6;
   case Oi::D7_64:
+    return Oi::F7;
   case Oi::D8_64:
+    return Oi::F8;
   case Oi::D9_64:
+    return Oi::F9;
   case Oi::D10_64:
+    return Oi::F10;
   case Oi::D11_64:
+    return Oi::F11;
   case Oi::D12_64:
+    return Oi::F12;
   case Oi::D13_64:
+    return Oi::F13;
   case Oi::D14_64:
+    return Oi::F14;
   case Oi::D15_64:
-    return regnum - 1;
+    return Oi::F15;
+    //    return regnum - 1;
   }
   return regnum;
 }
@@ -539,8 +555,9 @@ bool OiInstTranslate::HandleDoubleSrcOperand(const MCOperand &o, Value *&V) {
     unsigned reg = conv32(o.getReg());
     Value *v1 = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
     Value *v2 = Builder.CreateLoad(Regs[ConvToDirective(reg)+1]);
-    Value *v3 = Builder.CreateZExtOrTrunc(v1, Type::getInt64Ty(getGlobalContext()));
-    Value *v4 = Builder.CreateZExtOrTrunc(v2, Type::getInt64Ty(getGlobalContext()));
+    // Assume little endian for doubles
+    Value *v3 = Builder.CreateZExtOrTrunc(v2, Type::getInt64Ty(getGlobalContext()));
+    Value *v4 = Builder.CreateZExtOrTrunc(v1, Type::getInt64Ty(getGlobalContext()));
     Value *v5 = Builder.CreateShl(v3, ConstantInt::get
                                    (Type::getInt64Ty(getGlobalContext()), 32));
     Value *v6 = Builder.CreateOr(v5,v4);
@@ -553,8 +570,9 @@ bool OiInstTranslate::HandleDoubleSrcOperand(const MCOperand &o, Value *&V) {
 bool OiInstTranslate::HandleDoubleDstOperand(const MCOperand &o, Value *&V1, Value *&V2) {
   if (o.isReg()) {
     unsigned reg = conv32(o.getReg());
-    V1 = Regs[ConvToDirective(reg)];
-    V2 = Regs[ConvToDirective(reg)+1];
+    // Assume little endian doubles
+    V2 = Regs[ConvToDirective(reg)];
+    V1 = Regs[ConvToDirective(reg)+1];
     return true;
   }
   llvm_unreachable("Invalid dst operand");
@@ -581,13 +599,14 @@ bool OiInstTranslate::HandleDoubleMemOperand(const MCOperand &o, const MCOperand
       idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                              myimm);
     }
+    //Assume little endian doubles
     unsigned reg = conv32(o.getReg());
     Value *base = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
     Value *addr = Builder.CreateAdd(base, idx);
-    V1 = AccessShadowMemory32(addr, IsLoad);
+    V2 = AccessShadowMemory32(addr, IsLoad);
     Value *idx2 = Builder.CreateAdd(idx, ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 4U));
     Value *addr2 = Builder.CreateAdd(base, idx2);
-    V2 = AccessShadowMemory32(addr2, IsLoad);
+    V1 = AccessShadowMemory32(addr2, IsLoad);
     return true;
   } 
 
@@ -598,6 +617,7 @@ bool OiInstTranslate::HandleSaveDouble(Value *In, Value *&Out1, Value *&Out2) {
   Value *v1 = Builder.CreateBitCast(In, Type::getInt64Ty(getGlobalContext()));
   Value *v2 = Builder.CreateLShr(v1, ConstantInt::get
                                  (Type::getInt64Ty(getGlobalContext()), 32));
+  // Assume little endian for doubles
   Out1 = Builder.CreateSExtOrTrunc(v2, Type::getInt32Ty(getGlobalContext()));
   Out2 = Builder.CreateSExtOrTrunc(v1, Type::getInt32Ty(getGlobalContext()));
   return true;
@@ -1198,12 +1218,12 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::LDC1:
     {
       DebugOut << "Handling LDC1\n";
-      Value *dst, *src1, *src2;
-      if (HandleAluDstOperand(MI->getOperand(0),dst) &&
+      Value *dst1, *dst2, *src1, *src2;
+      if (HandleDoubleDstOperand(MI->getOperand(0),dst1,dst2) &&
           HandleDoubleMemOperand(MI->getOperand(1), MI->getOperand(2), src1, src2, true)) {
-        Value *v = Builder.CreateStore(src1, dst);
-        Value *v2 = Builder.CreateStore(src2, Regs[ConvToDirective(conv32(MI->getOperand(0).getReg()))+1]);
-        InsMap[CurAddr] = dyn_cast<Instruction>(v);
+        Value *v = Builder.CreateStore(src1, dst1);
+        Value *v2 = Builder.CreateStore(src2, dst2);
+        InsMap[CurAddr] = dyn_cast<Instruction>(dst1);
         v->dump();
       }
       break;
@@ -1240,6 +1260,23 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           select->dump();
         }
       }
+      break;
+    }
+  case Oi::FADD_D32:
+    {
+      DebugOut << "Handling FADD\n";
+      Value *o01, *o02, *o1, *o2;
+      if (HandleDoubleSrcOperand(MI->getOperand(1), o1) &&       
+          HandleDoubleSrcOperand(MI->getOperand(2), o2) &&       
+          HandleDoubleDstOperand(MI->getOperand(0), o01, o02)) {      
+        Value *high, *low;
+        Value *V = Builder.CreateFAdd(o1, o2);
+        HandleSaveDouble(V, high, low);
+        Builder.CreateStore(high, o01);
+        Builder.CreateStore(low, o02);
+        InsMap[CurAddr] = dyn_cast<Instruction>(o1);
+        o1->dump();
+      }      
       break;
     }
   case Oi::FMUL_D32:
@@ -1279,14 +1316,14 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::CVT_D32_W:
     {
       DebugOut << "Handling CVT.D.W\n";
-      Value *o0, *o1;
+      Value *o01, *o02, *o1;
       if (HandleAluSrcOperand(MI->getOperand(1), o1) &&       
-          HandleAluDstOperand(MI->getOperand(0), o0)) {      
+          HandleDoubleDstOperand(MI->getOperand(0), o01,o02)) {      
         Value *high, *low;
         Value *v1 = Builder.CreateSIToFP(o1, Type::getDoubleTy(getGlobalContext()));
         HandleSaveDouble(v1, high, low);
-        Value *v2 = Builder.CreateStore(high, o0);
-        Value *v3 = Builder.CreateStore(low, Regs[conv32(MI->getOperand(0).getReg())+1]);
+        Value *v2 = Builder.CreateStore(high, o01);
+        Value *v3 = Builder.CreateStore(low, o02);
         InsMap[CurAddr] = dyn_cast<Instruction>(v1);
         v1->dump();
       }      
