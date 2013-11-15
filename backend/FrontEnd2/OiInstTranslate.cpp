@@ -678,14 +678,20 @@ bool OiInstTranslate::HandleLUiOperand(const MCOperand &o, Value *&V,
   if (o.isImm()) {
     uint64_t addr = o.getImm();
 
-    if (ResolveRelocation(addr))
+    if (ResolveRelocation(addr)) {
       addr += o.getImm();
-    Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), addr);
-    Value *V1 = Builder.CreateLShr(idx, ConstantInt::get
-                                   (Type::getInt32Ty(getGlobalContext()), 16));
-    Value *V2 = Builder.CreateShl(V1, ConstantInt::get
-                                  (Type::getInt32Ty(getGlobalContext()), 16));
-    V = V2;
+      Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), addr);    
+      Value *V1 = Builder.CreateLShr(idx, ConstantInt::get
+                                     (Type::getInt32Ty(getGlobalContext()), 16));
+      Value *V2 = Builder.CreateShl(V1, ConstantInt::get
+                                    (Type::getInt32Ty(getGlobalContext()), 16));
+      V = V2;
+    } else {
+      Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), addr);    
+      Value *V2 = Builder.CreateShl(idx, ConstantInt::get
+                                    (Type::getInt32Ty(getGlobalContext()), 16));
+      V = V2;
+    }
     return true;
   }
   llvm_unreachable("Invalid Src operand");
@@ -694,10 +700,26 @@ bool OiInstTranslate::HandleLUiOperand(const MCOperand &o, Value *&V,
 bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
                                        Value *&V, bool IsLoad) {
   if (o.isReg() && o2.isImm()) {
+    uint64_t myimm = o2.getImm();
+    uint64_t reltype = 0;
+    Value *idx;
+    if (ResolveRelocation(myimm, &reltype)) {
+      if (reltype == ELF::R_MIPS_LO16) {
+        Value *V0 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                                     myimm + o2.getImm());
+        Value *V1 = Builder.CreateAnd(V0, ConstantInt::get
+                                      (Type::getInt32Ty(getGlobalContext()), 
+                                       0xFFFF));
+        idx = V1;
+      } else {
+        llvm_unreachable("Don't know how to handle this relocation");
+      }      
+    } else {
+      idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                             myimm);
+    }
     unsigned reg = conv32(o.getReg());
     Value *base = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
-    Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
-                                  o2.getImm());
     Value *addr = Builder.CreateAdd(base, idx);
     V = AccessShadowMemory32(addr, IsLoad);
     return true;
@@ -1298,7 +1320,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     }
   case Oi::FDIV_D32:
     {
-      DebugOut << "Handling FMUL\n";
+      DebugOut << "Handling FDIV\n";
       Value *o01, *o02, *o1, *o2;
       if (HandleDoubleSrcOperand(MI->getOperand(1), o1) &&       
           HandleDoubleSrcOperand(MI->getOperand(2), o2) &&       
