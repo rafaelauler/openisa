@@ -1047,7 +1047,7 @@ bool OiInstTranslate::HandleLibcAtoi(Value *&V) {
   params.push_back(Builder.CreatePtrToInt(addrbuf,
                                           Type::getInt32Ty(getGlobalContext())));
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
-                                                                (Oi::A0)]);
+                                                                (Oi::V0)]);
   return true;
 }
 
@@ -1058,8 +1058,11 @@ bool OiInstTranslate::HandleLibcMalloc(Value *&V) {
   Value *fun = TheModule->getOrInsertFunction("malloc", ft);
   SmallVector<Value*, 8> params;
   params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]));
-  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
-                                                                (Oi::A0)]);
+  Value *mal = Builder.CreateCall(fun, params);
+  Value *ptr = Builder.CreatePtrToInt(ShadowImageValue, Type::getInt32Ty(getGlobalContext()));
+  Value *fixed = Builder.CreateSub(mal, ptr);
+  V = Builder.CreateStore(fixed, Regs[ConvToDirective
+                                                                (Oi::V0)]);
   return true;
 }
 
@@ -1093,7 +1096,7 @@ bool OiInstTranslate::HandleLibcPrintf(Value *&V) {
   params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]));
   params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A3)]));
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
-                                                                (Oi::A0)]);
+                                                                (Oi::V0)]);
   return true;
 }
 
@@ -1122,7 +1125,7 @@ bool OiInstTranslate::HandleLibcScanf(Value *&V) {
   params.push_back(Builder.CreatePtrToInt(addrbuf3,
                                           Type::getInt32Ty(getGlobalContext())));
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
-                                                                (Oi::A0)]);
+                                                                (Oi::V0)]);
   return true;
 }
 
@@ -1140,7 +1143,7 @@ bool OiInstTranslate::HandleSyscallWrite(Value *&V) {
   params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]));
 
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
-                                                                (Oi::A0)]);
+                                                                (Oi::V0)]);
 
   return true;
 }
