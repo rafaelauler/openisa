@@ -89,10 +89,10 @@ private:
   bool HandleAluDstOperand(const MCOperand &o, Value *&V);
   bool HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad);
   bool HandleMemOperand(const MCOperand &o, const MCOperand &o2, Value *&V,
-                        bool IsLoad);
+                        Value **First, bool IsLoad);
   bool HandleDoubleMemOperand(const MCOperand &o, const MCOperand &o2,
-                        Value *&V1, Value *&V2, bool IsLoad);
-  bool HandleLUiOperand(const MCOperand &o, Value *&V, bool IsLoad);
+                              Value *&V1, Value *&V2, Value **First, bool IsLoad);
+  bool HandleLUiOperand(const MCOperand &o, Value *&V, Value **First, bool IsLoad);
   bool HandleCallTarget(const MCOperand &o, Value *&V);
   bool HandleFCmpOperand(const MCOperand &o, Value *o0, Value *o1, Value *&V);
   bool HandleBranchTarget(const MCOperand &o, BasicBlock *&Addr, bool IsRelative = true);
@@ -111,7 +111,7 @@ private:
   BasicBlock* CreateBB(uint64_t Addr = 0, Function *F = 0);
   void UpdateInsertPoint();
   bool HandleSaveDouble(Value *In, Value *&Out1, Value *&Out2);
-  bool HandleDoubleSrcOperand(const MCOperand &o, Value *&V);
+  bool HandleDoubleSrcOperand(const MCOperand &o, Value *&V, Value **First = 0);
   bool HandleDoubleDstOperand(const MCOperand &o, Value *&V1, Value *&V2);
 
   void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);

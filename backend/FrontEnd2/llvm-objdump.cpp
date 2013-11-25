@@ -40,6 +40,7 @@
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/COFF.h"
+#include "llvm/Object/ELF.h"
 #include "llvm/Object/MachO.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/Casting.h"
@@ -285,6 +286,13 @@ void OptimizeAndWriteBitcode(OiInstTranslate *oit) {
   delete m;
 }
 
+static uint64_t GetELFOffset(section_iterator &i) {
+  DataRefImpl Sec = i->getRawDataRefImpl();
+  const object::Elf_Shdr_Impl<object::ELFType<support::little, 2, false> > *sec =
+    reinterpret_cast<const object::Elf_Shdr_Impl<object::ELFType<support::little, 2, false> > *>(Sec.p);
+  return sec->sh_offset;
+}
+
 static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
   const Target *TheTarget = getTarget(Obj);
   // getTarget() will have already issued a diagnostic if necessary, so
@@ -446,15 +454,20 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
 #else
         raw_ostream &DebugOut = nulls();
 #endif
-      Twine n = Twine("a").concat(Twine::utohexstr(Start));
+      uint64_t eoffset = SectionAddr;
+      /* Relocatable object */
+      if (SectionAddr == 0) 
+        eoffset = GetELFOffset(i);
+      Twine n = Twine("a").concat(Twine::utohexstr(Start + eoffset));
+
       IP->StartFunction(n);
       for (Index = Start; Index < End; Index += Size) {
         MCInst Inst;
-
-        IP->UpdateCurAddr(Index);
+        
+        IP->UpdateCurAddr(Index + eoffset);
         if (DisAsm->getInstruction(Inst, Size, memoryObject, Index,
                                    DebugOut, nulls())) {
-          outs() << format("%8" PRIx64 ":", SectionAddr + Index);
+          outs() << format("%8" PRIx64 ":", eoffset + Index);
           if (!NoShowRawInsn) {
             outs() << "\t";
             DumpBytes(StringRef(Bytes.data() + Index, Size));
