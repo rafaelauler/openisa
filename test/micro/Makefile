@@ -14,7 +14,7 @@ CROSS=mipsel-unknown-linux-gnu-gcc
 all: simple-oi-x86 simple-nat
 
 simple-nat: simple.c
-	gcc simple.c -o simple-nat
+	$(CLANG) -O3 simple.c -o simple-nat
 
 simple-oi-ia64: simple-oi-ia64.s
 	$(CLANG) simple-oi-ia64.s -o simple-oi-ia64

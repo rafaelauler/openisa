@@ -14,7 +14,7 @@ CROSS=mipsel-unknown-linux-gnu-gcc
 all: heapsort-oi-x86 heapsort-nat
 
 heapsort-nat: heapsort.c
-	gcc heapsort.c -o heapsort-nat
+	$(CLANG) -O3 heapsort.c -o heapsort-nat
 
 heapsort-oi-ia64: heapsort-oi-ia64.s
 	$(CLANG) heapsort-oi-ia64.s -o heapsort-oi-ia64

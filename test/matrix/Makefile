@@ -14,7 +14,7 @@ CROSS=mipsel-unknown-linux-gnu-gcc
 all: matrix-oi-x86 matrix-nat
 
 matrix-nat: matrix.c
-	gcc matrix.c -o matrix-nat
+	$(CLANG) -O3 matrix.c -o matrix-nat
 
 matrix-oi-ia64: matrix-oi-ia64.s
 	$(CLANG) matrix-oi-ia64.s -o matrix-oi-ia64

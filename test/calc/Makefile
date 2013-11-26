@@ -14,7 +14,7 @@ CROSS=mipsel-unknown-linux-gnu-gcc
 all: calc-oi-x86 calc-nat
 
 calc-nat: calc.c
-	gcc calc.c -o calc-nat
+	$(CLANG) -O3 calc.c -o calc-nat
 
 calc-oi-ia64: calc-oi-ia64.s
 	$(CLANG) calc-oi-ia64.s -o calc-oi-ia64

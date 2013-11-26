@@ -14,7 +14,7 @@ CROSS=mipsel-unknown-linux-gnu-gcc
 all: fib-oi-x86 fib-nat
 
 fib-nat: fib.c
-	gcc fib.c -o fib-nat
+	$(CLANG) -O3 fib.c -o fib-nat
 
 fib-oi-ia64: fib-oi-ia64.s
 	$(CLANG) fib-oi-ia64.s -o fib-oi-ia64

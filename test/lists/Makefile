@@ -14,7 +14,7 @@ CROSS=mipsel-unknown-linux-gnu-gcc
 all: lists-oi-x86 lists-nat
 
 lists-nat: lists.c
-	gcc lists.c -o lists-nat
+	$(CLANG) -O3 lists.c -o lists-nat
 
 lists-oi-ia64: lists-oi-ia64.s
 	$(CLANG) lists-oi-ia64.s -o lists-oi-ia64
