@@ -26,6 +26,7 @@ lists-oi-x86: lists-oi-x86.s
 	$(CLANG) -g lists-oi-x86.s -o lists-oi-x86
 
 lists-oi-x86.s: lists-oi.bc
+	$(OPT) lists-oi.bc -o lists-oi.bc
 	$(LLVMLLC) -march=x86 lists-oi.bc -o lists-oi-x86.s
 
 lists.oi: lists-oi.o

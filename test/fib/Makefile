@@ -26,6 +26,7 @@ fib-oi-x86: fib-oi-x86.s
 	$(CLANG) -g fib-oi-x86.s -o fib-oi-x86
 
 fib-oi-x86.s: fib-oi.bc
+	$(OPT) fib-oi.bc -o fib-oi.bc
 	$(LLVMLLC) -march=x86 fib-oi.bc -o fib-oi-x86.s
 
 fib.oi: fib-oi.o

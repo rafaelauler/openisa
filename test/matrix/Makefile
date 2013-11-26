@@ -20,9 +20,11 @@ matrix-oi-ia64: matrix-oi-ia64.s
 	$(CLANG) matrix-oi-ia64.s -o matrix-oi-ia64
 
 matrix-oi-ia64.s: matrix-oi.bc
+	$(OPT) matrix-oi.bc -o matrix-oi.bc
 	$(LLVMLLC) -march=x86-64 matrix-oi.bc -o matrix-oi-ia64.s
 
 matrix-oi-x86: matrix-oi-x86.s
+	$(OPT) matrix-oi.bc -o matrix-oi.bc
 	$(CLANG) -g matrix-oi-x86.s -o matrix-oi-x86
 
 matrix-oi-x86.s: matrix-oi.bc

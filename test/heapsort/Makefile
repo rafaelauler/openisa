@@ -26,6 +26,7 @@ heapsort-oi-x86: heapsort-oi-x86.s
 	$(CLANG) -g heapsort-oi-x86.s -o heapsort-oi-x86
 
 heapsort-oi-x86.s: heapsort-oi.bc
+	$(OPT) heapsort-oi.bc -o heapsort-oi.bc
 	$(LLVMLLC) -march=x86 heapsort-oi.bc -o heapsort-oi-x86.s
 
 heapsort.oi: heapsort-oi.o

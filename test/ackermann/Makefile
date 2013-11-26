@@ -26,6 +26,7 @@ ackermann-oi-x86: ackermann-oi-x86.s
 	$(CLANG) -g ackermann-oi-x86.s -o ackermann-oi-x86
 
 ackermann-oi-x86.s: ackermann-oi.bc
+	$(OPT) ackermann-oi.bc -o ackermann-oi.bc
 	$(LLVMLLC) -march=x86 ackermann-oi.bc -o ackermann-oi-x86.s
 
 ackermann.oi: ackermann-oi.o
