@@ -495,7 +495,8 @@ void OiInstTranslate::StartFunction(Twine &N) {
     UpdateInsertPoint();
     InsertStartupCode();
   } else {
-    F = reinterpret_cast<Function *>(TheModule->getOrInsertFunction(N.str(), FT));
+    F = reinterpret_cast<Function *>(TheModule->getOrInsertFunction(N.str(),
+                                                                    FT));
     CreateBB(0, F);
     UpdateInsertPoint();
   }
@@ -1634,18 +1635,20 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           HandleAluDstOperand(MI->getOperand(0), o0)) {        
         Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
         Value *cmp;
-        if (MI->getOpcode() == Oi::MOVN_I_I) 
+        if (MI->getOpcode() == Oi::MOVN_I_I) {
           cmp = Builder.CreateICmpNE(o2, zero);
-        else
+        } else {
           cmp = Builder.CreateICmpEQ(o2, zero);
+        }
         Value *loaddst = Builder.CreateLoad(o0);
-        Value *select = Builder.CreateSelect(cmp, o1, loaddst);
+        Value *select = Builder.CreateSelect(cmp, o1, loaddst, "movz_n");
         Builder.CreateStore(select, o0);
         Value *first = GetFirstInstruction(o1, o2, cmp, loaddst);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         InsMap[CurAddr] = dyn_cast<Instruction>(first);
         select->dump();
       }
+      break;
     }
   case Oi::ORi:
   case Oi::OR:
@@ -1777,7 +1780,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         } else {
           o2 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
           HandleBranchTarget(MI->getOperand(1), True);
-          cmp = Builder.CreateICmpULT(o1, o2);
+          cmp = Builder.CreateICmpSLT(o1, o2);
         }
         Value *v = Builder.CreateCondBr(cmp, True, CreateBB(CurAddr+4));
         Value *first = GetFirstInstruction(o1, o2, cmp, v);
