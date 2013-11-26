@@ -501,7 +501,24 @@ void OiInstTranslate::StartFunction(Twine &N) {
   }
 }
 
+void OiInstTranslate::FixBBTerminators() {
+  Function *F = Builder.GetInsertBlock()->getParent();
+
+  for (Function::iterator I = F->begin(), E = F->end(); I != E; ++I) {
+    if (!I->getTerminator()) {
+      Builder.SetInsertPoint(&*I);
+      Instruction *Inst = &I->back();
+      if (isa<CallInst>(Inst)) {
+        CallInst *CInst = dyn_cast<CallInst>(Inst);
+        if (CInst->getCalledFunction()->getName() == "exit")
+          Builder.CreateRetVoid();
+      }
+    }
+  }
+}
+
 void OiInstTranslate::FinishFunction() {
+  FixBBTerminators();
   //Builder.CreateRetVoid();
 }
 
@@ -915,8 +932,16 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V) {
           return HandleLibcMalloc(V);
         if (val == "free")
           return HandleLibcFree(V);
+        if (val == "exit")
+          return HandleLibcExit(V);
+        if (val == "puts")
+          return HandleLibcPuts(V);
+        if (val == "fwrite")
+          return HandleLibcFwrite(V);
         if (val == "printf")
           return HandleLibcPrintf(V);
+        if (val == "fprintf")
+          return HandleLibcFprintf(V);
         if (val == "__isoc99_scanf")
           return HandleLibcScanf(V);
       }
@@ -1136,6 +1161,75 @@ bool OiInstTranslate::HandleLibcFree(Value *&V) {
   params.push_back(Builder.CreatePtrToInt(addrbuf,
                                           Type::getInt32Ty(getGlobalContext())));
   V = Builder.CreateCall(fun, params);
+  return true;
+}
+
+bool OiInstTranslate::HandleLibcExit(Value *&V) {
+  SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getVoidTy(getGlobalContext()),
+                                       args, /*isvararg*/false);
+  Value *fun = TheModule->getOrInsertFunction("exit", ft);
+  SmallVector<Value*, 8> params;
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]));
+  V = Builder.CreateCall(fun, params);
+  return true;
+}
+
+bool OiInstTranslate::HandleLibcPuts(Value *&V) {
+  SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
+                                       args, /*isvararg*/false);
+  Value *fun = TheModule->getOrInsertFunction("puts", ft);
+  SmallVector<Value*, 8> params;
+  Value *addrbuf = AccessShadowMemory32
+    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]), false);
+  params.push_back(Builder.CreatePtrToInt(addrbuf,
+                                          Type::getInt32Ty(getGlobalContext())));
+  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
+                                                                (Oi::V0)]);
+  return true;
+}
+
+// XXX: Handling a fixed number of 4 arguments, since we cannot infer how many
+// arguments the program is using with fprintf
+bool OiInstTranslate::HandleLibcFwrite(Value *&V) {
+  SmallVector<Type*, 8> args(4, Type::getInt32Ty(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
+                                       args, /*isvararg*/false);
+  Value *fun = TheModule->getOrInsertFunction("fwrite", ft);
+  SmallVector<Value*, 8> params;
+  Value *addrbuf = AccessShadowMemory32
+    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]), false);
+  params.push_back(Builder.CreatePtrToInt(addrbuf,
+                                          Type::getInt32Ty(getGlobalContext())));
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]));
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]));
+  addrbuf = AccessShadowMemory32
+    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A3)]), false);
+  params.push_back(Builder.CreatePtrToInt(addrbuf,
+                                          Type::getInt32Ty(getGlobalContext())));
+  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
+                                                                (Oi::V0)]);
+  return true;
+}
+
+// XXX: Handling a fixed number of 4 arguments, since we cannot infer how many
+// arguments the program is using with fprintf
+bool OiInstTranslate::HandleLibcFprintf(Value *&V) {
+  SmallVector<Type*, 8> args(2, Type::getInt32Ty(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
+                                       args, /*isvararg*/true);
+  Value *fun = TheModule->getOrInsertFunction("fprintf", ft);
+  SmallVector<Value*, 8> params;
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]));
+  Value *addrbuf = AccessShadowMemory32
+    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]), false);
+  params.push_back(Builder.CreatePtrToInt(addrbuf,
+                                          Type::getInt32Ty(getGlobalContext())));
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]));
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A3)]));
+  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
+                                                                (Oi::V0)]);
   return true;
 }
 
@@ -1530,6 +1624,29 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       }
       break;
     }
+  case Oi::MOVN_I_I:
+  case Oi::MOVZ_I_I:
+    {
+      DebugOut << "Handling MOVN, MOVZ\n";
+      Value *o0, *o1, *o2;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+          HandleAluDstOperand(MI->getOperand(0), o0)) {        
+        Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
+        Value *cmp;
+        if (MI->getOpcode() == Oi::MOVN_I_I) 
+          cmp = Builder.CreateICmpNE(o2, zero);
+        else
+          cmp = Builder.CreateICmpEQ(o2, zero);
+        Value *loaddst = Builder.CreateLoad(o0);
+        Value *select = Builder.CreateSelect(cmp, o1, loaddst);
+        Builder.CreateStore(select, o0);
+        Value *first = GetFirstInstruction(o1, o2, cmp, loaddst);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        select->dump();
+      }
+    }
   case Oi::ORi:
   case Oi::OR:
     {
@@ -1539,6 +1656,57 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           HandleAluSrcOperand(MI->getOperand(2), o2) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {      
         Value *v = Builder.CreateOr(o1, o2);
+        Value *v2 = Builder.CreateStore(v, o0);
+        Value *first = GetFirstInstruction(o1, o2, v, v2);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        v2->dump();
+      }
+      break;
+    }
+  case Oi::NOR:
+    {
+      DebugOut << "Handling NORi, NOR\n";
+      Value *o0, *o1, *o2;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+          HandleAluDstOperand(MI->getOperand(0), o0)) {      
+        Value *v = Builder.CreateOr(o1, o2);
+        Value *v2 = Builder.CreateNot(v);
+        Value *v3 = Builder.CreateStore(v2, o0);
+        Value *first = GetFirstInstruction(o1, o2, v, v2);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        v2->dump();
+      }
+      break;
+    }
+  case Oi::ANDi:
+  case Oi::AND:
+    {
+      DebugOut << "Handling ANDi, AND\n";
+      Value *o0, *o1, *o2;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+          HandleAluDstOperand(MI->getOperand(0), o0)) {      
+        Value *v = Builder.CreateAnd(o1, o2);
+        Value *v2 = Builder.CreateStore(v, o0);
+        Value *first = GetFirstInstruction(o1, o2, v, v2);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        v2->dump();
+      }
+      break;
+    }
+  case Oi::XORi:
+  case Oi::XOR:
+    {
+      DebugOut << "Handling XORi, XOR\n";
+      Value *o0, *o1, *o2;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+          HandleAluDstOperand(MI->getOperand(0), o0)) {      
+        Value *v = Builder.CreateXor(o1, o2);
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
@@ -1590,31 +1758,27 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       break;
     }
   case Oi::BEQ:
-    {
-      DebugOut << "Handling BEQ\n";
-      Value *o1, *o2;
-      BasicBlock *True = 0;
-      if (HandleAluSrcOperand(MI->getOperand(0), o1) &&
-          HandleAluSrcOperand(MI->getOperand(1), o2) &&
-          HandleBranchTarget(MI->getOperand(2), True)) {
-        Value *cmp = Builder.CreateICmpEQ(o1, o2);
-        Value *v = Builder.CreateCondBr(cmp, True, CreateBB(CurAddr+4));
-        Value *first = GetFirstInstruction(o1, o2, cmp, v);
-        assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
-        v->dump();
-      }
-      break;
-    }
   case Oi::BNE:
+  case Oi::BLTZ:
     {
-      DebugOut << "Handling BNE\n";
+      DebugOut << "Handling BEQ, BNE, BLTZ\n";
       Value *o1, *o2;
       BasicBlock *True = 0;
-      if (HandleAluSrcOperand(MI->getOperand(0), o1) &&
-          HandleAluSrcOperand(MI->getOperand(1), o2) &&
-          HandleBranchTarget(MI->getOperand(2), True)) {
-        Value *cmp = Builder.CreateICmpNE(o1, o2);
+      if (HandleAluSrcOperand(MI->getOperand(0), o1)) {
+        Value *cmp;
+        if (MI->getOpcode() == Oi::BEQ) {
+          HandleAluSrcOperand(MI->getOperand(1), o2);
+          HandleBranchTarget(MI->getOperand(2), True);
+          cmp = Builder.CreateICmpEQ(o1, o2);
+        } else if (MI->getOpcode() == Oi::BNE) {
+          HandleAluSrcOperand(MI->getOperand(1), o2);
+          HandleBranchTarget(MI->getOperand(2), True);
+          cmp = Builder.CreateICmpNE(o1, o2);
+        } else {
+          o2 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
+          HandleBranchTarget(MI->getOperand(1), True);
+          cmp = Builder.CreateICmpULT(o1, o2);
+        }
         Value *v = Builder.CreateCondBr(cmp, True, CreateBB(CurAddr+4));
         Value *first = GetFirstInstruction(o1, o2, cmp, v);
         assert(isa<Instruction>(first) && "Need to rework map logic");

@@ -60,6 +60,7 @@ public:
   bool printAliasInstr(const MCInst *MI, raw_ostream &OS);
   Module* takeModule();
   void StartFunction(Twine &N);
+  void FixBBTerminators();
   void FinishFunction();
   void UpdateCurAddr(uint64_t val) {
     CurAddr = val;
@@ -101,6 +102,10 @@ private:
   bool HandleLibcAtoi(Value *&V);
   bool HandleLibcMalloc(Value *&V);
   bool HandleLibcFree(Value *&V);
+  bool HandleLibcExit(Value *&V);
+  bool HandleLibcPuts(Value *&V);
+  bool HandleLibcFwrite(Value *&V);
+  bool HandleLibcFprintf(Value *&V);
   bool HandleLibcPrintf(Value *&V);
   bool HandleLibcScanf(Value *&V);
   bool HandleLocalCall(StringRef Name, Value *&V);
