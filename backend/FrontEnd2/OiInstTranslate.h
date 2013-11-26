@@ -101,6 +101,7 @@ private:
   bool HandleSyscallWrite(Value *&V);
   bool HandleLibcAtoi(Value *&V);
   bool HandleLibcMalloc(Value *&V);
+  bool HandleLibcCalloc(Value *&V);
   bool HandleLibcFree(Value *&V);
   bool HandleLibcExit(Value *&V);
   bool HandleLibcPuts(Value *&V);

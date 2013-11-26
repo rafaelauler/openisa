@@ -931,6 +931,8 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V) {
           return HandleLibcAtoi(V);
         if (val == "malloc")
           return HandleLibcMalloc(V);
+        if (val == "calloc")
+          return HandleLibcCalloc(V);
         if (val == "free")
           return HandleLibcFree(V);
         if (val == "exit")
@@ -1147,7 +1149,23 @@ bool OiInstTranslate::HandleLibcMalloc(Value *&V) {
   Value *ptr = Builder.CreatePtrToInt(ShadowImageValue, Type::getInt32Ty(getGlobalContext()));
   Value *fixed = Builder.CreateSub(mal, ptr);
   V = Builder.CreateStore(fixed, Regs[ConvToDirective
-                                                                (Oi::V0)]);
+                                      (Oi::V0)]);
+  return true;
+}
+
+bool OiInstTranslate::HandleLibcCalloc(Value *&V) {
+  SmallVector<Type*, 8> args(2, Type::getInt32Ty(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
+                                       args, /*isvararg*/false);
+  Value *fun = TheModule->getOrInsertFunction("calloc", ft);
+  SmallVector<Value*, 8> params;
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]));
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]));
+  Value *mal = Builder.CreateCall(fun, params);
+  Value *ptr = Builder.CreatePtrToInt(ShadowImageValue, Type::getInt32Ty(getGlobalContext()));
+  Value *fixed = Builder.CreateSub(mal, ptr);
+  V = Builder.CreateStore(fixed, Regs[ConvToDirective
+                                      (Oi::V0)]);
   return true;
 }
 
@@ -1763,6 +1781,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::BEQ:
   case Oi::BNE:
   case Oi::BLTZ:
+  case Oi::BGTZ:
     {
       DebugOut << "Handling BEQ, BNE, BLTZ\n";
       Value *o1, *o2;
@@ -1777,10 +1796,14 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           HandleAluSrcOperand(MI->getOperand(1), o2);
           HandleBranchTarget(MI->getOperand(2), True);
           cmp = Builder.CreateICmpNE(o1, o2);
-        } else {
+        } else if (MI->getOpcode() == Oi::BLTZ) {
           o2 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
           HandleBranchTarget(MI->getOperand(1), True);
           cmp = Builder.CreateICmpSLT(o1, o2);
+        } else { /*  Oi::BGTZ  */
+          o2 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
+          HandleBranchTarget(MI->getOperand(1), True);
+          cmp = Builder.CreateICmpSGT(o1, o2);
         }
         Value *v = Builder.CreateCondBr(cmp, True, CreateBB(CurAddr+4));
         Value *first = GetFirstInstruction(o1, o2, cmp, v);
