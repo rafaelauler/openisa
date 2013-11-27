@@ -54,7 +54,7 @@ matrix.s: matrix.bc
 
 matrix.bc: matrix.c
 	$(CLANG) $(EMITLLVM) -o matrix.bc matrix.c
-#	$(OPT) matrix.bc -o matrix.bc
+	$(OPT) matrix.bc -o matrix.bc
 
 clean:
 	-rm -rf matrix.s matrix.bc matrix-oi.bc matrix-oi-ia64.s matrix-oi-ia64 matrix-oi-x86.s matrix-oi-x86 matrix-oi.o matrix.oi matrix-nat
