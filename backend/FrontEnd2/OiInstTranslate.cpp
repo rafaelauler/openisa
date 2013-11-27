@@ -1200,6 +1200,8 @@ bool OiInstTranslate::HandleLibcAtoi(Value *&V, Value **First) {
                                           Type::getInt32Ty(getGlobalContext())));
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
                                                                 (Oi::V0)]);
+  ReadMap[ConvToDirective(Oi::A0)] = true;
+  WriteMap[ConvToDirective(Oi::V0)] = true;
   return true;
 }
 
@@ -1218,6 +1220,8 @@ bool OiInstTranslate::HandleLibcMalloc(Value *&V, Value **First) {
   Value *fixed = Builder.CreateSub(mal, ptr);
   V = Builder.CreateStore(fixed, Regs[ConvToDirective
                                       (Oi::V0)]);
+  ReadMap[ConvToDirective(Oi::A0)] = true;
+  WriteMap[ConvToDirective(Oi::V0)] = true;
   return true;
 }
 
@@ -1237,6 +1241,9 @@ bool OiInstTranslate::HandleLibcCalloc(Value *&V, Value **First) {
   Value *fixed = Builder.CreateSub(mal, ptr);
   V = Builder.CreateStore(fixed, Regs[ConvToDirective
                                       (Oi::V0)]);
+  ReadMap[ConvToDirective(Oi::A0)] = true;
+  ReadMap[ConvToDirective(Oi::A1)] = true;
+  WriteMap[ConvToDirective(Oi::V0)] = true;
   return true;
 }
 
@@ -1254,6 +1261,7 @@ bool OiInstTranslate::HandleLibcFree(Value *&V, Value **First) {
   params.push_back(Builder.CreatePtrToInt(addrbuf,
                                           Type::getInt32Ty(getGlobalContext())));
   V = Builder.CreateCall(fun, params);
+  ReadMap[ConvToDirective(Oi::A0)] = true;
   return true;
 }
 
@@ -1268,6 +1276,7 @@ bool OiInstTranslate::HandleLibcExit(Value *&V, Value **First) {
     *First = f;
   params.push_back(f);
   V = Builder.CreateCall(fun, params);
+  ReadMap[ConvToDirective(Oi::A0)] = true;
   return true;
 }
 
@@ -1286,6 +1295,8 @@ bool OiInstTranslate::HandleLibcPuts(Value *&V, Value **First) {
                                           Type::getInt32Ty(getGlobalContext())));
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
                                                                 (Oi::V0)]);
+  ReadMap[ConvToDirective(Oi::A0)] = true;
+  WriteMap[ConvToDirective(Oi::V0)] = true;
   return true;
 }
 
@@ -1311,6 +1322,11 @@ bool OiInstTranslate::HandleLibcFwrite(Value *&V, Value **First) {
                                           Type::getInt32Ty(getGlobalContext())));
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
                                                                 (Oi::V0)]);
+  ReadMap[ConvToDirective(Oi::A0)] = true;
+  ReadMap[ConvToDirective(Oi::A1)] = true;
+  ReadMap[ConvToDirective(Oi::A2)] = true;
+  ReadMap[ConvToDirective(Oi::A3)] = true;
+  WriteMap[ConvToDirective(Oi::V0)] = true;
   return true;
 }
 
@@ -1334,6 +1350,11 @@ bool OiInstTranslate::HandleLibcFprintf(Value *&V, Value **First) {
   params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A3)]));
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
                                                                 (Oi::V0)]);
+  ReadMap[ConvToDirective(Oi::A0)] = true;
+  ReadMap[ConvToDirective(Oi::A1)] = true;
+  ReadMap[ConvToDirective(Oi::A2)] = true;
+  ReadMap[ConvToDirective(Oi::A3)] = true;
+  WriteMap[ConvToDirective(Oi::V0)] = true;
   return true;
 }
 
@@ -1356,6 +1377,11 @@ bool OiInstTranslate::HandleLibcPrintf(Value *&V, Value **First) {
   params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A3)]));
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
                                                                 (Oi::V0)]);
+  ReadMap[ConvToDirective(Oi::A0)] = true;
+  ReadMap[ConvToDirective(Oi::A1)] = true;
+  ReadMap[ConvToDirective(Oi::A2)] = true;
+  ReadMap[ConvToDirective(Oi::A3)] = true;
+  WriteMap[ConvToDirective(Oi::V0)] = true;
   return true;
 }
 
@@ -1387,6 +1413,11 @@ bool OiInstTranslate::HandleLibcScanf(Value *&V, Value **First) {
                                           Type::getInt32Ty(getGlobalContext())));
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
                                                                 (Oi::V0)]);
+  ReadMap[ConvToDirective(Oi::A0)] = true;
+  ReadMap[ConvToDirective(Oi::A1)] = true;
+  ReadMap[ConvToDirective(Oi::A2)] = true;
+  ReadMap[ConvToDirective(Oi::A3)] = true;
+  WriteMap[ConvToDirective(Oi::V0)] = true;
   return true;
 }
 
@@ -1408,7 +1439,10 @@ bool OiInstTranslate::HandleSyscallWrite(Value *&V, Value **First) {
 
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
                                                                 (Oi::V0)]);
-
+  ReadMap[ConvToDirective(Oi::A0)] = true;
+  ReadMap[ConvToDirective(Oi::A1)] = true;
+  ReadMap[ConvToDirective(Oi::A2)] = true;
+  WriteMap[ConvToDirective(Oi::V0)] = true;
   return true;
 }
 
@@ -1971,12 +2005,14 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::JR64:
   case Oi::JR: {
     DebugOut << "Handling JR\n";
-    Value *first;
+    Value *first = 0;
     if (!NoLocals)
       HandleFunctionExitPoint(&first);
     if (MI->getOperand(0).getReg() == Oi::RA
         || MI->getOperand(0).getReg() == Oi::RA_64) {
       Value *v = Builder.CreateRetVoid();
+      if (!first)
+        first = v;
       assert(isa<Instruction>(first) && "Need to rework map logic");      
       InsMap[CurAddr] = dyn_cast<Instruction>(first);
       v->dump();
