@@ -4,7 +4,8 @@ int fib(int n);
 
 int
 main() {
-  return fib(45);
+  int d= fib(44);
+  printf("fib(44) = %d\n", d);
 }
 
 int
