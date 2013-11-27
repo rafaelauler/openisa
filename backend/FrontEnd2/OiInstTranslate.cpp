@@ -507,19 +507,31 @@ void OiInstTranslate::BuildLocalRegisterFile() {
   }
 }
 
+void OiInstTranslate::HandleFunctionEntryPoint(Value **First) {
+  bool WroteFirst = false;
+  if (NoLocals)
+    return;
+  for (int I = 0; I < 67; ++I) {
+    Value *st = Builder.CreateStore(Builder.CreateLoad(GlobalRegs[I]), Regs[I]);
+    if (!WroteFirst) {
+      WroteFirst = true;
+      if (First)
+        *First = st; 
+    }
+  }
+}
+
 void OiInstTranslate::HandleFunctionExitPoint(Value **First) {
   bool WroteFirst = false;
   if (NoLocals)
     return;
   for (int I = 0; I < 67; ++I) {
-    if (WriteMap[I]) {
-      Value *st = Builder.CreateStore(Builder.CreateLoad(Regs[I]), GlobalRegs[I]);
-      if (!WroteFirst) {
-        WroteFirst = true;
-        if (First)
-          *First = st; 
-      }
-    }
+    Value *st = Builder.CreateStore(Builder.CreateLoad(Regs[I]), GlobalRegs[I]);
+    if (!WroteFirst) {
+      WroteFirst = true;
+      if (First)
+        *First = st; 
+    }    
   }
 }
 
@@ -561,14 +573,31 @@ void OiInstTranslate::FixBBTerminators() {
   }
 }
 
+// Note: CleanRegs() leaves a few remaining "Load GlobalRegXX" after the
+// cleanup, but a simple SSA dead code elimination should handle them.
 void OiInstTranslate::CleanRegs() {
+  //  Builder.GetInsertBlock()->getParent()->dump();
   for (int I = 0; I < 67; ++I) {
     if (!(WriteMap[I] || ReadMap[I])) {
       Instruction *inst = dyn_cast<Instruction>(Regs[I]);
       if (inst) {
         while (!inst->use_empty()) {
           Instruction* UI = inst->use_back();
-          assert (isa<StoreInst>(UI));
+          // These are assigning a value to the local copy of the reg, bu since
+          // we don't use it, we can delete the assignment.
+          if (isa<StoreInst>(UI)) {
+            UI->eraseFromParent();
+            continue;
+          }
+          assert (isa<LoadInst>(UI));
+          // Here we should have a false usage of the value. It is loading only
+          // in checkpoints (exit points) to save it back to the global copy.
+          // Since we do not really use it, we should delete the load and the
+          // store insruction that is using it.
+          assert (UI->hasOneUse());
+          Instruction* StUI = dyn_cast<Instruction>(UI->use_back());
+          assert (isa<StoreInst>(StUI));
+          StUI->eraseFromParent();
           UI->eraseFromParent();
         }
         inst->eraseFromParent();
@@ -971,12 +1000,7 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
     Twine T("a");
     if (o.getImm() != 0U) {
       T = T.concat(Twine::utohexstr(o.getImm()));
-      if (NoLocals) {
-        return HandleLocalCall(StringRef(T.str()), V, First);
-      } else {
-        HandleFunctionExitPoint(First);
-        return HandleLocalCall(StringRef(T.str()), V);
-      }
+      return HandleLocalCall(StringRef(T.str()), V, First);
     } else { // Need to handle the relocation to find the correct jump address
       relocation_iterator ri = (*CurSection)->end_relocations();
       StringRef val;
@@ -1007,12 +1031,7 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
       uint64_t targetaddr;
       if (ResolveRelocation(targetaddr)) {
         T = T.concat(Twine::utohexstr(targetaddr));
-        if (NoLocals) {
-          return HandleLocalCall(StringRef(T.str()), V, First);
-        } else {
-          HandleFunctionExitPoint(First);
-          return HandleLocalCall(StringRef(T.str()), V);
-        }
+        return HandleLocalCall(StringRef(T.str()), V, First);
       }
       llvm_unreachable("Unrecognized function call");
     }
@@ -1177,12 +1196,14 @@ bool OiInstTranslate::HandleBackEdge(uint64_t Addr, BasicBlock *&Target) {
 }
 
 bool OiInstTranslate::HandleLocalCall(StringRef Name, Value *&V, Value **First) {
+  HandleFunctionExitPoint(First);
   FunctionType *ft = FunctionType::get(Type::getVoidTy(getGlobalContext()),
                                        /*isvararg*/false);
   Value *fun = TheModule->getOrInsertFunction(Name, ft);
   V = Builder.CreateCall(fun);
-  if (First)
+  if (First && NoLocals)
     *First = V;
+  HandleFunctionEntryPoint();
   return true;
 }
 

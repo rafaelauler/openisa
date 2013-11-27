@@ -131,6 +131,7 @@ private:
   void BuildShadowImage();
   void BuildRegisterFile();
   void BuildLocalRegisterFile();
+  void HandleFunctionEntryPoint(Value **First = 0);
   void HandleFunctionExitPoint(Value **First = 0);
   void CleanRegs();
 };
