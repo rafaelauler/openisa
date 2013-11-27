@@ -26,6 +26,9 @@
 #include "llvm-objdump.h"
 using namespace llvm;
 
+static cl::opt<bool>
+NoLocals("nolocals", cl::desc("Do not use locals, always use global variables"));
+
 static bool error(error_code ec) {
   if (!ec) return false;
 
@@ -435,7 +438,7 @@ void OiInstTranslate::BuildRegisterFile() {
     GlobalVariable *gv = new GlobalVariable(*TheModule, ty, false, 
                                             GlobalValue::ExternalLinkage,
                                             ci, "reg");
-    Regs[I] = gv;
+    GlobalRegs[I] = gv;
   }
 }
 
@@ -482,6 +485,44 @@ void OiInstTranslate::UpdateInsertPoint() {
   }
 }
 
+void OiInstTranslate::BuildLocalRegisterFile() {
+  Type *ty = Type::getInt32Ty(getGlobalContext());
+  // 32 base regs  0-31
+  // LO 32
+  // HI 33
+  // 32 fp regs 34-65
+  // FPCondCode 66
+  if (NoLocals) {
+    for (int I = 0; I < 67; ++I) {
+      Regs[I] = GlobalRegs[I];
+    }    
+  } else {
+    for (int I = 0; I < 67; ++I) {
+      AllocaInst *inst = Builder.CreateAlloca(ty, 0, "lreg");
+      Regs[I] = inst;
+      Builder.CreateStore(Builder.CreateLoad(GlobalRegs[I]), inst);
+      WriteMap[I] = false;
+      ReadMap[I] = false;
+    }
+  }
+}
+
+void OiInstTranslate::HandleFunctionExitPoint(Value **First) {
+  bool WroteFirst = false;
+  if (NoLocals)
+    return;
+  for (int I = 0; I < 67; ++I) {
+    if (WriteMap[I]) {
+      Value *st = Builder.CreateStore(Builder.CreateLoad(Regs[I]), GlobalRegs[I]);
+      if (!WroteFirst) {
+        WroteFirst = true;
+        if (First)
+          *First = st; 
+      }
+    }
+  }
+}
+
 void OiInstTranslate::StartFunction(Twine &N) {
   // Create a function with no parameters
   FunctionType *FT = FunctionType::get(Type::getVoidTy(getGlobalContext()),
@@ -493,12 +534,14 @@ void OiInstTranslate::StartFunction(Twine &N) {
     FirstFunction = false;
     CreateBB(0, F);
     UpdateInsertPoint();
+    BuildLocalRegisterFile();
     InsertStartupCode();
   } else {
     F = reinterpret_cast<Function *>(TheModule->getOrInsertFunction(N.str(),
                                                                     FT));
     CreateBB(0, F);
     UpdateInsertPoint();
+    BuildLocalRegisterFile();
   }
 }
 
@@ -518,7 +561,24 @@ void OiInstTranslate::FixBBTerminators() {
   }
 }
 
+void OiInstTranslate::CleanRegs() {
+  for (int I = 0; I < 67; ++I) {
+    if (!(WriteMap[I] || ReadMap[I])) {
+      Instruction *inst = dyn_cast<Instruction>(Regs[I]);
+      if (inst) {
+        while (!inst->use_empty()) {
+          Instruction* UI = inst->use_back();
+          assert (isa<StoreInst>(UI));
+          UI->eraseFromParent();
+        }
+        inst->eraseFromParent();
+      }
+    }
+  }
+}
+
 void OiInstTranslate::FinishFunction() {
+  CleanRegs();
   FixBBTerminators();
   //Builder.CreateRetVoid();
 }
@@ -553,12 +613,13 @@ static Value* GetFirstInstruction(Value *o0, Value *o1, Value *o2, Value *o3) {
 
 bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
-    unsigned reg = conv32(o.getReg());
-    if (ConvToDirective(reg) == 0) {
+    unsigned reg = ConvToDirective(conv32(o.getReg()));
+    if (reg == 0) {
       V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0);
       return true;
     }
-    V = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
+    V = Builder.CreateLoad(Regs[reg]);
+    ReadMap[reg] = true;
     return true;
   } else if (o.isImm()) {
     uint64_t myimm = o.getImm();
@@ -580,23 +641,15 @@ bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
   } else if (o.isFPImm()) {
     V = ConstantFP::get(getGlobalContext(), APFloat(o.getFPImm()));
     return true;
-  } else if (o.isExpr()) {
-    int64_t val;
-    if(o.getExpr()->EvaluateAsAbsolute(val)) {
-      V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), val);
-    } else {
-      llvm_unreachable("Invalid src operand");
-    }
-    return true;
   }
   llvm_unreachable("Invalid Src operand");
 }
 
 bool OiInstTranslate::HandleDoubleSrcOperand(const MCOperand &o, Value *&V, Value **First) {
   if (o.isReg()) {
-    unsigned reg = conv32(o.getReg());
-    Value *v1 = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
-    Value *v2 = Builder.CreateLoad(Regs[ConvToDirective(reg)+1]);
+    unsigned reg = ConvToDirective(conv32(o.getReg()));
+    Value *v1 = Builder.CreateLoad(Regs[reg]);
+    Value *v2 = Builder.CreateLoad(Regs[reg+1]);
     // Assume little endian for doubles
     Value *v3 = Builder.CreateZExtOrTrunc(v2, Type::getInt64Ty(getGlobalContext()));
     Value *v4 = Builder.CreateZExtOrTrunc(v1, Type::getInt64Ty(getGlobalContext()));
@@ -606,6 +659,8 @@ bool OiInstTranslate::HandleDoubleSrcOperand(const MCOperand &o, Value *&V, Valu
     V = Builder.CreateBitCast(v6, Type::getDoubleTy(getGlobalContext()));
     if (First != 0)
       *First = v1;
+    ReadMap[reg] = true;
+    ReadMap[reg+1] = true;
     return true;
   } 
   llvm_unreachable("Invalid Src operand");
@@ -613,10 +668,12 @@ bool OiInstTranslate::HandleDoubleSrcOperand(const MCOperand &o, Value *&V, Valu
 
 bool OiInstTranslate::HandleDoubleDstOperand(const MCOperand &o, Value *&V1, Value *&V2) {
   if (o.isReg()) {
-    unsigned reg = conv32(o.getReg());
+    unsigned reg = ConvToDirective(conv32(o.getReg()));
     // Assume little endian doubles
-    V2 = Regs[ConvToDirective(reg)];
-    V1 = Regs[ConvToDirective(reg)+1];
+    V2 = Regs[reg];
+    V1 = Regs[reg+1];
+    WriteMap[reg] = true;
+    WriteMap[reg+1] = true;
     return true;
   }
   llvm_unreachable("Invalid dst operand");
@@ -638,8 +695,9 @@ bool OiInstTranslate::HandleDoubleMemOperand(const MCOperand &o, const MCOperand
                                        0xFFFF));
         idx = V1;
         //Assume little endian doubles
-        unsigned reg = conv32(o.getReg());
-        base = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
+        unsigned reg = ConvToDirective(conv32(o.getReg()));
+        base = Builder.CreateLoad(Regs[reg]);
+        ReadMap[reg] = true;
         addr = Builder.CreateAdd(base, idx);
         if (First != 0) {
           *First = GetFirstInstruction(V1, base, addr);
@@ -651,8 +709,9 @@ bool OiInstTranslate::HandleDoubleMemOperand(const MCOperand &o, const MCOperand
       idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                              myimm);
       //Assume little endian doubles
-      unsigned reg = conv32(o.getReg());
-      base = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
+      unsigned reg = ConvToDirective(conv32(o.getReg()));
+      base = Builder.CreateLoad(Regs[reg]);
+      ReadMap[reg] = true;
       addr = Builder.CreateAdd(base, idx);
       if (First != 0)
         *First = GetFirstInstruction(base, addr);
@@ -774,8 +833,9 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
                                        0xFFFF));
         *First = V1;
         idx = V1;
-        unsigned reg = conv32(o.getReg());
-        Value *base = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
+        unsigned reg = ConvToDirective(conv32(o.getReg()));
+        Value *base = Builder.CreateLoad(Regs[reg]);
+        ReadMap[reg] = true;
         if (!isa<Instruction>(*First)) {
           *First = base;
         }
@@ -789,32 +849,23 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
     } else {
       idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                              myimm);
-      unsigned reg = conv32(o.getReg());
-      Value *base = Builder.CreateLoad(Regs[ConvToDirective(reg)]);
+      unsigned reg = ConvToDirective(conv32(o.getReg()));
+      Value *base = Builder.CreateLoad(Regs[reg]);
+      ReadMap[reg] = true;
       addr = Builder.CreateAdd(base, idx);
       *First = base;
     }
     V = AccessShadowMemory32(addr, IsLoad);
     return true;
   } 
-
-  //  } else if (o.isExpr()) {
-  //  int64_t val;
-  //  if(o.getExpr()->EvaluateAsAbsolute(val)) { 
-  //    Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), val);
-  //    V = AccessShadowMemory32(idx, IsLoad);
-  //  } else {
-  //    return HandleMemExpr(*o.getExpr(), V, IsLoad);
-  //  }
-  //  return true;
-  //}
   llvm_unreachable("Invalid Src operand");
 }
 
 bool OiInstTranslate::HandleAluDstOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
-    unsigned reg = conv32(o.getReg());
-    V = Regs[ConvToDirective(reg)];
+    unsigned reg = ConvToDirective(conv32(o.getReg()));
+    V = Regs[reg];
+    WriteMap[reg] = true;
     return true;
   }
   llvm_unreachable("Invalid Dst operand");
@@ -915,43 +966,53 @@ bool OiInstTranslate::CheckRelocation(relocation_iterator &Rel, StringRef &Name)
   return false;
 }
 
-bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V) {
+bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **First) {
   if (o.isImm()) {
     Twine T("a");
     if (o.getImm() != 0U) {
       T = T.concat(Twine::utohexstr(o.getImm()));
-      return HandleLocalCall(StringRef(T.str()), V);
+      if (NoLocals) {
+        return HandleLocalCall(StringRef(T.str()), V, First);
+      } else {
+        HandleFunctionExitPoint(First);
+        return HandleLocalCall(StringRef(T.str()), V);
+      }
     } else { // Need to handle the relocation to find the correct jump address
       relocation_iterator ri = (*CurSection)->end_relocations();
       StringRef val;
       if (CheckRelocation(ri, val)) {
         if (val == "write") 
-          return HandleSyscallWrite(V);        
+          return HandleSyscallWrite(V, First);        
         if (val == "atoi")
-          return HandleLibcAtoi(V);
+          return HandleLibcAtoi(V, First);
         if (val == "malloc")
-          return HandleLibcMalloc(V);
+          return HandleLibcMalloc(V, First);
         if (val == "calloc")
-          return HandleLibcCalloc(V);
+          return HandleLibcCalloc(V, First);
         if (val == "free")
-          return HandleLibcFree(V);
+          return HandleLibcFree(V, First);
         if (val == "exit")
-          return HandleLibcExit(V);
+          return HandleLibcExit(V, First);
         if (val == "puts")
-          return HandleLibcPuts(V);
+          return HandleLibcPuts(V, First);
         if (val == "fwrite")
-          return HandleLibcFwrite(V);
+          return HandleLibcFwrite(V, First);
         if (val == "printf")
-          return HandleLibcPrintf(V);
+          return HandleLibcPrintf(V, First);
         if (val == "fprintf")
-          return HandleLibcFprintf(V);
+          return HandleLibcFprintf(V, First);
         if (val == "__isoc99_scanf")
           return HandleLibcScanf(V);
       }
       uint64_t targetaddr;
       if (ResolveRelocation(targetaddr)) {
         T = T.concat(Twine::utohexstr(targetaddr));
-        return HandleLocalCall(StringRef(T.str()), V);
+        if (NoLocals) {
+          return HandleLocalCall(StringRef(T.str()), V, First);
+        } else {
+          HandleFunctionExitPoint(First);
+          return HandleLocalCall(StringRef(T.str()), V);
+        }
       }
       llvm_unreachable("Unrecognized function call");
     }
@@ -1115,22 +1176,26 @@ bool OiInstTranslate::HandleBackEdge(uint64_t Addr, BasicBlock *&Target) {
   return true;
 }
 
-bool OiInstTranslate::HandleLocalCall(StringRef Name, Value *&V) {
+bool OiInstTranslate::HandleLocalCall(StringRef Name, Value *&V, Value **First) {
   FunctionType *ft = FunctionType::get(Type::getVoidTy(getGlobalContext()),
                                        /*isvararg*/false);
   Value *fun = TheModule->getOrInsertFunction(Name, ft);
   V = Builder.CreateCall(fun);
+  if (First)
+    *First = V;
   return true;
 }
 
-bool OiInstTranslate::HandleLibcAtoi(Value *&V) {
+bool OiInstTranslate::HandleLibcAtoi(Value *&V, Value **First) {
   SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
   FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
                                        args, /*isvararg*/false);
   Value *fun = TheModule->getOrInsertFunction("atoi", ft);
   SmallVector<Value*, 8> params;
-  Value *addrbuf = AccessShadowMemory32
-    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]), false);
+  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
+  if (First)
+    *First = f;
+  Value *addrbuf = AccessShadowMemory32(f, false);
   params.push_back(Builder.CreatePtrToInt(addrbuf,
                                           Type::getInt32Ty(getGlobalContext())));
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
@@ -1138,13 +1203,16 @@ bool OiInstTranslate::HandleLibcAtoi(Value *&V) {
   return true;
 }
 
-bool OiInstTranslate::HandleLibcMalloc(Value *&V) {
+bool OiInstTranslate::HandleLibcMalloc(Value *&V, Value **First) {
   SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
   FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
                                        args, /*isvararg*/false);
   Value *fun = TheModule->getOrInsertFunction("malloc", ft);
   SmallVector<Value*, 8> params;
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]));
+  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
+  if (First)
+    *First = f;
+  params.push_back(f);
   Value *mal = Builder.CreateCall(fun, params);
   Value *ptr = Builder.CreatePtrToInt(ShadowImageValue, Type::getInt32Ty(getGlobalContext()));
   Value *fixed = Builder.CreateSub(mal, ptr);
@@ -1153,13 +1221,16 @@ bool OiInstTranslate::HandleLibcMalloc(Value *&V) {
   return true;
 }
 
-bool OiInstTranslate::HandleLibcCalloc(Value *&V) {
+bool OiInstTranslate::HandleLibcCalloc(Value *&V, Value **First) {
   SmallVector<Type*, 8> args(2, Type::getInt32Ty(getGlobalContext()));
   FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
                                        args, /*isvararg*/false);
   Value *fun = TheModule->getOrInsertFunction("calloc", ft);
+  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
+  if (First)
+    *First = f;
   SmallVector<Value*, 8> params;
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]));
+  params.push_back(f);
   params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]));
   Value *mal = Builder.CreateCall(fun, params);
   Value *ptr = Builder.CreatePtrToInt(ShadowImageValue, Type::getInt32Ty(getGlobalContext()));
@@ -1169,39 +1240,48 @@ bool OiInstTranslate::HandleLibcCalloc(Value *&V) {
   return true;
 }
 
-bool OiInstTranslate::HandleLibcFree(Value *&V) {
+bool OiInstTranslate::HandleLibcFree(Value *&V, Value **First) {
   SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
   FunctionType *ft = FunctionType::get(Type::getVoidTy(getGlobalContext()),
                                        args, /*isvararg*/false);
   Value *fun = TheModule->getOrInsertFunction("free", ft);
   SmallVector<Value*, 8> params;
+  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
+  if (First)
+    *First = f;
   Value *addrbuf = AccessShadowMemory32
-    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]), false);
+    (f, false);
   params.push_back(Builder.CreatePtrToInt(addrbuf,
                                           Type::getInt32Ty(getGlobalContext())));
   V = Builder.CreateCall(fun, params);
   return true;
 }
 
-bool OiInstTranslate::HandleLibcExit(Value *&V) {
+bool OiInstTranslate::HandleLibcExit(Value *&V, Value **First) {
   SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
   FunctionType *ft = FunctionType::get(Type::getVoidTy(getGlobalContext()),
                                        args, /*isvararg*/false);
   Value *fun = TheModule->getOrInsertFunction("exit", ft);
   SmallVector<Value*, 8> params;
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]));
+  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
+  if (First)
+    *First = f;
+  params.push_back(f);
   V = Builder.CreateCall(fun, params);
   return true;
 }
 
-bool OiInstTranslate::HandleLibcPuts(Value *&V) {
+bool OiInstTranslate::HandleLibcPuts(Value *&V, Value **First) {
   SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
   FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
                                        args, /*isvararg*/false);
   Value *fun = TheModule->getOrInsertFunction("puts", ft);
   SmallVector<Value*, 8> params;
+  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
+  if (First)
+    *First = f;
   Value *addrbuf = AccessShadowMemory32
-    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]), false);
+    (f, false);
   params.push_back(Builder.CreatePtrToInt(addrbuf,
                                           Type::getInt32Ty(getGlobalContext())));
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
@@ -1211,14 +1291,16 @@ bool OiInstTranslate::HandleLibcPuts(Value *&V) {
 
 // XXX: Handling a fixed number of 4 arguments, since we cannot infer how many
 // arguments the program is using with fprintf
-bool OiInstTranslate::HandleLibcFwrite(Value *&V) {
+bool OiInstTranslate::HandleLibcFwrite(Value *&V, Value **First) {
   SmallVector<Type*, 8> args(4, Type::getInt32Ty(getGlobalContext()));
   FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
                                        args, /*isvararg*/false);
   Value *fun = TheModule->getOrInsertFunction("fwrite", ft);
   SmallVector<Value*, 8> params;
-  Value *addrbuf = AccessShadowMemory32
-    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]), false);
+  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
+  if (First)
+    *First = f;
+  Value *addrbuf = AccessShadowMemory32(f, false);
   params.push_back(Builder.CreatePtrToInt(addrbuf,
                                           Type::getInt32Ty(getGlobalContext())));
   params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]));
@@ -1234,13 +1316,16 @@ bool OiInstTranslate::HandleLibcFwrite(Value *&V) {
 
 // XXX: Handling a fixed number of 4 arguments, since we cannot infer how many
 // arguments the program is using with fprintf
-bool OiInstTranslate::HandleLibcFprintf(Value *&V) {
+bool OiInstTranslate::HandleLibcFprintf(Value *&V, Value **First) {
   SmallVector<Type*, 8> args(2, Type::getInt32Ty(getGlobalContext()));
   FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
                                        args, /*isvararg*/true);
   Value *fun = TheModule->getOrInsertFunction("fprintf", ft);
   SmallVector<Value*, 8> params;
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]));
+  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
+  if (First)
+    *First = f;
+  params.push_back(f);
   Value *addrbuf = AccessShadowMemory32
     (Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]), false);
   params.push_back(Builder.CreatePtrToInt(addrbuf,
@@ -1254,14 +1339,16 @@ bool OiInstTranslate::HandleLibcFprintf(Value *&V) {
 
 // XXX: Handling a fixed number of 4 arguments, since we cannot infer how many
 // arguments the program is using with printf
-bool OiInstTranslate::HandleLibcPrintf(Value *&V) {
+bool OiInstTranslate::HandleLibcPrintf(Value *&V, Value **First) {
   SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
   FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
                                        args, /*isvararg*/true);
   Value *fun = TheModule->getOrInsertFunction("printf", ft);
   SmallVector<Value*, 8> params;
-  Value *addrbuf = AccessShadowMemory32
-    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]), false);
+  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
+  if (First)
+    *First = f;
+  Value *addrbuf = AccessShadowMemory32(f, false);
   params.push_back(Builder.CreatePtrToInt(addrbuf,
                                           Type::getInt32Ty(getGlobalContext())));
   params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]));
@@ -1274,14 +1361,16 @@ bool OiInstTranslate::HandleLibcPrintf(Value *&V) {
 
 // XXX: Handling a fixed number of 4 arguments, since we cannot infer how many
 // arguments the program is using with scanf
-bool OiInstTranslate::HandleLibcScanf(Value *&V) {
+bool OiInstTranslate::HandleLibcScanf(Value *&V, Value **First) {
   SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
   FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
                                        args, /*isvararg*/true);
   Value *fun = TheModule->getOrInsertFunction("__isoc99_scanf", ft);
   SmallVector<Value*, 8> params;
-  Value *addrbuf0 = AccessShadowMemory32
-    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]), false);
+  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
+  if (First)
+    *First = f;
+  Value *addrbuf0 = AccessShadowMemory32(f, false);
   Value *addrbuf1 = AccessShadowMemory32
     (Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]), false);
   Value *addrbuf2 = AccessShadowMemory32
@@ -1301,13 +1390,16 @@ bool OiInstTranslate::HandleLibcScanf(Value *&V) {
   return true;
 }
 
-bool OiInstTranslate::HandleSyscallWrite(Value *&V) {
+bool OiInstTranslate::HandleSyscallWrite(Value *&V, Value **First) {
   SmallVector<Type*, 8> args(3, Type::getInt32Ty(getGlobalContext()));
   FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
                                        args, /*isvararg*/false);
   Value *fun = TheModule->getOrInsertFunction("write", ft);
   SmallVector<Value*, 8> params;
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]));
+  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
+  if (First)
+    *First = f;
+  params.push_back(f);
   Value *addrbuf = AccessShadowMemory32
     (Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]), false);
   params.push_back(Builder.CreatePtrToInt(addrbuf,
@@ -1391,6 +1483,8 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *V3 = Builder.CreateSExtOrTrunc(v, Type::getInt32Ty(getGlobalContext()));
         Value *v4 = Builder.CreateStore(V2, Regs[33]);
         Value *v5 = Builder.CreateStore(V3, Regs[32]);
+        WriteMap[33] = true;
+        WriteMap[32] = true;
         assert(isa<Instruction>(o0) && "Need to rework map logic");
         InsMap[CurAddr] = dyn_cast<Instruction>(o0);
         o0se->dump();
@@ -1402,6 +1496,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       DebugOut << "Handling MFHI\n";
       if (HandleAluDstOperand(MI->getOperand(0), o0)) {
         Value *v = Builder.CreateLoad(Regs[33]);
+        ReadMap[33] = true;
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o0, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
@@ -1415,6 +1510,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       DebugOut << "Handling MFLO\n";
       if (HandleAluDstOperand(MI->getOperand(0), o0)) {
         Value *v = Builder.CreateLoad(Regs[32]);
+        ReadMap[33] = true;
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o0, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
@@ -1465,6 +1561,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           Value *one = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 1U);
           Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
           Value *select = Builder.CreateSelect(cmp, one, zero);
+          WriteMap[66] = true;
           Builder.CreateStore(select, Regs[66]);
           assert(isa<Instruction>(first) && "Need to rework map logic");
           InsMap[CurAddr] = dyn_cast<Instruction>(first);
@@ -1568,9 +1665,11 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       if (HandleBranchTarget(MI->getOperand(0), True)) {
         Value *cmp;
         if (MI->getOpcode() == Oi::BC1T) {
+          ReadMap[66] = true;
           cmp = Builder.CreateSExtOrTrunc(Builder.CreateLoad(Regs[66]),
                                     Type::getInt1Ty(getGlobalContext()));
         } else {
+          ReadMap[66] = true;
           cmp = Builder.CreateICmpEQ(Builder.CreateLoad(Regs[66]),
                              ConstantInt::get(Type::getInt32Ty
                                               (getGlobalContext()), 0U));
@@ -1861,9 +1960,10 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   }
   case Oi::JAL: {
     DebugOut << "Handling JAL\n";
-    Value *call;
-    if(HandleCallTarget(MI->getOperand(0), call)) {
-      InsMap[CurAddr] = dyn_cast<Instruction>(call);
+    Value *call, *first;
+    if(HandleCallTarget(MI->getOperand(0), call, &first)) {
+      assert(isa<Instruction>(first) && "Need to rework map logic");
+      InsMap[CurAddr] = dyn_cast<Instruction>(first);
       call->dump();
     }
     break;
@@ -1871,10 +1971,14 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::JR64:
   case Oi::JR: {
     DebugOut << "Handling JR\n";
+    Value *first;
+    if (!NoLocals)
+      HandleFunctionExitPoint(&first);
     if (MI->getOperand(0).getReg() == Oi::RA
         || MI->getOperand(0).getReg() == Oi::RA_64) {
       Value *v = Builder.CreateRetVoid();
-      InsMap[CurAddr] = dyn_cast<Instruction>(v);
+      assert(isa<Instruction>(first) && "Need to rework map logic");      
+      InsMap[CurAddr] = dyn_cast<Instruction>(first);
       v->dump();
     } else {
       llvm_unreachable("Can't handle indirect jumps yet.");

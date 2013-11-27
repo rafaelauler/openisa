@@ -42,7 +42,9 @@ public:
     : MCInstPrinter(MAI, MII, MRI),
       TheModule(new Module("outputtest", getGlobalContext())),
       Builder(getGlobalContext()), Obj(obj), Regs(SmallVector<Value*,67>(67)),
+      GlobalRegs(SmallVector<Value*,67>(67)),
       FirstFunction(true), CurAddr(0), CurSection(0), BBMap(), InsMap(),
+      ReadMap(), WriteMap(),
       CurBlockAddr(0), StackSize(Stacksz)
   {
     BuildShadowImage();
@@ -76,13 +78,14 @@ private:
   const ObjectFile *Obj;
   OwningArrayPtr<uint8_t> ShadowImage;
   uint64_t ShadowSize;
-  SmallVector<Value*, 67> Regs;
+  SmallVector<Value*, 67> Regs, GlobalRegs;
   Value* ShadowImageValue;
   bool FirstFunction;
   uint64_t CurAddr;
   section_iterator* CurSection;
   StringMap<BasicBlock*> BBMap;
   DenseMap<int64_t, Instruction*> InsMap;
+  DenseMap<int32_t, bool> ReadMap, WriteMap;
   uint64_t CurBlockAddr;
   uint64_t StackSize;
 
@@ -94,22 +97,22 @@ private:
   bool HandleDoubleMemOperand(const MCOperand &o, const MCOperand &o2,
                               Value *&V1, Value *&V2, Value **First, bool IsLoad);
   bool HandleLUiOperand(const MCOperand &o, Value *&V, Value **First, bool IsLoad);
-  bool HandleCallTarget(const MCOperand &o, Value *&V);
+  bool HandleCallTarget(const MCOperand &o, Value *&V, Value **First = 0);
   bool HandleFCmpOperand(const MCOperand &o, Value *o0, Value *o1, Value *&V);
   bool HandleBranchTarget(const MCOperand &o, BasicBlock *&Addr, bool IsRelative = true);
   bool HandleBackEdge(uint64_t Addr, BasicBlock *&Target);
-  bool HandleSyscallWrite(Value *&V);
-  bool HandleLibcAtoi(Value *&V);
-  bool HandleLibcMalloc(Value *&V);
-  bool HandleLibcCalloc(Value *&V);
-  bool HandleLibcFree(Value *&V);
-  bool HandleLibcExit(Value *&V);
-  bool HandleLibcPuts(Value *&V);
-  bool HandleLibcFwrite(Value *&V);
-  bool HandleLibcFprintf(Value *&V);
-  bool HandleLibcPrintf(Value *&V);
-  bool HandleLibcScanf(Value *&V);
-  bool HandleLocalCall(StringRef Name, Value *&V);
+  bool HandleSyscallWrite(Value *&V, Value **First = 0);
+  bool HandleLibcAtoi(Value *&V, Value **First = 0);
+  bool HandleLibcMalloc(Value *&V, Value **First = 0);
+  bool HandleLibcCalloc(Value *&V, Value **First = 0);
+  bool HandleLibcFree(Value *&V, Value **First = 0);
+  bool HandleLibcExit(Value *&V, Value **First = 0);
+  bool HandleLibcPuts(Value *&V, Value **First = 0);
+  bool HandleLibcFwrite(Value *&V, Value **First = 0);
+  bool HandleLibcFprintf(Value *&V, Value **First = 0);
+  bool HandleLibcPrintf(Value *&V, Value **First = 0);
+  bool HandleLibcScanf(Value *&V, Value **First = 0);
+  bool HandleLocalCall(StringRef Name, Value *&V, Value **First = 0);
   Value *AccessShadowMemory32(Value *Idx, bool IsLoad);
   bool CheckRelocation(relocation_iterator &Rel, StringRef &Name);
   bool ResolveRelocation(uint64_t &Res, uint64_t *Type = 0);
@@ -127,6 +130,9 @@ private:
   void printFCCOperand(const MCInst *MI, int opNum, raw_ostream &O);
   void BuildShadowImage();
   void BuildRegisterFile();
+  void BuildLocalRegisterFile();
+  void HandleFunctionExitPoint(Value **First = 0);
+  void CleanRegs();
 };
 } // end namespace llvm
 
