@@ -1,6 +1,6 @@
 #LLVMCONFIG?=llvm-config
 #LLVMLLC=$(shell $(LLVMCONFIG) --obj-root)/$(shell $(LLVMCONFIG) --build-mode)/bin/llc
-LLVMLLC=llc -relocation-model=static 
+LLVMLLC=llc -relocation-model=static -O3
 #-view-dag-combine1-dags
 #-view-sched-dags
 #CLANG=clang -c -emit-llvm
@@ -38,7 +38,7 @@ ackermann-oi.o: ackermann.s
 # Two methods to translate OpenISA code, one translates the .s assembly file,
 # while other translates object files. Use object files as default.
 ackermann-oi.bc: ackermann-oi.o
-	../../backend/oisbt -stacksize 4000000 -optimize ackermann-oi.o -o=ackermann-oi.bc
+	../../backend/oisbt -optimize -stacksize 4000000 ackermann-oi.o -o=ackermann-oi.bc
 
 # Method 2: Translate OpenISA directly from the assembly file (assembly
 # translation layer).
@@ -53,7 +53,7 @@ ackermann.s: ackermann.bc
 
 ackermann.bc: ackermann.c
 	$(CLANG) $(EMITLLVM) -o ackermann.bc ackermann.c
-#	$(OPT) ackermann.bc -o ackermann.bc
+	$(OPT) ackermann.bc -o ackermann.bc
 
 clean:
 	-rm -rf ackermann.s ackermann.bc ackermann-oi.bc ackermann-oi-ia64.s ackermann-oi-ia64 ackermann-oi-x86.s ackermann-oi-x86 ackermann-oi.o ackermann.oi ackermann-nat

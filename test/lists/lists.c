@@ -8,7 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#define SIZE 10000
+#define SIZE 10000000
 
 // a simple Double Linked List
 // the head node is special, it's val is length of list

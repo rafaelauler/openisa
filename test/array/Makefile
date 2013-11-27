@@ -1,6 +1,6 @@
 #LLVMCONFIG?=llvm-config
 #LLVMLLC=$(shell $(LLVMCONFIG) --obj-root)/$(shell $(LLVMCONFIG) --build-mode)/bin/llc
-LLVMLLC=llc -relocation-model=static 
+LLVMLLC=llc -relocation-model=static -O3
 #-view-dag-combine1-dags
 #-view-sched-dags
 #CLANG=clang -c -emit-llvm
@@ -53,9 +53,6 @@ array.s: array.bc
 
 array.bc: array.c
 	$(CLANG) $(EMITLLVM) -o array.bc array.c
-	@echo WARNING: You are using OPT -O3. It introduces a bug in this program:
-	@echo WARNING: Access to global *reg2 in the very first loop gets converted to 1,
-	@echo WARNING: even though *reg2 is updated every iteration.
 	$(OPT) array.bc -o array.bc
 
 clean:

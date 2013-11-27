@@ -1,6 +1,6 @@
 #LLVMCONFIG?=llvm-config
 #LLVMLLC=$(shell $(LLVMCONFIG) --obj-root)/$(shell $(LLVMCONFIG) --build-mode)/bin/llc
-LLVMLLC=llc -relocation-model=static 
+LLVMLLC=llc -relocation-model=static -O3
 #-view-dag-combine1-dags
 #-view-sched-dags
 #CLANG=clang -c -emit-llvm
