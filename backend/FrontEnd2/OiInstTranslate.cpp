@@ -29,6 +29,9 @@ using namespace llvm;
 static cl::opt<bool>
 NoLocals("nolocals", cl::desc("Do not use locals, always use global variables"));
 
+static cl::opt<bool>
+DebugIR("debug-ir", cl::desc("Print the generated IR for each function, prior to optimizations"));
+
 static bool error(error_code ec) {
   if (!ec) return false;
 
@@ -576,7 +579,6 @@ void OiInstTranslate::FixBBTerminators() {
 // Note: CleanRegs() leaves a few remaining "Load GlobalRegXX" after the
 // cleanup, but a simple SSA dead code elimination should handle them.
 void OiInstTranslate::CleanRegs() {
-  //  Builder.GetInsertBlock()->getParent()->dump();
   for (int I = 0; I < 67; ++I) {
     if (!(WriteMap[I] || ReadMap[I])) {
       Instruction *inst = dyn_cast<Instruction>(Regs[I]);
@@ -609,6 +611,8 @@ void OiInstTranslate::CleanRegs() {
 void OiInstTranslate::FinishFunction() {
   CleanRegs();
   FixBBTerminators();
+  if (DebugIR) 
+    Builder.GetInsertBlock()->getParent()->dump();
   //Builder.CreateRetVoid();
 }
 
@@ -2002,6 +2006,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     if (HandleAluSrcOperand(MI->getOperand(0),src) &&
         HandleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, &first, false)) {
       Value *v = Builder.CreateStore(src, dst);
+      first = GetFirstInstruction(src, first);
       assert(isa<Instruction>(first) && "Need to rework map logic");
       InsMap[CurAddr] = dyn_cast<Instruction>(first);
       v->dump();
