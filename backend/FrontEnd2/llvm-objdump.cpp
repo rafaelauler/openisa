@@ -507,6 +507,7 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
       IP->FinishFunction();
     }    
   }
+  IP->FinishModule();
   OptimizeAndWriteBitcode(&*IP);
 }
 

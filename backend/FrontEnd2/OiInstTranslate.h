@@ -44,8 +44,8 @@ public:
       Builder(getGlobalContext()), Obj(obj), Regs(SmallVector<Value*,67>(67)),
       GlobalRegs(SmallVector<Value*,67>(67)),
       FirstFunction(true), CurAddr(0), CurSection(0), BBMap(), InsMap(),
-      ReadMap(), WriteMap(),
-      CurBlockAddr(0), StackSize(Stacksz)
+      ReadMap(), WriteMap(), FunctionCallMap(), FunctionRetMap(),
+      CurFunAddr(0), CurBlockAddr(0), StackSize(Stacksz)
   {
     BuildShadowImage();
     BuildRegisterFile();
@@ -64,6 +64,7 @@ public:
   void StartFunction(Twine &N);
   void FixBBTerminators();
   void FinishFunction();
+  void FinishModule();
   void UpdateCurAddr(uint64_t val) {
     CurAddr = val;
     UpdateInsertPoint();
@@ -86,6 +87,9 @@ private:
   StringMap<BasicBlock*> BBMap;
   DenseMap<int64_t, Instruction*> InsMap;
   DenseMap<int32_t, bool> ReadMap, WriteMap;
+  DenseMap<int32_t, int32_t> FunctionCallMap; // Used only in one-region mode
+  DenseMap<int32_t, int32_t> FunctionRetMap; // Used only in one-region mode
+  uint64_t CurFunAddr;
   uint64_t CurBlockAddr;
   uint64_t StackSize;
 
@@ -112,7 +116,10 @@ private:
   bool HandleLibcFprintf(Value *&V, Value **First = 0);
   bool HandleLibcPrintf(Value *&V, Value **First = 0);
   bool HandleLibcScanf(Value *&V, Value **First = 0);
-  bool HandleLocalCall(StringRef Name, Value *&V, Value **First = 0);
+  bool HandleLocalCallOneRegion(uint64_t Addr, Value *&V, Value **First = 0);
+  SmallVector<uint32_t, 4> GetCallSitesFor(uint32_t FuncAddr);
+  bool BuildReturnTablesOneRegion();
+  bool HandleLocalCall(uint64_t Addr, Value *&V, Value **First = 0);
   Value *AccessShadowMemory32(Value *Idx, bool IsLoad);
   bool CheckRelocation(relocation_iterator &Rel, StringRef &Name);
   bool ResolveRelocation(uint64_t &Res, uint64_t *Type = 0);

@@ -32,6 +32,9 @@ NoLocals("nolocals", cl::desc("Do not use locals, always use global variables"))
 static cl::opt<bool>
 DebugIR("debug-ir", cl::desc("Print the generated IR for each function, prior to optimizations"));
 
+static cl::opt<bool>
+OneRegion("oneregion", cl::desc("Consider the whole program to be one big function"));
+
 static bool error(error_code ec) {
   if (!ec) return false;
 
@@ -46,7 +49,6 @@ static uint64_t GetELFOffset(section_iterator &i) {
     reinterpret_cast<const object::Elf_Shdr_Impl<object::ELFType<support::little, 2, false> > *>(Sec.p);
   return sec->sh_offset;
 }
-
 
 void OiInstTranslate::BuildShadowImage() {
   ShadowSize = 0;
@@ -551,12 +553,18 @@ void OiInstTranslate::StartFunction(Twine &N) {
     UpdateInsertPoint();
     BuildLocalRegisterFile();
     InsertStartupCode();
+    CurFunAddr = CurAddr+4;
   } else {
-    F = reinterpret_cast<Function *>(TheModule->getOrInsertFunction(N.str(),
-                                                                    FT));
-    CreateBB(0, F);
-    UpdateInsertPoint();
-    BuildLocalRegisterFile();
+    CurFunAddr = CurAddr+4;
+    if (!OneRegion) {
+      F = reinterpret_cast<Function *>(TheModule->getOrInsertFunction(N.str(),
+                                                                      FT));
+      CreateBB(0, F);
+      UpdateInsertPoint();
+      BuildLocalRegisterFile();
+    } else {
+      CreateBB(CurAddr+4);
+    }
   }
 }
 
@@ -609,11 +617,23 @@ void OiInstTranslate::CleanRegs() {
 }
 
 void OiInstTranslate::FinishFunction() {
-  CleanRegs();
-  FixBBTerminators();
-  if (DebugIR) 
-    Builder.GetInsertBlock()->getParent()->dump();
+  if (!OneRegion) {
+    CleanRegs();
+    FixBBTerminators();
+    if (DebugIR) 
+      Builder.GetInsertBlock()->getParent()->dump();
+  }
   //Builder.CreateRetVoid();
+}
+
+void OiInstTranslate::FinishModule() {
+  if (OneRegion) {
+    CleanRegs();
+    FixBBTerminators();
+    BuildReturnTablesOneRegion();
+    if (DebugIR) 
+      Builder.GetInsertBlock()->getParent()->dump();
+  }
 }
 
 Module* OiInstTranslate::takeModule() {
@@ -1001,10 +1021,8 @@ bool OiInstTranslate::CheckRelocation(relocation_iterator &Rel, StringRef &Name)
 
 bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **First) {
   if (o.isImm()) {
-    Twine T("a");
     if (o.getImm() != 0U) {
-      T = T.concat(Twine::utohexstr(o.getImm()));
-      return HandleLocalCall(StringRef(T.str()), V, First);
+      return HandleLocalCall(o.getImm(), V, First);
     } else { // Need to handle the relocation to find the correct jump address
       relocation_iterator ri = (*CurSection)->end_relocations();
       StringRef val;
@@ -1033,10 +1051,8 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
           return HandleLibcScanf(V);
       }
       uint64_t targetaddr;
-      if (ResolveRelocation(targetaddr)) {
-        T = T.concat(Twine::utohexstr(targetaddr));
-        return HandleLocalCall(StringRef(T.str()), V, First);
-      }
+      if (ResolveRelocation(targetaddr))
+        return HandleLocalCall(targetaddr, V, First);
       llvm_unreachable("Unrecognized function call");
     }
     llvm_unreachable("Unrecognized function call");
@@ -1199,7 +1215,93 @@ bool OiInstTranslate::HandleBackEdge(uint64_t Addr, BasicBlock *&Target) {
   return true;
 }
 
-bool OiInstTranslate::HandleLocalCall(StringRef Name, Value *&V, Value **First) {
+bool OiInstTranslate::HandleLocalCallOneRegion(uint64_t Addr, Value *&V,
+                                               Value **First) {
+  BasicBlock *Target;
+  FunctionCallMap[CurAddr] = Addr;
+  if (Addr < CurAddr)
+    HandleBackEdge(Addr, Target);
+  else
+    Target = CreateBB(Addr);
+  Value *first = Builder.CreateStore
+    (ConstantInt::get(Type::getInt32Ty(getGlobalContext()), CurAddr+4),
+                               Regs[ConvToDirective(Oi::RA)]);
+  V = Builder.CreateBr(Target);
+  //  printf("\nHandleLocalCallOneregion.CurAddr: %08LX\n", CurAddr+4);
+  CreateBB(CurAddr+4);
+  if (First)
+    *First = first;
+  return true;
+}
+
+SmallVector<uint32_t, 4> OiInstTranslate::GetCallSitesFor(uint32_t FuncAddr) {
+  SmallVector<uint32_t, 4> Res;
+  for (DenseMap<int32_t, int32_t>::iterator I = FunctionCallMap.begin(),
+         E = FunctionCallMap.end(); I != E; ++I) {
+    uint32_t retaddr = I->first + 4;
+    uint32_t funcaddr = I->second;
+
+    if (funcaddr != FuncAddr)
+      continue;
+
+    Res.push_back(retaddr);
+  }
+  return Res;
+}
+
+bool OiInstTranslate::BuildReturnTablesOneRegion() {
+  for (DenseMap<int32_t, int32_t>::iterator I = FunctionRetMap.begin(), 
+         E = FunctionRetMap.end(); I != E; ++I) {
+    uint32_t retaddr = I->first;
+    uint32_t funcaddr = I->second;
+
+    Instruction* tgtins = InsMap[retaddr];
+    assert(tgtins && "Invalid return address");
+    
+    Builder.SetInsertPoint(tgtins->getParent(), tgtins);
+    
+    SmallVector<uint32_t, 4> CallSites = GetCallSitesFor(funcaddr);
+    if (CallSites.empty())
+      continue;
+
+    Value *ra = Builder.CreateLoad(Regs[ConvToDirective(Oi::RA)], "RetTableInput");
+    ReadMap[ConvToDirective(Oi::RA)] = true;
+    Instruction *dummy = Builder.CreateUnreachable();
+    Builder.SetInsertPoint(tgtins->getParent(), dummy);
+
+    // Delete the original ret instruction
+    tgtins->eraseFromParent();
+
+    for (SmallVector<uint32_t, 4>::iterator J = CallSites.begin(), EJ = CallSites.end();
+         J != EJ; ++J) {
+      Value *site = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), *J);
+      Value *cmp = Builder.CreateICmpEQ(site, ra);
+
+      Twine T2("bb");
+      T2 = T2.concat(Twine::utohexstr(*J));
+      std::string Idx = T2.str();
+      //  printf("\n%08X\n\n%s\n", *J,  Idx.c_str());
+      assert (BBMap[Idx] != 0 && "Invalid return target address");
+      Value *TrueV = BBMap[Idx];
+      assert(isa<BasicBlock>(TrueV) && "Values stored into BBMap must be BasicBlocks");
+      BasicBlock *True = dyn_cast<BasicBlock>(TrueV);
+      Function *F = True->getParent();
+      BasicBlock *FallThrough = BasicBlock::Create(getGlobalContext(), "", F);      
+
+      Builder.CreateCondBr(cmp, True, FallThrough);
+      Builder.SetInsertPoint(FallThrough);
+    }
+    Builder.CreateUnreachable();
+    dummy->eraseFromParent();
+  }
+}
+
+bool OiInstTranslate::HandleLocalCall(uint64_t Addr, Value *&V, Value **First) {
+  if (OneRegion)
+    return HandleLocalCallOneRegion(Addr, V, First);
+  Twine T("a");
+  T = T.concat(Twine::utohexstr(Addr));
+  StringRef Name(T.str());
   HandleFunctionExitPoint(First);
   FunctionType *ft = FunctionType::get(Type::getVoidTy(getGlobalContext()),
                                        /*isvararg*/false);
@@ -2032,7 +2134,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::JR: {
     DebugOut << "Handling JR\n";
     Value *first = 0;
-    if (!NoLocals)
+    if (!NoLocals && !OneRegion)
       HandleFunctionExitPoint(&first);
     if (MI->getOperand(0).getReg() == Oi::RA
         || MI->getOperand(0).getReg() == Oi::RA_64) {
@@ -2041,6 +2143,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         first = v;
       assert(isa<Instruction>(first) && "Need to rework map logic");      
       InsMap[CurAddr] = dyn_cast<Instruction>(first);
+      FunctionRetMap[CurAddr] = CurFunAddr;
       v->dump();
     } else {
       llvm_unreachable("Can't handle indirect jumps yet.");
