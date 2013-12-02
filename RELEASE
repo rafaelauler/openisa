@@ -1,0 +1,11 @@
+OpenISA Tools
+
+Current limitations:
+--------------------
+
+OiSBT, the static binary translator, is only able to operate with relocatable
+ELF object files (.o). 
+
+Avoid using .bss data since there is a known issue with handling .bss data. 
+OiSBT relies on the ELF file offsets to layout the memory and the .bss data
+does not really exist in the object file.
