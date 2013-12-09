@@ -16,11 +16,10 @@
 #include "OiInstTranslate.h"
 #include "OiInstrInfo.h"
 #include "StringRefMemoryObject.h"
-#include "llvm/Support/CommandLine.h"
+#include "SBTUtils.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/SmallString.h"
@@ -28,652 +27,34 @@
 using namespace llvm;
 
 static cl::opt<bool>
-NoLocals("nolocals", cl::desc("Do not use locals, always use global variables"));
-
-static cl::opt<bool>
 DebugIR("debug-ir", cl::desc("Print the generated IR for each function, prior to optimizations"));
 
-static cl::opt<bool>
-OneRegion("oneregion", cl::desc("Consider the whole program to be one big function"));
-
-static bool error(error_code ec) {
-  if (!ec) return false;
-
-  outs() << "error reading file: " << ec.message() << ".\n";
-  outs().flush();
-  return true;
-}
-
-static uint64_t GetELFOffset(section_iterator &i) {
-  DataRefImpl Sec = i->getRawDataRefImpl();
-  const object::Elf_Shdr_Impl<object::ELFType<support::little, 2, false> > *sec =
-    reinterpret_cast<const object::Elf_Shdr_Impl<object::ELFType<support::little, 2, false> > *>(Sec.p);
-  return sec->sh_offset;
-}
-
-void OiInstTranslate::BuildShadowImage() {
-  ShadowSize = 0;
-
-  error_code ec;
-  for (section_iterator i = Obj->begin_sections(),
-                        e = Obj->end_sections();
-                        i != e; i.increment(ec)) {
-    if (error(ec)) break;
-
-    uint64_t SectionAddr;
-    if (error(i->getAddress(SectionAddr))) break;
-    if (SectionAddr == 0) 
-      SectionAddr = GetELFOffset(i);
-    uint64_t SectSize;
-    if (error(i->getSize(SectSize))) break;
-    if (SectSize + SectionAddr > ShadowSize)
-      ShadowSize = SectSize + SectionAddr;
-  }
-
-  //Allocate some space for the stack
-  //ShadowSize += 10 << 20;
-  ShadowSize += StackSize;
-  ShadowImage.reset(new uint8_t[ShadowSize]);
- 
-  for (section_iterator i = Obj->begin_sections(),
-                        e = Obj->end_sections();
-                        i != e; i.increment(ec)) {
-    uint64_t SectionAddr;
-    if (error(i->getAddress(SectionAddr))) break;
-    uint64_t SectSize;
-    if (error(i->getSize(SectSize))) break;
-    StringRef SecName;
-    if (error(i->getName(SecName))) break;    
-
-    uint64_t Offset = 0;
-    if (SectionAddr == 0) 
-      Offset = GetELFOffset(i);
-    
-    StringRef Bytes;
-    if (error(i->getContents(Bytes))) break;
-    StringRefMemoryObject memoryObject(Bytes);
-    memoryObject.readBytes(SectionAddr, SectSize, 
-                           &ShadowImage[0] + SectionAddr + Offset, 0); 
-  }
-
-  ConstantDataArray *c = 
-    dyn_cast<ConstantDataArray>(ConstantDataArray::get(getGlobalContext(),
-      ArrayRef<uint8_t>(reinterpret_cast<const unsigned char *>(&ShadowImage[0]), 
-                        ShadowSize)));
-
-  GlobalVariable *gv = new GlobalVariable(*TheModule, c->getType(), false, 
-                                          GlobalValue::ExternalLinkage,
-                                          c, "ShadowMemory");  
-  ShadowImageValue = gv;
-}
-
-static unsigned conv32(unsigned regnum) {
-  switch(regnum) {
-  case Oi::AT_64:
-    return Oi::AT;
-  case Oi::FP_64:
-    return Oi::FP;
-  case Oi::SP_64:
-    return Oi::SP;
-  case Oi::RA_64:
-    return Oi::RA;
-  case Oi::ZERO_64:
-    return Oi::ZERO;
-  case Oi::GP_64:
-    return Oi::GP;
-  case Oi::A0_64:
-    return Oi::A0;
-  case Oi::A1_64:
-    return Oi::A1;
-  case Oi::A2_64:
-    return Oi::A2;
-  case Oi::A3_64:
-    return Oi::A3;
-  case Oi::V0_64:
-    return Oi::V0;
-  case Oi::V1_64:
-    return Oi::V1;
-  case Oi::S0_64:
-    return Oi::S0;
-  case Oi::S1_64:
-    return Oi::S1;
-  case Oi::S2_64:
-    return Oi::S2;
-  case Oi::S3_64:
-    return Oi::S3;
-  case Oi::S4_64:
-    return Oi::S4;
-  case Oi::S5_64:
-    return Oi::S5;
-  case Oi::S6_64:
-    return Oi::S6;
-  case Oi::S7_64:
-    return Oi::S7;
-  case Oi::K0_64:
-    return Oi::K0;
-  case Oi::K1_64:
-    return Oi::K1;
-  case Oi::T0_64:
-    return Oi::T0;
-  case Oi::T1_64:
-    return Oi::T1;
-  case Oi::T2_64:
-    return Oi::T2;
-  case Oi::T3_64:
-    return Oi::T3;
-  case Oi::T4_64:
-    return Oi::T4;
-  case Oi::T5_64:
-    return Oi::T5;
-  case Oi::T6_64:
-    return Oi::T6;
-  case Oi::T7_64:
-    return Oi::T7;
-  case Oi::T8_64:
-    return Oi::T8;
-  case Oi::T9_64:
-    return Oi::T9; 
-  case Oi::D0_64:
-    return Oi::F0;
-  case Oi::D1_64:
-    return Oi::F1;
-  case Oi::D2_64:
-    return Oi::F2;
-  case Oi::D3_64:
-    return Oi::F3;
-  case Oi::D4_64:
-    return Oi::F4;
-  case Oi::D5_64:
-    return Oi::F5;
-  case Oi::D6_64:
-    return Oi::F6;
-  case Oi::D7_64:
-    return Oi::F7;
-  case Oi::D8_64:
-    return Oi::F8;
-  case Oi::D9_64:
-    return Oi::F9;
-  case Oi::D10_64:
-    return Oi::F10;
-  case Oi::D11_64:
-    return Oi::F11;
-  case Oi::D12_64:
-    return Oi::F12;
-  case Oi::D13_64:
-    return Oi::F13;
-  case Oi::D14_64:
-    return Oi::F14;
-  case Oi::D15_64:
-    return Oi::F15;
-  case Oi::D16_64:
-    return Oi::F16;
-  case Oi::D17_64:
-    return Oi::F17;
-  case Oi::D18_64:
-    return Oi::F18;
-  case Oi::D19_64:
-    return Oi::F19;
-  case Oi::D20_64:
-    return Oi::F20;
-  case Oi::D21_64:
-    return Oi::F21;
-  case Oi::D22_64:
-    return Oi::F22;
-  case Oi::D23_64:
-    return Oi::F23;
-  case Oi::D24_64:
-    return Oi::F24;
-  case Oi::D25_64:
-    return Oi::F25;
-  case Oi::D26_64:
-    return Oi::F26;
-  case Oi::D27_64:
-    return Oi::F27;
-  case Oi::D28_64:
-    return Oi::F28;
-  case Oi::D29_64:
-    return Oi::F29;
-  case Oi::D30_64:
-    return Oi::F30;
-  case Oi::D31_64:
-    return Oi::F31;
-
-    //    return regnum - 1;
-  }
-  return regnum;
-}
-
-static unsigned ConvFromDirective(unsigned regnum) {
-  switch(regnum) {
-  case 0:
-    return Oi::ZERO;
-  case 1:
-    return Oi::AT;
-  case 4:
-    return Oi::A0;
-  case 5:
-    return Oi::A1;
-  case 6:
-    return Oi::A2;
-  case 7:
-    return Oi::A3;
-  case 2:
-    return Oi::V0;
-  case 3:
-    return Oi::V1;
-  case 16:
-    return Oi::S0;
-  case 17:
-    return Oi::S1;
-  case 18:
-    return Oi::S2;
-  case 19:
-    return Oi::S3;
-  case 20:
-    return Oi::S4;
-  case 21:
-    return Oi::S5;
-  case 22:
-    return Oi::S6;
-  case 23:
-    return Oi::S7;
-  case 26:
-    return Oi::K0;
-  case 27:
-    return Oi::K1;
-  case 29:
-    return Oi::SP;
-  case 30:
-    return Oi::FP;
-  case 28:
-    return Oi::GP;
-  case 31:
-    return Oi::RA;
-  case 8:
-    return Oi::T0;
-  case 9:
-    return Oi::T1;
-  case 10:
-    return Oi::T2;
-  case 11:
-    return Oi::T3;
-  case 12:
-    return Oi::T4;
-  case 13:
-    return Oi::T5;
-  case 14:
-    return Oi::T6;
-  case 15:
-    return Oi::T7;
-  case 24:
-    return Oi::T8;
-  case 25:
-    return Oi::T9;
-  }
-  return -1;
-}
-
-static unsigned ConvToDirective(unsigned regnum) {
-  switch(regnum) {
-  case Oi::ZERO:
-    return 0;
-  case Oi::AT:
-    return 1;
-  case Oi::A0:
-    return 4;
-  case Oi::A1:
-    return 5;
-  case Oi::A2:
-    return 6;
-  case Oi::A3:
-    return 7;
-  case Oi::V0:
-    return 2;
-  case Oi::V1:
-    return 3;
-  case Oi::S0:
-    return 16;
-  case Oi::S1:
-    return 17;
-  case Oi::S2:
-    return 18;
-  case Oi::S3:
-    return 19;
-  case Oi::S4:
-    return 20;
-  case Oi::S5:
-    return 21;
-  case Oi::S6:
-    return 22;
-  case Oi::S7:
-    return 23;
-  case Oi::K0:
-    return 26;
-  case Oi::K1:
-    return 27;
-  case Oi::SP:
-    return 29;
-  case Oi::FP:
-    return 30;
-  case Oi::GP:
-    return 28;
-  case Oi::RA:
-    return 31;
-  case Oi::T0:
-    return 8;
-  case Oi::T1:
-    return 9;
-  case Oi::T2:
-    return 10;
-  case Oi::T3:
-    return 11;
-  case Oi::T4:
-    return 12;
-  case Oi::T5:
-    return 13;
-  case Oi::T6:
-    return 14;
-  case Oi::T7:
-    return 15;
-  case Oi::T8:
-    return 24;
-  case Oi::T9:
-    return 25;
-    // Floating point registers
-  case Oi::D0:
-  case Oi::F0:
-    return 34;
-  case Oi::F1:
-    return 35;
-  case Oi::D1:
-  case Oi::F2:
-    return 36;
-  case Oi::F3:
-    return 37;
-  case Oi::D2:
-  case Oi::F4:
-    return 38;
-  case Oi::F5:
-    return 39;
-  case Oi::D3:
-  case Oi::F6:
-    return 40;
-  case Oi::F7:
-    return 41;
-  case Oi::D4:
-  case Oi::F8:
-    return 42;
-  case Oi::F9:
-    return 43;
-  case Oi::D5:
-  case Oi::F10:
-    return 44;
-  case Oi::F11:
-    return 45;
-  case Oi::D6:
-  case Oi::F12:
-    return 46;
-  case Oi::F13:
-    return 47;
-  case Oi::D7:
-  case Oi::F14:
-    return 48;
-  case Oi::F15:
-    return 49;
-  case Oi::D8:
-  case Oi::F16:
-    return 50;
-  case Oi::F17:
-    return 51;
-  case Oi::D9:
-  case Oi::F18:
-    return 52;
-  case Oi::F19:
-    return 53;
-  case Oi::D10:
-  case Oi::F20:
-    return 54;
-  case Oi::F21:
-    return 55;
-  case Oi::D11:
-  case Oi::F22:
-    return 56;
-  case Oi::F23:
-    return 57;
-  case Oi::D12:
-  case Oi::F24:
-    return 58;
-  case Oi::F25:
-    return 59;
-  case Oi::D13:
-  case Oi::F26:
-    return 60;
-  case Oi::F27:
-    return 61;
-  case Oi::D14:
-  case Oi::F28:
-    return 62;
-  case Oi::F29:
-    return 63;
-  case Oi::D15:
-  case Oi::F30:
-    return 64;
-  case Oi::F31:
-    return 65;
-
-  }
-  llvm_unreachable("Invalid register");
-  return -1;
-}
-
-
-void OiInstTranslate::BuildRegisterFile() {
-  Type *ty = Type::getInt32Ty(getGlobalContext());
-  // 32 base regs  0-31
-  // LO 32
-  // HI 33
-  // 32 fp regs 34-65
-  // FPCondCode 66
-  for (int I = 0; I < 67; ++I) {
-    Constant *ci = ConstantInt::get(ty, 0U);
-    GlobalVariable *gv = new GlobalVariable(*TheModule, ty, false, 
-                                            GlobalValue::ExternalLinkage,
-                                            ci, "reg");
-    GlobalRegs[I] = gv;
-  }
-}
-
-void OiInstTranslate::InsertStartupCode() {
-  // Initialize the stack
-  Value *size = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
-                                  ShadowSize);
-  Builder.CreateStore(size, Regs[ConvToDirective(Oi::SP)]);
-}
-
-BasicBlock* OiInstTranslate::CreateBB(uint64_t Addr, Function *F) {
-  if (Addr == 0)
-    Addr = CurAddr;
-  Twine T("bb");
-  T = T.concat(Twine::utohexstr(Addr));
-  std::string Idx = T.str();
-
-  if (BBMap[Idx] == 0) {
-    if (F == 0)
-      F = Builder.GetInsertBlock()->getParent();
-    BBMap[Idx] = BasicBlock::Create(getGlobalContext(), Idx, F);
-  }
-  return BBMap[Idx];
-}
-
-void OiInstTranslate::UpdateInsertPoint() {
-  Twine T("bb");
-  T = T.concat(Twine::utohexstr(CurAddr));
-  std::string Idx = T.str();
-
-  if (BBMap[Idx] != 0) {
-    if (Builder.GetInsertBlock() != BBMap[Idx]) {
-      // First check if we need to add a fall-through terminator to the
-      // current basic block
-      BasicBlock *BB = Builder.GetInsertBlock();
-      if (BB != 0) {
-        if (BB->getTerminator() == 0) {
-          Builder.CreateBr(BBMap[Idx]);
-        }
-      }
-      CurBlockAddr = CurAddr;
-      Builder.SetInsertPoint(BBMap[Idx]);
-    }
-  }
-}
-
-void OiInstTranslate::BuildLocalRegisterFile() {
-  Type *ty = Type::getInt32Ty(getGlobalContext());
-  // 32 base regs  0-31
-  // LO 32
-  // HI 33
-  // 32 fp regs 34-65
-  // FPCondCode 66
-  if (NoLocals) {
-    for (int I = 0; I < 67; ++I) {
-      Regs[I] = GlobalRegs[I];
-    }    
-  } else {
-    for (int I = 0; I < 67; ++I) {
-      AllocaInst *inst = Builder.CreateAlloca(ty, 0, "lreg");
-      Regs[I] = inst;
-      Builder.CreateStore(Builder.CreateLoad(GlobalRegs[I]), inst);
-      WriteMap[I] = false;
-      ReadMap[I] = false;
-    }
-  }
-}
-
-void OiInstTranslate::HandleFunctionEntryPoint(Value **First) {
-  bool WroteFirst = false;
-  if (NoLocals)
-    return;
-  for (int I = 0; I < 67; ++I) {
-    Value *st = Builder.CreateStore(Builder.CreateLoad(GlobalRegs[I]), Regs[I]);
-    if (!WroteFirst) {
-      WroteFirst = true;
-      if (First)
-        *First = st; 
-    }
-  }
-}
-
-void OiInstTranslate::HandleFunctionExitPoint(Value **First) {
-  bool WroteFirst = false;
-  if (NoLocals)
-    return;
-  for (int I = 0; I < 67; ++I) {
-    Value *st = Builder.CreateStore(Builder.CreateLoad(Regs[I]), GlobalRegs[I]);
-    if (!WroteFirst) {
-      WroteFirst = true;
-      if (First)
-        *First = st; 
-    }    
-  }
-}
-
 void OiInstTranslate::StartFunction(Twine &N) {
-  // Create a function with no parameters
-  FunctionType *FT = FunctionType::get(Type::getVoidTy(getGlobalContext()),
-                                       false);
-  Function *F = 0;
-  if (FirstFunction) {
-    F = Function::Create(FT, Function::ExternalLinkage,
-                         "main", &*TheModule);
-    FirstFunction = false;
-    CreateBB(0, F);
-    UpdateInsertPoint();
-    BuildLocalRegisterFile();
-    InsertStartupCode();
-    CurFunAddr = CurAddr+4;
-  } else {
-    CurFunAddr = CurAddr+4;
-    if (!OneRegion) {
-      F = reinterpret_cast<Function *>(TheModule->getOrInsertFunction(N.str(),
-                                                                      FT));
-      CreateBB(0, F);
-      UpdateInsertPoint();
-      BuildLocalRegisterFile();
-    } else {
-      CreateBB(CurAddr+4);
-    }
-  }
-}
-
-void OiInstTranslate::FixBBTerminators() {
-  Function *F = Builder.GetInsertBlock()->getParent();
-
-  for (Function::iterator I = F->begin(), E = F->end(); I != E; ++I) {
-    if (!I->getTerminator()) {
-      Builder.SetInsertPoint(&*I);
-      Instruction *Inst = &I->back();
-      if (isa<CallInst>(Inst)) {
-        CallInst *CInst = dyn_cast<CallInst>(Inst);
-        if (CInst->getCalledFunction()->getName() == "exit")
-          Builder.CreateRetVoid();
-      }
-    }
-  }
-}
-
-// Note: CleanRegs() leaves a few remaining "Load GlobalRegXX" after the
-// cleanup, but a simple SSA dead code elimination should handle them.
-void OiInstTranslate::CleanRegs() {
-  for (int I = 0; I < 67; ++I) {
-    if (!(WriteMap[I] || ReadMap[I])) {
-      Instruction *inst = dyn_cast<Instruction>(Regs[I]);
-      if (inst) {
-        while (!inst->use_empty()) {
-          Instruction* UI = inst->use_back();
-          // These are assigning a value to the local copy of the reg, bu since
-          // we don't use it, we can delete the assignment.
-          if (isa<StoreInst>(UI)) {
-            UI->eraseFromParent();
-            continue;
-          }
-          assert (isa<LoadInst>(UI));
-          // Here we should have a false usage of the value. It is loading only
-          // in checkpoints (exit points) to save it back to the global copy.
-          // Since we do not really use it, we should delete the load and the
-          // store insruction that is using it.
-          assert (UI->hasOneUse());
-          Instruction* StUI = dyn_cast<Instruction>(UI->use_back());
-          assert (isa<StoreInst>(StUI));
-          StUI->eraseFromParent();
-          UI->eraseFromParent();
-        }
-        inst->eraseFromParent();
-      }
-    }
-  }
+  IREmitter.StartFunction(N);
 }
 
 void OiInstTranslate::FinishFunction() {
   if (!OneRegion) {
-    CleanRegs();
-    FixBBTerminators();
+    IREmitter.CleanRegs();
+    IREmitter.FixBBTerminators();
     if (DebugIR) 
-      Builder.GetInsertBlock()->getParent()->dump();
+      IREmitter.Builder.GetInsertBlock()->getParent()->dump();
   }
   //Builder.CreateRetVoid();
 }
 
 void OiInstTranslate::FinishModule() {
   if (OneRegion) {
-    CleanRegs();
-    FixBBTerminators();
-    BuildReturnTablesOneRegion();
+    IREmitter.CleanRegs();
+    IREmitter.FixBBTerminators();
+    IREmitter.BuildReturnTablesOneRegion();
     if (DebugIR) 
-      Builder.GetInsertBlock()->getParent()->dump();
+      IREmitter.Builder.GetInsertBlock()->getParent()->dump();
   }
 }
 
 Module* OiInstTranslate::takeModule() {
-  return TheModule.take();
+  return IREmitter.TheModule.take();
 }
 
 static Value* GetFirstInstruction(Value *o0, Value *o1) {
@@ -707,13 +88,13 @@ bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
       V = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0);
       return true;
     }
-    V = Builder.CreateLoad(Regs[reg]);
+    V = Builder.CreateLoad(IREmitter.Regs[reg]);
     ReadMap[reg] = true;
     return true;
   } else if (o.isImm()) {
     uint64_t myimm = o.getImm();
     uint64_t reltype = 0;
-    if (ResolveRelocation(myimm, &reltype)) {
+    if (RelocReader.ResolveRelocation(myimm, &reltype)) {
       if (reltype == ELF::R_MIPS_LO16) {
         Value *V0 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                                      myimm + o.getImm());
@@ -737,8 +118,8 @@ bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
 bool OiInstTranslate::HandleDoubleSrcOperand(const MCOperand &o, Value *&V, Value **First) {
   if (o.isReg()) {
     unsigned reg = ConvToDirective(conv32(o.getReg()));
-    Value *v1 = Builder.CreateLoad(Regs[reg]);
-    Value *v2 = Builder.CreateLoad(Regs[reg+1]);
+    Value *v1 = Builder.CreateLoad(IREmitter.Regs[reg]);
+    Value *v2 = Builder.CreateLoad(IREmitter.Regs[reg+1]);
     // Assume little endian for doubles
     Value *v3 = Builder.CreateZExtOrTrunc(v2, Type::getInt64Ty(getGlobalContext()));
     Value *v4 = Builder.CreateZExtOrTrunc(v1, Type::getInt64Ty(getGlobalContext()));
@@ -759,8 +140,8 @@ bool OiInstTranslate::HandleDoubleDstOperand(const MCOperand &o, Value *&V1, Val
   if (o.isReg()) {
     unsigned reg = ConvToDirective(conv32(o.getReg()));
     // Assume little endian doubles
-    V2 = Regs[reg];
-    V1 = Regs[reg+1];
+    V2 = IREmitter.Regs[reg];
+    V1 = IREmitter.Regs[reg+1];
     WriteMap[reg] = true;
     WriteMap[reg+1] = true;
     return true;
@@ -775,7 +156,7 @@ bool OiInstTranslate::HandleDoubleMemOperand(const MCOperand &o, const MCOperand
     uint64_t myimm = o2.getImm();
     uint64_t reltype = 0;
     Value *idx, *addr, *base;
-    if (ResolveRelocation(myimm, &reltype)) {
+    if (RelocReader.ResolveRelocation(myimm, &reltype)) {
       if (reltype == ELF::R_MIPS_LO16) {
         Value *V0 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                                      myimm + o2.getImm());
@@ -785,7 +166,7 @@ bool OiInstTranslate::HandleDoubleMemOperand(const MCOperand &o, const MCOperand
         idx = V1;
         //Assume little endian doubles
         unsigned reg = ConvToDirective(conv32(o.getReg()));
-        base = Builder.CreateLoad(Regs[reg]);
+        base = Builder.CreateLoad(IREmitter.Regs[reg]);
         ReadMap[reg] = true;
         addr = Builder.CreateAdd(base, idx);
         if (First != 0) {
@@ -799,16 +180,16 @@ bool OiInstTranslate::HandleDoubleMemOperand(const MCOperand &o, const MCOperand
                              myimm);
       //Assume little endian doubles
       unsigned reg = ConvToDirective(conv32(o.getReg()));
-      base = Builder.CreateLoad(Regs[reg]);
+      base = Builder.CreateLoad(IREmitter.Regs[reg]);
       ReadMap[reg] = true;
       addr = Builder.CreateAdd(base, idx);
       if (First != 0)
         *First = GetFirstInstruction(base, addr);
     }
-    V2 = AccessShadowMemory32(addr, IsLoad);
+    V2 = IREmitter.AccessShadowMemory(addr, IsLoad);
     Value *idx2 = Builder.CreateAdd(idx, ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 4U));
     Value *addr2 = Builder.CreateAdd(base, idx2);
-    V1 = AccessShadowMemory32(addr2, IsLoad);
+    V1 = IREmitter.AccessShadowMemory(addr2, IsLoad);
     if (First != 0) {
       *First = GetFirstInstruction(*First, V2);
     }
@@ -832,10 +213,10 @@ bool OiInstTranslate::HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad) {
   if (const MCConstantExpr *ce = dyn_cast<const MCConstantExpr>(&exp)) {
     Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                                   ce->getValue());
-    V = AccessShadowMemory32(idx, IsLoad);
+    V = IREmitter.AccessShadowMemory(idx, IsLoad);
     return true;
   } else if (const MCSymbolRefExpr *se = dyn_cast<const MCSymbolRefExpr>(&exp)){
-    V = TheModule->getOrInsertGlobal(se->getSymbol().getName(),
+    V = IREmitter.TheModule->getOrInsertGlobal(se->getSymbol().getName(),
                                      Type::getInt32Ty(getGlobalContext()));
     if (se->getKind() == MCSymbolRefExpr::VK_Mips_ABS_HI) {
       Value *V0 = Builder.CreateCast(Instruction::PtrToInt, V,
@@ -856,7 +237,7 @@ bool OiInstTranslate::HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad) {
       llvm_unreachable("Unhandled SymbolRef Kind");
     }
     return true;
-    //    GlobalVariable(TheModule,
+    //    GlobalVariable(IREmitter.TheModule,
     //               Type::getInt32Ty(getGlobalContext()),
     //               false,
     //              GlobalValue::LinkageTypes::ExternalLinkage,
@@ -867,37 +248,12 @@ bool OiInstTranslate::HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad) {
   llvm_unreachable("Invalid Load Expr");
 }
 
-Value *OiInstTranslate::AccessShadowMemory32(Value *Idx, bool IsLoad, int width) {
-  SmallVector<Value*,4> Idxs;
-  Idxs.push_back(ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U));
-  Idxs.push_back(Idx);
-  Value *gep = Builder.CreateGEP(ShadowImageValue, Idxs);
-  Type *targetType = 0;
-  switch (width) {
-  case 8:
-    targetType = Type::getInt8PtrTy(getGlobalContext());
-    break;
-  case 16:
-    targetType = Type::getInt16PtrTy(getGlobalContext());
-    break;
-  case 32:
-    targetType = Type::getInt32PtrTy(getGlobalContext());
-    break;
-  default:
-    llvm_unreachable("Invalid memory access width");
-  }
-  Value *ptr = Builder.CreateBitCast(gep, targetType);
-  if (IsLoad)
-    return Builder.CreateLoad(ptr);
-  return ptr;
-}
-
 bool OiInstTranslate::HandleLUiOperand(const MCOperand &o, Value *&V, Value **First,
                                        bool IsLoad) {
   if (o.isImm()) {
     uint64_t addr = o.getImm();
 
-    if (ResolveRelocation(addr)) {
+    if (RelocReader.ResolveRelocation(addr)) {
       addr += o.getImm();
       Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), addr);    
       Value *V1 = Builder.CreateLShr(idx, ConstantInt::get
@@ -928,7 +284,7 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
     uint64_t myimm = o2.getImm();
     uint64_t reltype = 0;
     Value *idx, *addr;
-    if (ResolveRelocation(myimm, &reltype)) {
+    if (RelocReader.ResolveRelocation(myimm, &reltype)) {
       if (reltype == ELF::R_MIPS_LO16) {
         Value *V0 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                                      myimm + o2.getImm());
@@ -938,7 +294,7 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
         *First = V1;
         idx = V1;
         unsigned reg = ConvToDirective(conv32(o.getReg()));
-        Value *base = Builder.CreateLoad(Regs[reg]);
+        Value *base = Builder.CreateLoad(IREmitter.Regs[reg]);
         ReadMap[reg] = true;
         if (!isa<Instruction>(*First)) {
           *First = base;
@@ -954,12 +310,12 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
       idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                              myimm);
       unsigned reg = ConvToDirective(conv32(o.getReg()));
-      Value *base = Builder.CreateLoad(Regs[reg]);
+      Value *base = Builder.CreateLoad(IREmitter.Regs[reg]);
       ReadMap[reg] = true;
       addr = Builder.CreateAdd(base, idx);
       *First = base;
     }
-    V = AccessShadowMemory32(addr, IsLoad, width);
+    V = IREmitter.AccessShadowMemory(addr, IsLoad, width);
     return true;
   } 
   llvm_unreachable("Invalid Src operand");
@@ -968,7 +324,7 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
 bool OiInstTranslate::HandleAluDstOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
     unsigned reg = ConvToDirective(conv32(o.getReg()));
-    V = Regs[reg];
+    V = IREmitter.Regs[reg];
     WriteMap[reg] = true;
     return true;
   }
@@ -976,136 +332,42 @@ bool OiInstTranslate::HandleAluDstOperand(const MCOperand &o, Value *&V) {
   return false;
 }
 
-bool OiInstTranslate::ResolveRelocation(uint64_t &Res, uint64_t *Type) {
-  relocation_iterator Rel = (*CurSection)->end_relocations();
-  error_code ec;
-  StringRef Name;
-  if (!CheckRelocation(Rel, Name))
-    return false;
-  for (section_iterator i = Obj->begin_sections(),
-         e = Obj->end_sections();
-       i != e; i.increment(ec)) {
-    if (error(ec)) break;
-    StringRef SecName;
-    if (error(i->getName(SecName))) break;
-    if (SecName != Name)
-      continue;
-    
-    uint64_t SectionAddr;
-    if (error(i->getAddress(SectionAddr))) break;
-
-    // Relocatable file
-    if (SectionAddr == 0) {
-      SectionAddr = GetELFOffset(i);
-    }
-
-    Res = SectionAddr;
-    if (Type) {
-      if (error(Rel->getType(*Type)))
-        llvm_unreachable("Error getting relocation type");
-    }
-    return true;
-  }
-
-  for (symbol_iterator si = Obj->begin_symbols(),
-         se = Obj->end_symbols();
-       si != se; si.increment(ec)) {
-    StringRef SName;
-    if (error(si->getName(SName))) break;
-    if (Name != SName)
-      continue;
-
-    uint64_t Address;
-    if (error(si->getAddress(Address))) break;
-    if (Address == UnknownAddressOrSize) continue;
-    //        Address -= SectionAddr;
-    Res = Address;
-
-    section_iterator seci = Obj->end_sections();
-    // Check if it is relative to a section
-    if ((!error(si->getSection(seci)))
-        && seci != Obj->end_sections()) {
-      uint64_t SectionAddr;
-      if (error(seci->getAddress(SectionAddr))) 
-        llvm_unreachable("Error getting section address");
-
-      // Relocatable file
-      if (SectionAddr == 0) {
-        SectionAddr = GetELFOffset(seci);
-      }
-      Res += SectionAddr;
-    }
-
-    if (Type) {
-      if (error(Rel->getType(*Type)))
-        llvm_unreachable("Error getting relocation type");
-    }
-    return true;
-  }
-
-  return false;
-}
-
-bool OiInstTranslate::CheckRelocation(relocation_iterator &Rel, StringRef &Name) {
-  error_code ec;
-  uint64_t offset = GetELFOffset(*CurSection);
-  for (relocation_iterator ri = (*CurSection)->begin_relocations(),
-         re = (*CurSection)->end_relocations();
-       ri != re; ri.increment(ec)) {
-    if (error(ec)) break;
-    uint64_t addr;
-    if (error(ri->getOffset(addr))) break;
-    if (offset + addr != CurAddr)
-      continue;
-
-    Rel = ri;
-    SymbolRef symb;
-    if (!error(ri->getSymbol(symb))) {
-      if (!error(symb.getName(Name))) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **First) {
   if (o.isImm()) {
     if (o.getImm() != 0U) {
-      return HandleLocalCall(o.getImm(), V, First);
+      return IREmitter.HandleLocalCall(o.getImm(), V, First);
     } else { // Need to handle the relocation to find the correct jump address
-      relocation_iterator ri = (*CurSection)->end_relocations();
+      relocation_iterator ri = (*IREmitter.CurSection)->end_relocations();
       StringRef val;
-      if (CheckRelocation(ri, val)) {
+      if (RelocReader.CheckRelocation(ri, val)) {
         if (val == "write") 
-          return HandleSyscallWrite(V, First);        
+          return Syscalls.HandleSyscallWrite(V, First);        
         if (val == "atoi")
-          return HandleLibcAtoi(V, First);
+          return Syscalls.HandleLibcAtoi(V, First);
         if (val == "malloc")
-          return HandleLibcMalloc(V, First);
+          return Syscalls.HandleLibcMalloc(V, First);
         if (val == "calloc")
-          return HandleLibcCalloc(V, First);
+          return Syscalls.HandleLibcCalloc(V, First);
         if (val == "free")
-          return HandleLibcFree(V, First);
+          return Syscalls.HandleLibcFree(V, First);
         if (val == "exit")
-          return HandleLibcExit(V, First);
+          return Syscalls.HandleLibcExit(V, First);
         if (val == "puts")
-          return HandleLibcPuts(V, First);
+          return Syscalls.HandleLibcPuts(V, First);
         if (val == "memset")
-          return HandleLibcMemset(V, First);
+          return Syscalls.HandleLibcMemset(V, First);
         if (val == "fwrite")
-          return HandleLibcFwrite(V, First);
+          return Syscalls.HandleLibcFwrite(V, First);
         if (val == "printf")
-          return HandleLibcPrintf(V, First);
+          return Syscalls.HandleLibcPrintf(V, First);
         if (val == "fprintf")
-          return HandleLibcFprintf(V, First);
+          return Syscalls.HandleLibcFprintf(V, First);
         if (val == "__isoc99_scanf")
-          return HandleLibcScanf(V);
+          return Syscalls.HandleLibcScanf(V);
       }
       uint64_t targetaddr;
-      if (ResolveRelocation(targetaddr))
-        return HandleLocalCall(targetaddr, V, First);
+      if (RelocReader.ResolveRelocation(targetaddr))
+        return IREmitter.HandleLocalCall(targetaddr, V, First);
       llvm_unreachable("Unrecognized function call");
     }
     llvm_unreachable("Unrecognized function call");
@@ -1192,22 +454,22 @@ bool OiInstTranslate::HandleBranchTarget(const MCOperand &o, BasicBlock *&Target
     if (o.getImm() != 0U) {
       uint64_t tgtaddr;
       if (IsRelative)
-        tgtaddr = (CurAddr + o.getImm()) & 0xFFFFFFFFULL;
+        tgtaddr = (IREmitter.CurAddr + o.getImm()) & 0xFFFFFFFFULL;
       else
         tgtaddr = o.getImm();
       uint64_t rel = 0;
-      if (ResolveRelocation(rel)) {
+      if (RelocReader.ResolveRelocation(rel)) {
         tgtaddr += rel;
       }
-      assert (tgtaddr != CurAddr);
-      if (tgtaddr < CurAddr)
-        return HandleBackEdge(tgtaddr, Target);
-      Target = CreateBB(tgtaddr);
+      assert (tgtaddr != IREmitter.CurAddr);
+      if (tgtaddr < IREmitter.CurAddr)
+        return IREmitter.HandleBackEdge(tgtaddr, Target);
+      Target = IREmitter.CreateBB(tgtaddr);
       return true;
     } else { // Need to handle the relocation to find the correct jump address
       uint64_t targetaddr;
-      if (ResolveRelocation(targetaddr)) {
-        Target = CreateBB(targetaddr);
+      if (RelocReader.ResolveRelocation(targetaddr)) {
+        Target = IREmitter.CreateBB(targetaddr);
         return true;
       }
     }
@@ -1215,440 +477,6 @@ bool OiInstTranslate::HandleBranchTarget(const MCOperand &o, BasicBlock *&Target
   llvm_unreachable("Unrecognized branch target");
 }
 
-bool OiInstTranslate::HandleBackEdge(uint64_t Addr, BasicBlock *&Target) {
-  Twine T("bb");
-  T = T.concat(Twine::utohexstr(Addr));
-  std::string Idx = T.str();
-
-  if (BBMap[Idx] != 0) {
-    Target = BBMap[Idx];
-    return true;
-  }
-
-  Instruction *TgtIns = InsMap[Addr];
-  while (TgtIns == 0 && Addr < CurAddr) {
-    Addr += 4;
-    TgtIns = InsMap[Addr];
-  }
-    
-  assert(TgtIns && "Backedge out of range");
-  assert(TgtIns->getParent()->getParent() 
-         == Builder.GetInsertBlock()->getParent() && "Backedge out of range");
-
-  Twine T2("bb");
-  T2 = T2.concat(Twine::utohexstr(Addr));
-  Idx = T2.str();
-  if (BBMap[Idx] != 0) {
-    Target = BBMap[Idx];
-    return true;
-  }
-  BasicBlock *BB = TgtIns->getParent();
-  BasicBlock::iterator I, E;
-  for (I = BB->begin(), E = BB->end(); I != E; ++I) {
-    if (&*I == TgtIns)
-      break;
-  }
-  assert (I != E);
-  if (BB->getTerminator()) {
-    Target = BB->splitBasicBlock(I, Idx);    
-    BBMap[Idx] = Target;
-    return true;
-  }
-
-  //Insert dummy terminator
-  assert(Builder.GetInsertBlock() == BB && CurBlockAddr < Addr);
-  Instruction *dummy = dyn_cast<Instruction>(Builder.CreateRetVoid());
-  assert(dummy);
-  Target = BB->splitBasicBlock(I, Idx);    
-  BBMap[Idx] = Target;
-  CurBlockAddr = Addr;
-  dummy->eraseFromParent();
-  Builder.SetInsertPoint(Target, Target->end());
-  
-  return true;
-}
-
-bool OiInstTranslate::HandleLocalCallOneRegion(uint64_t Addr, Value *&V,
-                                               Value **First) {
-  BasicBlock *Target;
-  FunctionCallMap[CurAddr] = Addr;
-  if (Addr < CurAddr)
-    HandleBackEdge(Addr, Target);
-  else
-    Target = CreateBB(Addr);
-  Value *first = Builder.CreateStore
-    (ConstantInt::get(Type::getInt32Ty(getGlobalContext()), CurAddr+4),
-                               Regs[ConvToDirective(Oi::RA)]);
-  V = Builder.CreateBr(Target);
-  //  printf("\nHandleLocalCallOneregion.CurAddr: %08LX\n", CurAddr+4);
-  CreateBB(CurAddr+4);
-  if (First)
-    *First = first;
-  return true;
-}
-
-SmallVector<uint32_t, 4> OiInstTranslate::GetCallSitesFor(uint32_t FuncAddr) {
-  SmallVector<uint32_t, 4> Res;
-  for (DenseMap<int32_t, int32_t>::iterator I = FunctionCallMap.begin(),
-         E = FunctionCallMap.end(); I != E; ++I) {
-    uint32_t retaddr = I->first + 4;
-    uint32_t funcaddr = I->second;
-
-    if (funcaddr != FuncAddr)
-      continue;
-
-    Res.push_back(retaddr);
-  }
-  return Res;
-}
-
-bool OiInstTranslate::BuildReturnTablesOneRegion() {
-  for (DenseMap<int32_t, int32_t>::iterator I = FunctionRetMap.begin(), 
-         E = FunctionRetMap.end(); I != E; ++I) {
-    uint32_t retaddr = I->first;
-    uint32_t funcaddr = I->second;
-
-    Instruction* tgtins = InsMap[retaddr];
-    assert(tgtins && "Invalid return address");
-    
-    Builder.SetInsertPoint(tgtins->getParent(), tgtins);
-    
-    SmallVector<uint32_t, 4> CallSites = GetCallSitesFor(funcaddr);
-    if (CallSites.empty())
-      continue;
-
-    Value *ra = Builder.CreateLoad(Regs[ConvToDirective(Oi::RA)], "RetTableInput");
-    ReadMap[ConvToDirective(Oi::RA)] = true;
-    Instruction *dummy = Builder.CreateUnreachable();
-    Builder.SetInsertPoint(tgtins->getParent(), dummy);
-
-    // Delete the original ret instruction
-    tgtins->eraseFromParent();
-
-    for (SmallVector<uint32_t, 4>::iterator J = CallSites.begin(), EJ = CallSites.end();
-         J != EJ; ++J) {
-      Value *site = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), *J);
-      Value *cmp = Builder.CreateICmpEQ(site, ra);
-
-      Twine T2("bb");
-      T2 = T2.concat(Twine::utohexstr(*J));
-      std::string Idx = T2.str();
-      //  printf("\n%08X\n\n%s\n", *J,  Idx.c_str());
-      assert (BBMap[Idx] != 0 && "Invalid return target address");
-      Value *TrueV = BBMap[Idx];
-      assert(isa<BasicBlock>(TrueV) && "Values stored into BBMap must be BasicBlocks");
-      BasicBlock *True = dyn_cast<BasicBlock>(TrueV);
-      Function *F = True->getParent();
-      BasicBlock *FallThrough = BasicBlock::Create(getGlobalContext(), "", F);      
-
-      Builder.CreateCondBr(cmp, True, FallThrough);
-      Builder.SetInsertPoint(FallThrough);
-    }
-    Builder.CreateUnreachable();
-    dummy->eraseFromParent();
-  }
-}
-
-bool OiInstTranslate::HandleLocalCall(uint64_t Addr, Value *&V, Value **First) {
-  if (OneRegion)
-    return HandleLocalCallOneRegion(Addr, V, First);
-  Twine T("a");
-  T = T.concat(Twine::utohexstr(Addr));
-  StringRef Name(T.str());
-  HandleFunctionExitPoint(First);
-  FunctionType *ft = FunctionType::get(Type::getVoidTy(getGlobalContext()),
-                                       /*isvararg*/false);
-  Value *fun = TheModule->getOrInsertFunction(Name, ft);
-  V = Builder.CreateCall(fun);
-  if (First && NoLocals)
-    *First = V;
-  HandleFunctionEntryPoint();
-  return true;
-}
-
-bool OiInstTranslate::HandleLibcAtoi(Value *&V, Value **First) {
-  SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
-  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
-                                       args, /*isvararg*/false);
-  Value *fun = TheModule->getOrInsertFunction("atoi", ft);
-  SmallVector<Value*, 8> params;
-  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
-  if (First)
-    *First = f;
-  Value *addrbuf = AccessShadowMemory32(f, false);
-  params.push_back(Builder.CreatePtrToInt(addrbuf,
-                                          Type::getInt32Ty(getGlobalContext())));
-  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
-                                                                (Oi::V0)]);
-  ReadMap[ConvToDirective(Oi::A0)] = true;
-  WriteMap[ConvToDirective(Oi::V0)] = true;
-  return true;
-}
-
-bool OiInstTranslate::HandleLibcMalloc(Value *&V, Value **First) {
-  SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
-  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
-                                       args, /*isvararg*/false);
-  Value *fun = TheModule->getOrInsertFunction("malloc", ft);
-  SmallVector<Value*, 8> params;
-  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
-  if (First)
-    *First = f;
-  params.push_back(f);
-  Value *mal = Builder.CreateCall(fun, params);
-  Value *ptr = Builder.CreatePtrToInt(ShadowImageValue, Type::getInt32Ty(getGlobalContext()));
-  Value *fixed = Builder.CreateSub(mal, ptr);
-  V = Builder.CreateStore(fixed, Regs[ConvToDirective
-                                      (Oi::V0)]);
-  ReadMap[ConvToDirective(Oi::A0)] = true;
-  WriteMap[ConvToDirective(Oi::V0)] = true;
-  return true;
-}
-
-bool OiInstTranslate::HandleLibcCalloc(Value *&V, Value **First) {
-  SmallVector<Type*, 8> args(2, Type::getInt32Ty(getGlobalContext()));
-  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
-                                       args, /*isvararg*/false);
-  Value *fun = TheModule->getOrInsertFunction("calloc", ft);
-  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
-  if (First)
-    *First = f;
-  SmallVector<Value*, 8> params;
-  params.push_back(f);
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]));
-  Value *mal = Builder.CreateCall(fun, params);
-  Value *ptr = Builder.CreatePtrToInt(ShadowImageValue, Type::getInt32Ty(getGlobalContext()));
-  Value *fixed = Builder.CreateSub(mal, ptr);
-  V = Builder.CreateStore(fixed, Regs[ConvToDirective
-                                      (Oi::V0)]);
-  ReadMap[ConvToDirective(Oi::A0)] = true;
-  ReadMap[ConvToDirective(Oi::A1)] = true;
-  WriteMap[ConvToDirective(Oi::V0)] = true;
-  return true;
-}
-
-bool OiInstTranslate::HandleLibcFree(Value *&V, Value **First) {
-  SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
-  FunctionType *ft = FunctionType::get(Type::getVoidTy(getGlobalContext()),
-                                       args, /*isvararg*/false);
-  Value *fun = TheModule->getOrInsertFunction("free", ft);
-  SmallVector<Value*, 8> params;
-  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
-  if (First)
-    *First = f;
-  Value *addrbuf = AccessShadowMemory32
-    (f, false);
-  params.push_back(Builder.CreatePtrToInt(addrbuf,
-                                          Type::getInt32Ty(getGlobalContext())));
-  V = Builder.CreateCall(fun, params);
-  ReadMap[ConvToDirective(Oi::A0)] = true;
-  return true;
-}
-
-bool OiInstTranslate::HandleLibcExit(Value *&V, Value **First) {
-  SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
-  FunctionType *ft = FunctionType::get(Type::getVoidTy(getGlobalContext()),
-                                       args, /*isvararg*/false);
-  Value *fun = TheModule->getOrInsertFunction("exit", ft);
-  SmallVector<Value*, 8> params;
-  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
-  if (First)
-    *First = f;
-  params.push_back(f);
-  V = Builder.CreateCall(fun, params);
-  ReadMap[ConvToDirective(Oi::A0)] = true;
-  return true;
-}
-
-bool OiInstTranslate::HandleLibcPuts(Value *&V, Value **First) {
-  SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
-  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
-                                       args, /*isvararg*/false);
-  Value *fun = TheModule->getOrInsertFunction("puts", ft);
-  SmallVector<Value*, 8> params;
-  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
-  if (First)
-    *First = f;
-  Value *addrbuf = AccessShadowMemory32
-    (f, false);
-  params.push_back(Builder.CreatePtrToInt(addrbuf,
-                                          Type::getInt32Ty(getGlobalContext())));
-  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
-                                                                (Oi::V0)]);
-  ReadMap[ConvToDirective(Oi::A0)] = true;
-  WriteMap[ConvToDirective(Oi::V0)] = true;
-  return true;
-}
-
-bool OiInstTranslate::HandleLibcMemset(Value *&V, Value **First) {
-  SmallVector<Type*, 8> args(3, Type::getInt32Ty(getGlobalContext()));
-  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
-                                       args, /*isvararg*/false);
-  Value *fun = TheModule->getOrInsertFunction("memset", ft);
-  SmallVector<Value*, 8> params;
-  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
-  if (First)
-    *First = f;
-  Value *addrbuf = AccessShadowMemory32
-    (f, false);
-  params.push_back(Builder.CreatePtrToInt(addrbuf,
-                                          Type::getInt32Ty(getGlobalContext())));
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]));
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]));
-  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
-                                                                (Oi::V0)]);
-  ReadMap[ConvToDirective(Oi::A0)] = true;
-  ReadMap[ConvToDirective(Oi::A1)] = true;
-  ReadMap[ConvToDirective(Oi::A2)] = true;
-  WriteMap[ConvToDirective(Oi::V0)] = true;
-  return true;
-}
-
-// XXX: Handling a fixed number of 4 arguments, since we cannot infer how many
-// arguments the program is using with fprintf
-bool OiInstTranslate::HandleLibcFwrite(Value *&V, Value **First) {
-  SmallVector<Type*, 8> args(4, Type::getInt32Ty(getGlobalContext()));
-  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
-                                       args, /*isvararg*/false);
-  Value *fun = TheModule->getOrInsertFunction("fwrite", ft);
-  SmallVector<Value*, 8> params;
-  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
-  if (First)
-    *First = f;
-  Value *addrbuf = AccessShadowMemory32(f, false);
-  params.push_back(Builder.CreatePtrToInt(addrbuf,
-                                          Type::getInt32Ty(getGlobalContext())));
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]));
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]));
-  addrbuf = AccessShadowMemory32
-    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A3)]), false);
-  params.push_back(Builder.CreatePtrToInt(addrbuf,
-                                          Type::getInt32Ty(getGlobalContext())));
-  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
-                                                                (Oi::V0)]);
-  ReadMap[ConvToDirective(Oi::A0)] = true;
-  ReadMap[ConvToDirective(Oi::A1)] = true;
-  ReadMap[ConvToDirective(Oi::A2)] = true;
-  ReadMap[ConvToDirective(Oi::A3)] = true;
-  WriteMap[ConvToDirective(Oi::V0)] = true;
-  return true;
-}
-
-// XXX: Handling a fixed number of 4 arguments, since we cannot infer how many
-// arguments the program is using with fprintf
-bool OiInstTranslate::HandleLibcFprintf(Value *&V, Value **First) {
-  SmallVector<Type*, 8> args(2, Type::getInt32Ty(getGlobalContext()));
-  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
-                                       args, /*isvararg*/true);
-  Value *fun = TheModule->getOrInsertFunction("fprintf", ft);
-  SmallVector<Value*, 8> params;
-  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
-  if (First)
-    *First = f;
-  params.push_back(f);
-  Value *addrbuf = AccessShadowMemory32
-    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]), false);
-  params.push_back(Builder.CreatePtrToInt(addrbuf,
-                                          Type::getInt32Ty(getGlobalContext())));
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]));
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A3)]));
-  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
-                                                                (Oi::V0)]);
-  ReadMap[ConvToDirective(Oi::A0)] = true;
-  ReadMap[ConvToDirective(Oi::A1)] = true;
-  ReadMap[ConvToDirective(Oi::A2)] = true;
-  ReadMap[ConvToDirective(Oi::A3)] = true;
-  WriteMap[ConvToDirective(Oi::V0)] = true;
-  return true;
-}
-
-// XXX: Handling a fixed number of 4 arguments, since we cannot infer how many
-// arguments the program is using with printf
-bool OiInstTranslate::HandleLibcPrintf(Value *&V, Value **First) {
-  SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
-  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
-                                       args, /*isvararg*/true);
-  Value *fun = TheModule->getOrInsertFunction("printf", ft);
-  SmallVector<Value*, 8> params;
-  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
-  if (First)
-    *First = f;
-  Value *addrbuf = AccessShadowMemory32(f, false);
-  params.push_back(Builder.CreatePtrToInt(addrbuf,
-                                          Type::getInt32Ty(getGlobalContext())));
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]));
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]));
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A3)]));
-  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
-                                                                (Oi::V0)]);
-  ReadMap[ConvToDirective(Oi::A0)] = true;
-  ReadMap[ConvToDirective(Oi::A1)] = true;
-  ReadMap[ConvToDirective(Oi::A2)] = true;
-  ReadMap[ConvToDirective(Oi::A3)] = true;
-  WriteMap[ConvToDirective(Oi::V0)] = true;
-  return true;
-}
-
-// XXX: Handling a fixed number of 4 arguments, since we cannot infer how many
-// arguments the program is using with scanf
-bool OiInstTranslate::HandleLibcScanf(Value *&V, Value **First) {
-  SmallVector<Type*, 8> args(1, Type::getInt32Ty(getGlobalContext()));
-  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
-                                       args, /*isvararg*/true);
-  Value *fun = TheModule->getOrInsertFunction("__isoc99_scanf", ft);
-  SmallVector<Value*, 8> params;
-  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
-  if (First)
-    *First = f;
-  Value *addrbuf0 = AccessShadowMemory32(f, false);
-  Value *addrbuf1 = AccessShadowMemory32
-    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]), false);
-  Value *addrbuf2 = AccessShadowMemory32
-    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]), false);
-  Value *addrbuf3 = AccessShadowMemory32
-    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A3)]), false);
-  params.push_back(Builder.CreatePtrToInt(addrbuf0,
-                                          Type::getInt32Ty(getGlobalContext())));
-  params.push_back(Builder.CreatePtrToInt(addrbuf1,
-                                          Type::getInt32Ty(getGlobalContext())));
-  params.push_back(Builder.CreatePtrToInt(addrbuf2,
-                                          Type::getInt32Ty(getGlobalContext())));
-  params.push_back(Builder.CreatePtrToInt(addrbuf3,
-                                          Type::getInt32Ty(getGlobalContext())));
-  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
-                                                                (Oi::V0)]);
-  ReadMap[ConvToDirective(Oi::A0)] = true;
-  ReadMap[ConvToDirective(Oi::A1)] = true;
-  ReadMap[ConvToDirective(Oi::A2)] = true;
-  ReadMap[ConvToDirective(Oi::A3)] = true;
-  WriteMap[ConvToDirective(Oi::V0)] = true;
-  return true;
-}
-
-bool OiInstTranslate::HandleSyscallWrite(Value *&V, Value **First) {
-  SmallVector<Type*, 8> args(3, Type::getInt32Ty(getGlobalContext()));
-  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
-                                       args, /*isvararg*/false);
-  Value *fun = TheModule->getOrInsertFunction("write", ft);
-  SmallVector<Value*, 8> params;
-  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
-  if (First)
-    *First = f;
-  params.push_back(f);
-  Value *addrbuf = AccessShadowMemory32
-    (Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]), false);
-  params.push_back(Builder.CreatePtrToInt(addrbuf,
-                                          Type::getInt32Ty(getGlobalContext())));
-  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]));
-
-  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
-                                                                (Oi::V0)]);
-  ReadMap[ConvToDirective(Oi::A0)] = true;
-  ReadMap[ConvToDirective(Oi::A1)] = true;
-  ReadMap[ConvToDirective(Oi::A2)] = true;
-  WriteMap[ConvToDirective(Oi::V0)] = true;
-  return true;
-}
 
 void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
 #ifndef NDEBUG
@@ -1671,7 +499,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       Value *v2 = Builder.CreateStore(v, o0);
       Value *first = GetFirstInstruction(o1, o2, v, v2);
       assert(isa<Instruction>(first) && "Need to rework map logic");
-      InsMap[CurAddr] = dyn_cast<Instruction>(first);
+      IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       v2->dump();
     }
     break;
@@ -1687,7 +515,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v2->dump();
       }
       break;
@@ -1702,7 +530,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v2->dump();
       }
       break;
@@ -1719,12 +547,12 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
                                        (Type::getInt64Ty(getGlobalContext()), 32));
         Value *V2 = Builder.CreateSExtOrTrunc(V1, Type::getInt32Ty(getGlobalContext()));
         Value *V3 = Builder.CreateSExtOrTrunc(v, Type::getInt32Ty(getGlobalContext()));
-        Value *v4 = Builder.CreateStore(V2, Regs[33]);
-        Value *v5 = Builder.CreateStore(V3, Regs[32]);
+        Value *v4 = Builder.CreateStore(V2, IREmitter.Regs[33]);
+        Value *v5 = Builder.CreateStore(V3, IREmitter.Regs[32]);
         WriteMap[33] = true;
         WriteMap[32] = true;
         assert(isa<Instruction>(o0) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(o0);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(o0);
         o0se->dump();
       }
       break;
@@ -1733,12 +561,12 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     {
       DebugOut << "Handling MFHI\n";
       if (HandleAluDstOperand(MI->getOperand(0), o0)) {
-        Value *v = Builder.CreateLoad(Regs[33]);
+        Value *v = Builder.CreateLoad(IREmitter.Regs[33]);
         ReadMap[33] = true;
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o0, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v2->dump();
       }
       break;
@@ -1747,12 +575,12 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     {
       DebugOut << "Handling MFLO\n";
       if (HandleAluDstOperand(MI->getOperand(0), o0)) {
-        Value *v = Builder.CreateLoad(Regs[32]);
+        Value *v = Builder.CreateLoad(IREmitter.Regs[32]);
         ReadMap[33] = true;
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o0, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v2->dump();
       }
       break;
@@ -1766,7 +594,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v = Builder.CreateStore(src1, dst1);
         Value *v2 = Builder.CreateStore(src2, dst2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v->dump();
       }
       break;
@@ -1782,7 +610,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(hi, dst_hi);
         Builder.CreateStore(lo, dst_lo);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         src->dump();
       }
       break;
@@ -1800,9 +628,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
           Value *select = Builder.CreateSelect(cmp, one, zero);
           WriteMap[66] = true;
-          Builder.CreateStore(select, Regs[66]);
+          Builder.CreateStore(select, IREmitter.Regs[66]);
           assert(isa<Instruction>(first) && "Need to rework map logic");
-          InsMap[CurAddr] = dyn_cast<Instruction>(first);
+          IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
           select->dump();
         }
       }
@@ -1821,7 +649,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(high, o01);
         Builder.CreateStore(low, o02);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         o1->dump();
       }      
       break;
@@ -1839,7 +667,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(high, o01);
         Builder.CreateStore(low, o02);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         o1->dump();
       }      
       break;
@@ -1857,7 +685,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(high, o01);
         Builder.CreateStore(low, o02);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         o1->dump();
       }      
       break;
@@ -1875,7 +703,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v3 = Builder.CreateStore(low, o02);
         Value *first = GetFirstInstruction(o1, v1);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v1->dump();
       }      
       break;
@@ -1890,7 +718,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v = Builder.CreateStore(o1, o0);
         Value *first = GetFirstInstruction(o1, v);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v->dump();
       }
       break;
@@ -1904,17 +732,18 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *cmp;
         if (MI->getOpcode() == Oi::BC1T) {
           ReadMap[66] = true;
-          cmp = Builder.CreateSExtOrTrunc(Builder.CreateLoad(Regs[66]),
+          cmp = Builder.CreateSExtOrTrunc(Builder.CreateLoad(IREmitter.Regs[66]),
                                     Type::getInt1Ty(getGlobalContext()));
         } else {
           ReadMap[66] = true;
-          cmp = Builder.CreateICmpEQ(Builder.CreateLoad(Regs[66]),
+          cmp = Builder.CreateICmpEQ(Builder.CreateLoad(IREmitter.Regs[66]),
                              ConstantInt::get(Type::getInt32Ty
                                               (getGlobalContext()), 0U));
         }
-        Value *v = Builder.CreateCondBr(cmp, True, CreateBB(CurAddr+4));
+        Value *v = Builder.CreateCondBr(cmp, True, 
+                                        IREmitter.CreateBB(IREmitter.CurAddr+4));
         assert(isa<Instruction>(cmp) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(cmp);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(cmp);
         v->dump();
       }
       break;
@@ -1926,8 +755,8 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       BasicBlock *Target = 0;
       if (HandleBranchTarget(MI->getOperand(0), Target, false)) {
         Value *v = Builder.CreateBr(Target);
-        InsMap[CurAddr] = dyn_cast<Instruction>(v);
-        CreateBB(CurAddr+4);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(v);
+        IREmitter.CreateBB(IREmitter.CurAddr+4);
         v->dump();
       }
       break;
@@ -1943,7 +772,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v2->dump();
       }
       break;
@@ -1959,7 +788,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v2->dump();
       }
       break;
@@ -1975,7 +804,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v2->dump();
       }
       break;
@@ -2000,7 +829,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(select, o0);
         Value *first = GetFirstInstruction(o1, o2, cmp, loaddst);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         select->dump();
       }
       break;
@@ -2017,7 +846,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v2->dump();
       }
       break;
@@ -2034,7 +863,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v3 = Builder.CreateStore(v2, o0);
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v2->dump();
       }
       break;
@@ -2051,7 +880,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v2->dump();
       }
       break;
@@ -2068,7 +897,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v2->dump();
       }
       break;
@@ -2087,7 +916,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Function *F = Builder.GetInsertBlock()->getParent();
         BasicBlock *BB1 = BasicBlock::Create(getGlobalContext(), "", F);
         BasicBlock *BB2 = BasicBlock::Create(getGlobalContext(), "", F);
-        BasicBlock *FT = CreateBB(CurAddr+4);
+        BasicBlock *FT = IREmitter.CreateBB(IREmitter.CurAddr+4);
 
         Value *cmp = 0;
         if (MI->getOpcode() == Oi::SLTiu ||
@@ -2107,10 +936,10 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(zero, o0);
         Builder.CreateBr(FT);
         Builder.SetInsertPoint(FT);
-        CurBlockAddr = CurAddr+4;
+        IREmitter.CurBlockAddr = IREmitter.CurAddr+4;
 
         assert(isa<Instruction>(cmp) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(cmp);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(cmp);
         cmp->dump();
       }      
       break;
@@ -2142,10 +971,11 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           HandleBranchTarget(MI->getOperand(1), True);
           cmp = Builder.CreateICmpSGT(o1, o2);
         }
-        Value *v = Builder.CreateCondBr(cmp, True, CreateBB(CurAddr+4));
+        Value *v = Builder.CreateCondBr(cmp, True, 
+                                        IREmitter.CreateBB(IREmitter.CurAddr+4));
         Value *first = GetFirstInstruction(o1, o2, cmp, v);
         assert(isa<Instruction>(first) && "Need to rework map logic");
-        InsMap[CurAddr] = dyn_cast<Instruction>(first);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v->dump();
       }
       break;
@@ -2160,7 +990,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       if (!isa<Instruction>(first))
         first = v;
       assert(isa<Instruction>(first) && "Need to rework map logic");
-      InsMap[CurAddr] = dyn_cast<Instruction>(first);
+      IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       v->dump();
     }
     break;
@@ -2173,7 +1003,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         HandleMemOperand(MI->getOperand(1), MI->getOperand(2), src, &first, true)) {
       Value *v = Builder.CreateStore(src, dst);
       assert(isa<Instruction>(first) && "Need to rework map logic");
-      InsMap[CurAddr] = dyn_cast<Instruction>(first);
+      IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       v->dump();
     }
     break;
@@ -2191,7 +1021,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         ext = Builder.CreateZExt(src, Type::getInt32Ty(getGlobalContext()));
       Value *v = Builder.CreateStore(ext, dst);
       assert(isa<Instruction>(first) && "Need to rework map logic");
-      InsMap[CurAddr] = dyn_cast<Instruction>(first);
+      IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       v->dump();
     }    
     break;
@@ -2205,7 +1035,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       Value *v = Builder.CreateStore(src, dst);
       first = GetFirstInstruction(src, first);
       assert(isa<Instruction>(first) && "Need to rework map logic");
-      InsMap[CurAddr] = dyn_cast<Instruction>(first);
+      IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       v->dump();
     }
     break;
@@ -2219,7 +1049,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       Value *v = Builder.CreateStore(tr, dst);
       first = GetFirstInstruction(src, tr, first);
       assert(isa<Instruction>(first) && "Need to rework map logic");
-      InsMap[CurAddr] = dyn_cast<Instruction>(first);
+      IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       v->dump();
     }
     break;
@@ -2234,7 +1064,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     Value *call, *first;
     if(HandleCallTarget(MI->getOperand(0), call, &first)) {
       assert(isa<Instruction>(first) && "Need to rework map logic");
-      InsMap[CurAddr] = dyn_cast<Instruction>(first);
+      IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       call->dump();
     }
     break;
@@ -2244,15 +1074,15 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     DebugOut << "Handling JR\n";
     Value *first = 0;
     if (!NoLocals && !OneRegion)
-      HandleFunctionExitPoint(&first);
+      IREmitter.HandleFunctionExitPoint(&first);
     if (MI->getOperand(0).getReg() == Oi::RA
         || MI->getOperand(0).getReg() == Oi::RA_64) {
       Value *v = Builder.CreateRetVoid();
       if (!first)
         first = v;
       assert(isa<Instruction>(first) && "Need to rework map logic");      
-      InsMap[CurAddr] = dyn_cast<Instruction>(first);
-      FunctionRetMap[CurAddr] = CurFunAddr;
+      IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+      IREmitter.FunctionRetMap[IREmitter.CurAddr] = IREmitter.CurFunAddr;
       v->dump();
     } else {
       llvm_unreachable("Can't handle indirect jumps yet.");

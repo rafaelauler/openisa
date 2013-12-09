@@ -4,6 +4,7 @@
 
 #include "OiInstTranslate.h"
 #include "StringRefMemoryObject.h"
+#include "SBTUtils.h"
 #include "FrontEnd/MC2IRStreamer.h"
 //#include "MCFunction.h"
 #include "llvm/ADT/StringRef.h"
@@ -47,7 +48,6 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/system_error.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include <algorithm>
 #include <cctype>
@@ -60,13 +60,11 @@ namespace object {
   class ObjectFile;
   class RelocationRef;
 }
-class error_code;
 
 extern cl::opt<std::string> TripleName;
 extern cl::opt<std::string> ArchName;
 
 // Various helper functions.
-bool error(error_code ec);
 bool RelocAddressLess(object::RelocationRef a, object::RelocationRef b);
 void DumpBytes(StringRef bytes);
 void DisassembleInputMachO(StringRef Filename);
@@ -111,14 +109,6 @@ llvm::TripleName("triple", cl::desc("Target triple to disassemble for, "
                                     "see -version for available targets"));
 
 static StringRef ToolName;
-
-bool llvm::error(error_code ec) {
-  if (!ec) return false;
-
-  outs() << ToolName << ": error reading file: " << ec.message() << ".\n";
-  outs().flush();
-  return true;
-}
 
 static const Target *getTarget(const ObjectFile *Obj = NULL) {
   // Figure out the target triple.
@@ -239,13 +229,6 @@ void OptimizeAndWriteBitcode(OiInstTranslate *oit) {
     }
   }
   delete m;
-}
-
-static uint64_t GetELFOffset(section_iterator &i) {
-  DataRefImpl Sec = i->getRawDataRefImpl();
-  const object::Elf_Shdr_Impl<object::ELFType<support::little, 2, false> > *sec =
-    reinterpret_cast<const object::Elf_Shdr_Impl<object::ELFType<support::little, 2, false> > *>(Sec.p);
-  return sec->sh_offset;
 }
 
 static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
