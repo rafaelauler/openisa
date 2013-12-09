@@ -1,25 +1,13 @@
-//===-- llvm-objdump.cpp - Object file dumping utility for llvm -----------===//
-//
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
-//
-//===----------------------------------------------------------------------===//
-//
-// This program is a utility that works like binutils "objdump", that is, it
-// dumps out a plethora of information about an object file depending on the
-// flags.
-//
-// The flags and output of this program should be near identical to those of
-// binutils objdump.
-//
+//===-- Static Binary Translator ------------------------------------------===//
+// main file staticbt.cpp
 //===----------------------------------------------------------------------===//
 
-#include "llvm-objdump.h"
 #include "OiInstTranslate.h"
+#include "StringRefMemoryObject.h"
 #include "FrontEnd/MC2IRStreamer.h"
-#include "MCFunction.h"
+//#include "MCFunction.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/DataTypes.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/PassManager.h"
@@ -64,6 +52,28 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+
+namespace llvm {
+
+namespace object {
+  class COFFObjectFile;
+  class ObjectFile;
+  class RelocationRef;
+}
+class error_code;
+
+extern cl::opt<std::string> TripleName;
+extern cl::opt<std::string> ArchName;
+
+// Various helper functions.
+bool error(error_code ec);
+bool RelocAddressLess(object::RelocationRef a, object::RelocationRef b);
+void DumpBytes(StringRef bytes);
+void DisassembleInputMachO(StringRef Filename);
+void printCOFFUnwindInfo(const object::COFFObjectFile* o);
+void printELFFileHeader(const object::ObjectFile *o);
+
+}
 using namespace llvm;
 using namespace object;
 
@@ -81,52 +91,14 @@ OutputFilename("o", cl::desc("Output filename"),
 static cl::opt<bool>
 Optimize("optimize", cl::desc("Optimize the output LLVM bitcode file"));
 
-static cl::opt<bool>
-Dump("dump", cl::desc("Dump the output LLVM bitcode file"));
-
 static cl::opt<uint64_t>
 StackSize("stacksize", cl::desc("Specifies the space reserved for the stack"
                                 "(Default 300B)"),
           cl::init(300ULL));
 
-static cl::opt<bool>
-Disassemble("disassemble", cl::init(true),
-  cl::desc("Display assembler mnemonics for the machine instructions"));
-static cl::alias
-Disassembled("d", cl::desc("Alias for --disassemble"),
-             cl::aliasopt(Disassemble));
 
 static cl::opt<bool>
-Relocations("r", cl::desc("Display the relocation entries in the file"));
-
-static cl::opt<bool>
-SectionContents("s", cl::desc("Display the content of each section"));
-
-static cl::opt<bool>
-SymbolTable("t", cl::desc("Display the symbol table"));
-
-static cl::opt<bool>
-MachOOpt("macho", cl::desc("Use MachO specific object file parser"));
-static cl::alias
-MachOm("m", cl::desc("Alias for --macho"), cl::aliasopt(MachOOpt));
-
-cl::opt<std::string>
-llvm::TripleName("triple", cl::desc("Target triple to disassemble for, "
-                                    "see -version for available targets"));
-
-cl::opt<std::string>
-llvm::ArchName("arch", cl::desc("Target arch to disassemble for, "
-                                "see -version for available targets"));
-
-static cl::opt<bool>
-SectionHeaders("section-headers", cl::desc("Display summaries of the headers "
-                                           "for each section."));
-static cl::alias
-SectionHeadersShort("headers", cl::desc("Alias for --section-headers"),
-                    cl::aliasopt(SectionHeaders));
-static cl::alias
-SectionHeadersShorter("h", cl::desc("Alias for --section-headers"),
-                      cl::aliasopt(SectionHeaders));
+Dump("dump", cl::desc("Dump the output LLVM bitcode file"));
 
 static cl::list<std::string>
 MAttrs("mattr",
@@ -134,24 +106,9 @@ MAttrs("mattr",
   cl::desc("Target specific attributes"),
   cl::value_desc("a1,+a2,-a3,..."));
 
-static cl::opt<bool>
-NoShowRawInsn("no-show-raw-insn", cl::desc("When disassembling instructions, "
-                                           "do not print the instruction bytes."));
-
-static cl::opt<bool>
-UnwindInfo("unwind-info", cl::desc("Display unwind information"));
-
-static cl::alias
-UnwindInfoShort("u", cl::desc("Alias for --unwind-info"),
-                cl::aliasopt(UnwindInfo));
-
-static cl::opt<bool>
-PrivateHeaders("private-headers",
-               cl::desc("Display format specific file headers"));
-
-static cl::alias
-PrivateHeadersShort("p", cl::desc("Alias for --private-headers"),
-                    cl::aliasopt(PrivateHeaders));
+cl::opt<std::string>
+llvm::TripleName("triple", cl::desc("Target triple to disassemble for, "
+                                    "see -version for available targets"));
 
 static StringRef ToolName;
 
@@ -183,8 +140,6 @@ static const Target *getTarget(const ObjectFile *Obj = NULL) {
   TripleName = TheTriple.getTriple();
   return TheTarget;
 }
-
-void llvm::StringRefMemoryObject::anchor() { }
 
 void llvm::DumpBytes(StringRef bytes) {
   static const char hex_rep[] = "0123456789abcdef";
@@ -468,10 +423,8 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
         if (DisAsm->getInstruction(Inst, Size, memoryObject, Index,
                                    DebugOut, nulls())) {
           outs() << format("%8" PRIx64 ":", eoffset + Index);
-          if (!NoShowRawInsn) {
-            outs() << "\t";
-            DumpBytes(StringRef(Bytes.data() + Index, Size));
-          }
+          outs() << "\t";
+          DumpBytes(StringRef(Bytes.data() + Index, Size));
           IP->printInst(&Inst, outs(), "");
           outs() << "\n";
         } else {
@@ -739,7 +692,9 @@ static void PrintUnwindInfo(const ObjectFile *o) {
   outs() << "Unwind info:\n\n";
 
   if (const COFFObjectFile *coff = dyn_cast<COFFObjectFile>(o)) {
-    printCOFFUnwindInfo(coff);
+    //printCOFFUnwindInfo(coff);
+    errs() << "This operation is only currently supported "
+              "for COFF object files.\n";
   } else {
     // TODO: Extract DWARF dump tool to objdump.
     errs() << "This operation is only currently supported "
@@ -753,20 +708,15 @@ static void DumpObject(const ObjectFile *o) {
   outs() << o->getFileName()
          << ":\tfile format " << o->getFileFormatName() << "\n\n";
 
-  if (Disassemble)
-    DisassembleObject(o, Relocations);
-  if (Relocations && !Disassemble)
-    PrintRelocations(o);
-  if (SectionHeaders)
-    PrintSectionHeaders(o);
-  if (SectionContents)
-    PrintSectionContents(o);
-  if (SymbolTable)
-    PrintSymbolTable(o);
-  if (UnwindInfo)
-    PrintUnwindInfo(o);
-  if (PrivateHeaders && o->isELF())
-    printELFFileHeader(o);
+  DisassembleObject(o, false);
+  //  if (Relocations && !Disassemble)
+  //  PrintRelocations(o);
+  //  PrintSectionHeaders(o);
+  //  PrintSectionContents(o);
+  //  PrintSymbolTable(o);
+  //  PrintUnwindInfo(o);
+  //if (PrivateHeaders && o->isELF())
+  //  printELFFileHeader(o);
 }
 
 /// @brief Dump each object file in \a a;
@@ -794,11 +744,6 @@ static void DumpInput(StringRef file) {
   // If file isn't stdin, check that it exists.
   if (file != "-" && !sys::fs::exists(file)) {
     errs() << ToolName << ": '" << file << "': " << "No such file\n";
-    return;
-  }
-
-  if (MachOOpt && Disassemble) {
-    DisassembleInputMachO(file);
     return;
   }
 
@@ -839,17 +784,6 @@ int main(int argc, char **argv) {
   // Defaults to a.out if no filenames specified.
   if (InputFilenames.size() == 0)
     InputFilenames.push_back("a.out");
-
-  if (!Disassemble
-      && !Relocations
-      && !SectionHeaders
-      && !SectionContents
-      && !SymbolTable
-      && !UnwindInfo
-      && !PrivateHeaders) {
-    cl::PrintHelpMessage();
-    return 2;
-  }
 
   std::for_each(InputFilenames.begin(), InputFilenames.end(),
                 DumpInput);

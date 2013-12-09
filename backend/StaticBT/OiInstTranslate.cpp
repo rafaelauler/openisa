@@ -15,6 +15,8 @@
 #define DEBUG_TYPE "asm-printer"
 #include "OiInstTranslate.h"
 #include "OiInstrInfo.h"
+#include "StringRefMemoryObject.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCSymbol.h"
@@ -23,7 +25,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Object/ELF.h"
-#include "llvm-objdump.h"
 using namespace llvm;
 
 static cl::opt<bool>
@@ -81,6 +82,8 @@ void OiInstTranslate::BuildShadowImage() {
     if (error(i->getAddress(SectionAddr))) break;
     uint64_t SectSize;
     if (error(i->getSize(SectSize))) break;
+    StringRef SecName;
+    if (error(i->getName(SecName))) break;    
 
     uint64_t Offset = 0;
     if (SectionAddr == 0) 
@@ -202,6 +205,39 @@ static unsigned conv32(unsigned regnum) {
     return Oi::F14;
   case Oi::D15_64:
     return Oi::F15;
+  case Oi::D16_64:
+    return Oi::F16;
+  case Oi::D17_64:
+    return Oi::F17;
+  case Oi::D18_64:
+    return Oi::F18;
+  case Oi::D19_64:
+    return Oi::F19;
+  case Oi::D20_64:
+    return Oi::F20;
+  case Oi::D21_64:
+    return Oi::F21;
+  case Oi::D22_64:
+    return Oi::F22;
+  case Oi::D23_64:
+    return Oi::F23;
+  case Oi::D24_64:
+    return Oi::F24;
+  case Oi::D25_64:
+    return Oi::F25;
+  case Oi::D26_64:
+    return Oi::F26;
+  case Oi::D27_64:
+    return Oi::F27;
+  case Oi::D28_64:
+    return Oi::F28;
+  case Oi::D29_64:
+    return Oi::F29;
+  case Oi::D30_64:
+    return Oi::F30;
+  case Oi::D31_64:
+    return Oi::F31;
+
     //    return regnum - 1;
   }
   return regnum;
@@ -831,12 +867,26 @@ bool OiInstTranslate::HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad) {
   llvm_unreachable("Invalid Load Expr");
 }
 
-Value *OiInstTranslate::AccessShadowMemory32(Value *Idx, bool IsLoad) {
+Value *OiInstTranslate::AccessShadowMemory32(Value *Idx, bool IsLoad, int width) {
   SmallVector<Value*,4> Idxs;
   Idxs.push_back(ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U));
   Idxs.push_back(Idx);
   Value *gep = Builder.CreateGEP(ShadowImageValue, Idxs);
-  Value *ptr = Builder.CreateBitCast(gep, Type::getInt32PtrTy(getGlobalContext()));
+  Type *targetType = 0;
+  switch (width) {
+  case 8:
+    targetType = Type::getInt8PtrTy(getGlobalContext());
+    break;
+  case 16:
+    targetType = Type::getInt16PtrTy(getGlobalContext());
+    break;
+  case 32:
+    targetType = Type::getInt32PtrTy(getGlobalContext());
+    break;
+  default:
+    llvm_unreachable("Invalid memory access width");
+  }
+  Value *ptr = Builder.CreateBitCast(gep, targetType);
   if (IsLoad)
     return Builder.CreateLoad(ptr);
   return ptr;
@@ -872,7 +922,8 @@ bool OiInstTranslate::HandleLUiOperand(const MCOperand &o, Value *&V, Value **Fi
 }
 
 bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
-                                       Value *&V, Value **First, bool IsLoad) {
+                                       Value *&V, Value **First, bool IsLoad,
+                                       int width) {
   if (o.isReg() && o2.isImm()) {
     uint64_t myimm = o2.getImm();
     uint64_t reltype = 0;
@@ -908,7 +959,7 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
       addr = Builder.CreateAdd(base, idx);
       *First = base;
     }
-    V = AccessShadowMemory32(addr, IsLoad);
+    V = AccessShadowMemory32(addr, IsLoad, width);
     return true;
   } 
   llvm_unreachable("Invalid Src operand");
@@ -1041,6 +1092,8 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
           return HandleLibcExit(V, First);
         if (val == "puts")
           return HandleLibcPuts(V, First);
+        if (val == "memset")
+          return HandleLibcMemset(V, First);
         if (val == "fwrite")
           return HandleLibcFwrite(V, First);
         if (val == "printf")
@@ -1423,6 +1476,30 @@ bool OiInstTranslate::HandleLibcPuts(Value *&V, Value **First) {
   V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
                                                                 (Oi::V0)]);
   ReadMap[ConvToDirective(Oi::A0)] = true;
+  WriteMap[ConvToDirective(Oi::V0)] = true;
+  return true;
+}
+
+bool OiInstTranslate::HandleLibcMemset(Value *&V, Value **First) {
+  SmallVector<Type*, 8> args(3, Type::getInt32Ty(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
+                                       args, /*isvararg*/false);
+  Value *fun = TheModule->getOrInsertFunction("memset", ft);
+  SmallVector<Value*, 8> params;
+  Value *f = Builder.CreateLoad(Regs[ConvToDirective(Oi::A0)]);
+  if (First)
+    *First = f;
+  Value *addrbuf = AccessShadowMemory32
+    (f, false);
+  params.push_back(Builder.CreatePtrToInt(addrbuf,
+                                          Type::getInt32Ty(getGlobalContext())));
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A1)]));
+  params.push_back(Builder.CreateLoad(Regs[ConvToDirective(Oi::A2)]));
+  V = Builder.CreateStore(Builder.CreateCall(fun, params), Regs[ConvToDirective
+                                                                (Oi::V0)]);
+  ReadMap[ConvToDirective(Oi::A0)] = true;
+  ReadMap[ConvToDirective(Oi::A1)] = true;
+  ReadMap[ConvToDirective(Oi::A2)] = true;
   WriteMap[ConvToDirective(Oi::V0)] = true;
   return true;
 }
@@ -2101,6 +2178,24 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     }
     break;
   }
+  case Oi::LB:
+  case Oi::LBu: {
+    DebugOut << "Handling LB\n";
+    Value *dst, *src, *first;
+    if (HandleAluDstOperand(MI->getOperand(0),dst) &&
+        HandleMemOperand(MI->getOperand(1), MI->getOperand(2), src, &first, true, 8)) {
+      Value *ext;
+      if (MI->getOpcode() == Oi::LB) 
+        ext = Builder.CreateSExt(src, Type::getInt32Ty(getGlobalContext()));
+      else
+        ext = Builder.CreateZExt(src, Type::getInt32Ty(getGlobalContext()));
+      Value *v = Builder.CreateStore(ext, dst);
+      assert(isa<Instruction>(first) && "Need to rework map logic");
+      InsMap[CurAddr] = dyn_cast<Instruction>(first);
+      v->dump();
+    }    
+    break;
+  }
   case Oi::SW:
   case Oi::SW64: {
     DebugOut << "Handling SW\n";
@@ -2109,6 +2204,20 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         HandleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, &first, false)) {
       Value *v = Builder.CreateStore(src, dst);
       first = GetFirstInstruction(src, first);
+      assert(isa<Instruction>(first) && "Need to rework map logic");
+      InsMap[CurAddr] = dyn_cast<Instruction>(first);
+      v->dump();
+    }
+    break;
+  }
+  case Oi::SB: {
+    DebugOut << "Handling SB\n";
+    Value *dst, *src, *first;
+    if (HandleAluSrcOperand(MI->getOperand(0),src) &&
+        HandleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, &first, false, 8)) {
+      Value *tr = Builder.CreateTrunc(src, Type::getInt8Ty(getGlobalContext()));
+      Value *v = Builder.CreateStore(tr, dst);
+      first = GetFirstInstruction(src, tr, first);
       assert(isa<Instruction>(first) && "Need to rework map logic");
       InsMap[CurAddr] = dyn_cast<Instruction>(first);
       v->dump();
@@ -2153,7 +2262,8 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::NOP:
     DebugOut << "Handling NOP\n";
     break;
-  default: O << "huahua"; return;
+  default: 
+    llvm_unreachable("Unimplemented instruction!");
   }
   return;
 }

@@ -97,7 +97,7 @@ private:
   bool HandleAluDstOperand(const MCOperand &o, Value *&V);
   bool HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad);
   bool HandleMemOperand(const MCOperand &o, const MCOperand &o2, Value *&V,
-                        Value **First, bool IsLoad);
+                        Value **First, bool IsLoad, int width = 32);
   bool HandleDoubleMemOperand(const MCOperand &o, const MCOperand &o2,
                               Value *&V1, Value *&V2, Value **First, bool IsLoad);
   bool HandleLUiOperand(const MCOperand &o, Value *&V, Value **First, bool IsLoad);
@@ -112,6 +112,7 @@ private:
   bool HandleLibcFree(Value *&V, Value **First = 0);
   bool HandleLibcExit(Value *&V, Value **First = 0);
   bool HandleLibcPuts(Value *&V, Value **First = 0);
+  bool HandleLibcMemset(Value *&V, Value **First = 0);
   bool HandleLibcFwrite(Value *&V, Value **First = 0);
   bool HandleLibcFprintf(Value *&V, Value **First = 0);
   bool HandleLibcPrintf(Value *&V, Value **First = 0);
@@ -120,7 +121,7 @@ private:
   SmallVector<uint32_t, 4> GetCallSitesFor(uint32_t FuncAddr);
   bool BuildReturnTablesOneRegion();
   bool HandleLocalCall(uint64_t Addr, Value *&V, Value **First = 0);
-  Value *AccessShadowMemory32(Value *Idx, bool IsLoad);
+  Value *AccessShadowMemory32(Value *Idx, bool IsLoad, int width = 32);
   bool CheckRelocation(relocation_iterator &Rel, StringRef &Name);
   bool ResolveRelocation(uint64_t &Res, uint64_t *Type = 0);
   void InsertStartupCode();
