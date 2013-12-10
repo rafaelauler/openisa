@@ -37,7 +37,7 @@ calc-oi.o: calc.s
 # Two methods to translate OpenISA code, one translates the .s assembly file,
 # while other translates object files. Use object files as default.
 calc-oi.bc: calc-oi.o
-	../../backend/oisbt -stacksize 4000 -optimize calc-oi.o -o=calc-oi.bc
+	../../backend/oisbt -dump -oneregion -stacksize 4000 -optimize calc-oi.o -o=calc-oi.bc
 
 # Method 2: Translate OpenISA directly from the assembly file (assembly
 # translation layer).

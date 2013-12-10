@@ -10,6 +10,7 @@ OPT=opt -O3
 #EMITLLVM=-ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
 EMITLLVM=-target mips-unknown-linux -emit-llvm -c --sysroot=/tools
 CROSS=mipsel-unknown-linux-gnu-gcc
+SBTOPT?=-optimize
 
 all: fib-oi-x86 fib-nat
 
@@ -38,7 +39,7 @@ fib-oi.o: fib.s
 # Two methods to translate OpenISA code, one translates the .s assembly file,
 # while other translates object files. Use object files as default.
 fib-oi.bc: fib-oi.o
-	../../backend/oisbt -stacksize 4000 -optimize fib-oi.o -o=fib-oi.bc
+	../../backend/oisbt $(SBTOPT) -stacksize 4000 fib-oi.o -o=fib-oi.bc
 
 # Method 2: Translate OpenISA directly from the assembly file (assembly
 # translation layer).
@@ -56,4 +57,4 @@ fib.bc: fib.c
 	$(OPT) fib.bc -o fib.bc
 
 clean:
-	-rm -rf fib.s fib.bc fib-oi.bc fib-oi-ia64.s fib-oi-ia64 fib-oi-x86.s fib-oi-x86 fib-oi.o fib.oi fib-nat
+	-rm -rf fib.s fib.bc fib-oi.bc fib-oi-ia64.s fib-oi-ia64 fib-oi-x86.s fib-oi-x86 fib-oi.o fib.oi fib-nat out-nat.txt out-oi.txt

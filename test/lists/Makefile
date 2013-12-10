@@ -10,6 +10,7 @@ OPT=opt -O3
 #EMITLLVM=-ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
 EMITLLVM=-target mips-unknown-linux -emit-llvm -c --sysroot=/tools
 CROSS=mipsel-unknown-linux-gnu-gcc
+SBTOPT?=-optimize
 
 all: lists-oi-x86 lists-nat
 
@@ -38,7 +39,7 @@ lists-oi.o: lists.s
 # Two methods to translate OpenISA code, one translates the .s assembly file,
 # while other translates object files. Use object files as default.
 lists-oi.bc: lists-oi.o
-	../../backend/oisbt -stacksize 4000 -optimize lists-oi.o -o=lists-oi.bc
+	../../backend/oisbt $(SBTOPT) -stacksize 4000 lists-oi.o -o=lists-oi.bc
 
 # Method 2: Translate OpenISA directly from the assembly file (assembly
 # translation layer).
@@ -56,4 +57,4 @@ lists.bc: lists.c
 	$(OPT) lists.bc -o lists.bc
 
 clean:
-	-rm -rf lists.s lists.bc lists-oi.bc lists-oi-ia64.s lists-oi-ia64 lists-oi-x86.s lists-oi-x86 lists-oi.o lists.oi lists-nat
+	-rm -rf lists.s lists.bc lists-oi.bc lists-oi-ia64.s lists-oi-ia64 lists-oi-x86.s lists-oi-x86 lists-oi.o lists.oi lists-nat out-nat.txt out-oi.txt

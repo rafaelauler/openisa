@@ -10,6 +10,7 @@ OPT=opt -O3
 #EMITLLVM=-ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
 EMITLLVM=-target mips-unknown-linux -emit-llvm -c --sysroot=/tools
 CROSS=mipsel-unknown-linux-gnu-gcc
+SBTOPT?=-optimize
 
 all: matrix-oi-x86 matrix-nat
 
@@ -39,7 +40,7 @@ matrix-oi.o: matrix.s
 # Two methods to translate OpenISA code, one translates the .s assembly file,
 # while other translates object files. Use object files as default.
 matrix-oi.bc: matrix-oi.o
-	../../backend/oisbt -stacksize 4000 -optimize matrix-oi.o -o=matrix-oi.bc
+	../../backend/oisbt $(SBTOPT) -stacksize 4000 matrix-oi.o -o=matrix-oi.bc
 
 # Method 2: Translate OpenISA directly from the assembly file (assembly
 # translation layer).
@@ -57,4 +58,4 @@ matrix.bc: matrix.c
 	$(OPT) matrix.bc -o matrix.bc
 
 clean:
-	-rm -rf matrix.s matrix.bc matrix-oi.bc matrix-oi-ia64.s matrix-oi-ia64 matrix-oi-x86.s matrix-oi-x86 matrix-oi.o matrix.oi matrix-nat
+	-rm -rf matrix.s matrix.bc matrix-oi.bc matrix-oi-ia64.s matrix-oi-ia64 matrix-oi-x86.s matrix-oi-x86 matrix-oi.o matrix.oi matrix-nat out-nat.txt out-oi.txt

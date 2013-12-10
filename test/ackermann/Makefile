@@ -10,6 +10,7 @@ OPT=opt -O3
 #EMITLLVM=-ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
 EMITLLVM=-target mips-unknown-linux -emit-llvm -c --sysroot=/tools
 CROSS=mipsel-unknown-linux-gnu-gcc
+SBTOPT?=-debug-ir -oneregion -optimize
 
 all: ackermann-oi-x86 ackermann-nat
 
@@ -38,7 +39,7 @@ ackermann-oi.o: ackermann.s
 # Two methods to translate OpenISA code, one translates the .s assembly file,
 # while other translates object files. Use object files as default.
 ackermann-oi.bc: ackermann-oi.o
-	../../backend/oisbt -optimize -stacksize 4000000 ackermann-oi.o -o=ackermann-oi.bc
+	../../backend/oisbt $(SBTOPT) -stacksize 4000000 ackermann-oi.o -o=ackermann-oi.bc
 
 # Method 2: Translate OpenISA directly from the assembly file (assembly
 # translation layer).
@@ -56,4 +57,4 @@ ackermann.bc: ackermann.c
 	$(OPT) ackermann.bc -o ackermann.bc
 
 clean:
-	-rm -rf ackermann.s ackermann.bc ackermann-oi.bc ackermann-oi-ia64.s ackermann-oi-ia64 ackermann-oi-x86.s ackermann-oi-x86 ackermann-oi.o ackermann.oi ackermann-nat
+	-rm -rf ackermann.s ackermann.bc ackermann-oi.bc ackermann-oi-ia64.s ackermann-oi-ia64 ackermann-oi-x86.s ackermann-oi-x86 ackermann-oi.o ackermann.oi ackermann-nat out-nat.txt out-oi.txt
