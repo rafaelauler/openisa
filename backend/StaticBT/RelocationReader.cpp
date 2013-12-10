@@ -1,6 +1,7 @@
 #include "RelocationReader.h"
 #include "SBTUtils.h"
 #include "llvm/Object/ELF.h"
+#include "llvm/IR/Value.h"
 
 using namespace llvm;
 

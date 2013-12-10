@@ -308,25 +308,8 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
     if (error(i->getAddress(SectionAddr))) break;
 
     // Make a list of all the symbols in this section.
-    std::vector<std::pair<uint64_t, StringRef> > Symbols;
-    for (symbol_iterator si = Obj->begin_symbols(),
-                         se = Obj->end_symbols();
-                         si != se; si.increment(ec)) {
-      bool contains;
-      if (!error(i->containsSymbol(*si, contains)) && contains) {
-        uint64_t Address;
-        if (error(si->getAddress(Address))) break;
-        if (Address == UnknownAddressOrSize) continue;
-        Address -= SectionAddr;
-
-        StringRef Name;
-        if (error(si->getName(Name))) break;
-        Symbols.push_back(std::make_pair(Address, Name));
-      }
-    }
-
-    // Sort the symbols by address, just in case they didn't come in that way.
-    array_pod_sort(Symbols.begin(), Symbols.end());
+    std::vector<std::pair<uint64_t, StringRef> > Symbols = 
+      GetSymbolsList(Obj, i);
 
     // Make a list of all the relocations for this section.
     std::vector<RelocationRef> Rels;

@@ -30,6 +30,105 @@ OneRegion("oneregion", cl::desc("Consider the whole program to be one big functi
 
 }
 
+bool OiIREmitter::FindTextOffset(uint64_t &SectionAddr) {
+  error_code ec;
+  // Find through all sections relocations against the .text section
+  for (section_iterator i = Obj->begin_sections(),
+         e = Obj->end_sections();
+       i != e; i.increment(ec)) {
+    if (error(ec)) return false;
+    StringRef Name;
+    if (error(i->getName(Name))) return false;
+    if (Name != ".text")
+      continue;
+
+    if (error(i->getAddress(SectionAddr))) return false;
+    
+    //Relocatable file
+    if (SectionAddr == 0)
+      SectionAddr = GetELFOffset(i);
+    
+    return true;
+  }
+  return false;
+}
+
+bool OiIREmitter::ProcessIndirectJumps() {
+  uint64_t FinalAddr = 0xFFFFFFFFUL;
+  error_code ec;
+  std::vector<Constant*> IndirectJumpTable;
+  uint64_t TextOffset;
+  if (!FindTextOffset(TextOffset)) return false;
+
+  // Find through all sections relocations against the .text section
+  for (section_iterator i = Obj->begin_sections(),
+         e = Obj->end_sections();
+       i != e; i.increment(ec)) {
+    if (error(ec)) break;
+    uint64_t SectionAddr;
+    if (error(i->getAddress(SectionAddr))) break;
+
+    // Relocatable file
+    if (SectionAddr == 0) {
+      SectionAddr = GetELFOffset(i);
+    }
+
+    for (relocation_iterator ri = i->begin_relocations(),
+           re = i->end_relocations();
+         ri != re; ri.increment(ec)) {
+      if (error(ec)) break;
+      uint64_t Type;
+      if (error(ri->getType(Type)))
+        llvm_unreachable("Error getting relocation type");
+      if (Type != ELF::R_MIPS_32)
+        continue;
+      SymbolRef symb;
+      StringRef Name;
+      if (error(ri->getSymbol(symb))) {
+        continue;
+      }
+      if (error(symb.getName(Name))) {
+        continue;
+      }
+      if (Name != ".text")
+        continue;
+
+      uint64_t offset;
+      if (error(ri->getOffset(offset))) break;
+      offset += SectionAddr;
+      outs() << "REL at " << (offset) << " Found ";
+      outs() << "Contents:" << (*(int*)(&ShadowImage[offset]));
+      uint64_t TargetAddr = *(int*)(&ShadowImage[offset]);
+      TargetAddr += TextOffset;
+      outs() << " TargetAddr = " << TargetAddr << "\n";
+      BasicBlock *BB = CreateBB(TargetAddr);
+      IndirectJumpTable.push_back(BlockAddress::get(BB));
+      IndirectDestinations.push_back(BB);
+      int JumpTableIndex = IndirectJumpTable.size() - 1;
+      //      IndirectJumpTable[JumpTableIndex]->dump();
+      *(int*)(&ShadowImage[offset]) = JumpTableIndex;
+    }
+  }
+  uint64_t TableSize = IndirectJumpTable.size();
+
+  if (TableSize == 0) {
+    IndirectJumpTableValue = 0;
+    return true;
+  }    
+
+  ConstantArray *c = 
+    dyn_cast<ConstantArray>(ConstantArray::get(ArrayType::get(Type::getInt8PtrTy(getGlobalContext()), TableSize),
+                                               ArrayRef<Constant *>(&IndirectJumpTable[0], TableSize)));
+
+  GlobalVariable *gv = new GlobalVariable(*TheModule, c->getType(), false, 
+                                          GlobalValue::ExternalLinkage,
+                                          c, "IndirectJumpTable");  
+
+  IndirectJumpTableValue = gv; 
+
+  return true;
+}
+
 void OiIREmitter::BuildShadowImage() {
   ShadowSize = 0;
 
@@ -138,6 +237,9 @@ void OiIREmitter::StartFunction(Twine &N) {
     BuildLocalRegisterFile();
     InsertStartupCode();
     CurFunAddr = CurAddr+4;
+    if (!ProcessIndirectJumps())
+      llvm_unreachable("ProcessIndirectJumps failed.");
+
   } else {
     CurFunAddr = CurAddr+4;
     if (!OneRegion) {
@@ -446,3 +548,17 @@ Value *OiIREmitter::AccessShadowMemory(Value *Idx, bool IsLoad, int width) {
     return Builder.CreateLoad(ptr);
   return ptr;
 }
+
+Value *OiIREmitter::AccessJumpTable(Value *Idx, Value **First) {
+  SmallVector<Value*,4> Idxs;
+  Idxs.push_back(ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U));
+  Idxs.push_back(Idx);
+  Value *gep = Builder.CreateGEP(IndirectJumpTableValue, Idxs);
+  Type *targetType = 
+    Type::getInt8PtrTy(getGlobalContext());
+  Value *ptr = Builder.CreateBitCast(gep, targetType);
+  if (First)
+    *First = gep;
+  return ptr;
+}
+

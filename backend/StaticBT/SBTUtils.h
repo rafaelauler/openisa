@@ -8,8 +8,14 @@
 #define SBTUTILS_H
 #include "llvm/Support/system_error.h"
 #include "llvm/Object/ObjectFile.h"
+#include <vector>
+#include <utility>
 
 namespace llvm {
+
+namespace object{
+class ObjectFile;
+}
 
 using namespace object;
 
@@ -18,6 +24,6 @@ unsigned ConvFromDirective(unsigned regnum);
 unsigned ConvToDirective(unsigned regnum);
 bool error(error_code ec);
 uint64_t GetELFOffset(section_iterator &i);
-
+std::vector<std::pair<uint64_t, StringRef> > GetSymbolsList(const ObjectFile *Obj, section_iterator &i);
 }
 #endif

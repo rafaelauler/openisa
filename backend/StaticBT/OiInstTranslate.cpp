@@ -708,6 +708,26 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       }      
       break;
     }
+  case Oi::TRUNC_W_D32:
+    {
+      DebugOut << "Handling TRUNC.W.D\n";
+      Value *o01, *o02, *o1;
+      if (HandleDoubleSrcOperand(MI->getOperand(1), o1) &&       
+          HandleDoubleDstOperand(MI->getOperand(0), o01,o02)) {      
+        Value *high, *low;
+        Value *v1 = Builder.CreateFPToSI(o1, Type::getInt32Ty(getGlobalContext()));
+        Value *v2 = Builder.CreateZExt(v1, Type::getInt64Ty(getGlobalContext()));
+        Value *v3 = Builder.CreateBitCast(v2, Type::getDoubleTy(getGlobalContext()));
+        HandleSaveDouble(v3, high, low);
+        Value *v4 = Builder.CreateStore(high, o01);
+        Value *v5 = Builder.CreateStore(low, o02);
+        Value *first = GetFirstInstruction(o1, v1);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+        v1->dump();
+      }      
+      break;
+    }
   case Oi::MFC1:
   case Oi::MTC1:
     {
@@ -948,6 +968,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::BNE:
   case Oi::BLTZ:
   case Oi::BGTZ:
+  case Oi::BLEZ:
     {
       DebugOut << "Handling BEQ, BNE, BLTZ\n";
       Value *o1, *o2;
@@ -966,6 +987,10 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           o2 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
           HandleBranchTarget(MI->getOperand(1), True);
           cmp = Builder.CreateICmpSLT(o1, o2);
+        } else if (MI->getOpcode() == Oi::BLEZ) {
+          o2 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
+          HandleBranchTarget(MI->getOperand(1), True);
+          cmp = Builder.CreateICmpSLE(o1, o2);
         } else { /*  Oi::BGTZ  */
           o2 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
           HandleBranchTarget(MI->getOperand(1), True);
@@ -1085,7 +1110,22 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       IREmitter.FunctionRetMap[IREmitter.CurAddr] = IREmitter.CurFunAddr;
       v->dump();
     } else {
-      llvm_unreachable("Can't handle indirect jumps yet.");
+      Value *src, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(0), src)) {
+        Value *Target = IREmitter.AccessJumpTable(src, &first);
+        IndirectBrInst *v = Builder.CreateIndirectBr(Target,
+          IREmitter.IndirectDestinations.size());
+        for(int I = 0, E = IREmitter.IndirectDestinations.size(); I != E; ++I) {
+          v->addDestination(IREmitter.IndirectDestinations[I]);
+        }        
+        first = GetFirstInstruction(src, first, v);
+        assert(isa<Instruction>(first) && "Need to rework map logic");      
+        IREmitter.CreateBB(IREmitter.CurAddr+4);
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+        v->dump();
+      } else {
+        llvm_unreachable("Failed to handle indirect jump.");
+      }
     }
     break;
   }

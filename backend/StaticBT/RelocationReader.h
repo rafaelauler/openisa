@@ -14,6 +14,8 @@ namespace object{
 class ObjectFile;
 }
 
+class OiIREmitter;
+
 using namespace object;
 
 class RelocationReader {

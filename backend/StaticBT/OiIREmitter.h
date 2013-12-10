@@ -19,6 +19,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
+#include <vector>
 
 namespace llvm {
 
@@ -32,7 +33,7 @@ class ObjectFile;
 using namespace object;
 
 class OiIREmitter {
- public:
+public:
   OiIREmitter(const ObjectFile *obj, uint64_t Stacksz): Obj(obj), 
                  TheModule(new Module("outputtest", getGlobalContext())),
                  Builder(getGlobalContext()), Regs(SmallVector<Value*,67>(67)),
@@ -40,7 +41,7 @@ class OiIREmitter {
                  FirstFunction(true), CurAddr(0), CurSection(0), BBMap(),
                  InsMap(), ReadMap(), WriteMap(), FunctionCallMap(),
                  FunctionRetMap(), CurFunAddr(0), CurBlockAddr(0),
-                 StackSize(Stacksz) {
+                 StackSize(Stacksz), IndirectDestinations() {
     BuildShadowImage();
     BuildRegisterFile();
   }
@@ -62,7 +63,11 @@ class OiIREmitter {
   uint64_t StackSize;
   uint64_t ShadowSize;
   Value* ShadowImageValue;
+  Value* IndirectJumpTableValue;
+  std::vector<BasicBlock*> IndirectDestinations;
+  
 
+  bool ProcessIndirectJumps();
   void BuildShadowImage();
   void BuildRegisterFile();
   void BuildLocalRegisterFile();
@@ -72,6 +77,7 @@ class OiIREmitter {
   bool BuildReturnTablesOneRegion();
   bool HandleLocalCall(uint64_t Addr, Value *&V, Value **First = 0);
   Value *AccessShadowMemory(Value *Idx, bool IsLoad, int width = 32);
+  Value *AccessJumpTable(Value *Idx, Value **First = 0);
   void InsertStartupCode();
   BasicBlock* CreateBB(uint64_t Addr = 0, Function *F = 0);
   void UpdateInsertPoint();
@@ -87,6 +93,8 @@ class OiIREmitter {
   void SetCurSection(section_iterator *i) {
     CurSection = i;
   }
+private:
+  bool FindTextOffset(uint64_t &SectionAddr);
 };
 
 }
