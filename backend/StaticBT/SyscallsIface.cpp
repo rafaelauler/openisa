@@ -271,6 +271,163 @@ bool SyscallsIface::HandleLibcScanf(Value *&V, Value **First) {
   return true;
 }
 
+bool SyscallsIface::HandleLibcAtan(Value *&V, Value **First) {
+  SmallVector<Type*, 8> args(1, Type::getDoubleTy(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getDoubleTy(getGlobalContext()),
+                                       args, /*isvararg*/true);
+  Value *fun = TheModule->getOrInsertFunction("atan", ft);
+  SmallVector<Value*, 8> params;
+  Value *v1 = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::F12)]);
+  Value *v2 = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::F12)+1]);
+  if (First)
+    *First = v1;
+  Value *v3 = Builder.CreateZExtOrTrunc(v2, Type::getInt64Ty(getGlobalContext()));
+  Value *v4 = Builder.CreateZExtOrTrunc(v1, Type::getInt64Ty(getGlobalContext()));
+  Value *v5 = Builder.CreateShl(v3, ConstantInt::get
+                                (Type::getInt64Ty(getGlobalContext()), 32));
+  Value *v6 = Builder.CreateOr(v5,v4);
+  Value *v7 = Builder.CreateBitCast(v6, Type::getDoubleTy(getGlobalContext()));
+
+  params.push_back(v7);
+  Value *call = Builder.CreateCall(fun, params);
+  V = call;
+  Value *v8 = Builder.CreateBitCast(call, Type::getInt64Ty(getGlobalContext()));
+  Value *v9 = Builder.CreateLShr(v8, ConstantInt::get
+                                 (Type::getInt64Ty(getGlobalContext()), 32));
+  // Assume little endian for doubles
+  Value *hi = Builder.CreateSExtOrTrunc(v9, Type::getInt32Ty(getGlobalContext()));
+  Value *lo = Builder.CreateSExtOrTrunc(v8, Type::getInt32Ty(getGlobalContext()));
+  Builder.CreateStore(lo, IREmitter.Regs[ConvToDirective(Oi::F0)]);
+  Builder.CreateStore(hi, IREmitter.Regs[ConvToDirective(Oi::F0)+1]);
+
+  ReadMap[ConvToDirective(Oi::F12)] = true;
+  ReadMap[ConvToDirective(Oi::F12)+1] = true;
+  WriteMap[ConvToDirective(Oi::F0)] = true;
+  WriteMap[ConvToDirective(Oi::F0)+1] = true;
+  return true;
+}
+
+bool SyscallsIface::HandleLibcCos(Value *&V, Value **First) {
+  SmallVector<Type*, 8> args(1, Type::getDoubleTy(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getDoubleTy(getGlobalContext()),
+                                       args, /*isvararg*/true);
+  Value *fun = TheModule->getOrInsertFunction("cos", ft);
+  SmallVector<Value*, 8> params;
+  Value *v1 = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::F12)]);
+  Value *v2 = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::F12)+1]);
+  if (First)
+    *First = v1;
+  Value *v3 = Builder.CreateZExtOrTrunc(v2, Type::getInt64Ty(getGlobalContext()));
+  Value *v4 = Builder.CreateZExtOrTrunc(v1, Type::getInt64Ty(getGlobalContext()));
+  Value *v5 = Builder.CreateShl(v3, ConstantInt::get
+                                (Type::getInt64Ty(getGlobalContext()), 32));
+  Value *v6 = Builder.CreateOr(v5,v4);
+  Value *v7 = Builder.CreateBitCast(v6, Type::getDoubleTy(getGlobalContext()));
+
+  params.push_back(v7);
+  Value *call = Builder.CreateCall(fun, params);
+  V = call;
+  Value *v8 = Builder.CreateBitCast(call, Type::getInt64Ty(getGlobalContext()));
+  Value *v9 = Builder.CreateLShr(v8, ConstantInt::get
+                                 (Type::getInt64Ty(getGlobalContext()), 32));
+  // Assume little endian for doubles
+  Value *hi = Builder.CreateSExtOrTrunc(v9, Type::getInt32Ty(getGlobalContext()));
+  Value *lo = Builder.CreateSExtOrTrunc(v8, Type::getInt32Ty(getGlobalContext()));
+  Builder.CreateStore(lo, IREmitter.Regs[ConvToDirective(Oi::F0)]);
+  Builder.CreateStore(hi, IREmitter.Regs[ConvToDirective(Oi::F0)+1]);
+
+  ReadMap[ConvToDirective(Oi::F12)] = true;
+  ReadMap[ConvToDirective(Oi::F12)+1] = true;
+  WriteMap[ConvToDirective(Oi::F0)] = true;
+  WriteMap[ConvToDirective(Oi::F0)+1] = true;
+  return true;
+}
+
+bool SyscallsIface::HandleLibcSqrt(Value *&V, Value **First) {
+  SmallVector<Type*, 8> args(1, Type::getDoubleTy(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getDoubleTy(getGlobalContext()),
+                                       args, /*isvararg*/true);
+  Value *fun = TheModule->getOrInsertFunction("sqrt", ft);
+  SmallVector<Value*, 8> params;
+  Value *v1 = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::F12)]);
+  Value *v2 = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::F12)+1]);
+  if (First)
+    *First = v1;
+  Value *v3 = Builder.CreateZExtOrTrunc(v2, Type::getInt64Ty(getGlobalContext()));
+  Value *v4 = Builder.CreateZExtOrTrunc(v1, Type::getInt64Ty(getGlobalContext()));
+  Value *v5 = Builder.CreateShl(v3, ConstantInt::get
+                                (Type::getInt64Ty(getGlobalContext()), 32));
+  Value *v6 = Builder.CreateOr(v5,v4);
+  Value *v7 = Builder.CreateBitCast(v6, Type::getDoubleTy(getGlobalContext()));
+
+  params.push_back(v7);
+  Value *call = Builder.CreateCall(fun, params);
+  V = call;
+  Value *v8 = Builder.CreateBitCast(call, Type::getInt64Ty(getGlobalContext()));
+  Value *v9 = Builder.CreateLShr(v8, ConstantInt::get
+                                 (Type::getInt64Ty(getGlobalContext()), 32));
+  // Assume little endian for doubles
+  Value *hi = Builder.CreateSExtOrTrunc(v9, Type::getInt32Ty(getGlobalContext()));
+  Value *lo = Builder.CreateSExtOrTrunc(v8, Type::getInt32Ty(getGlobalContext()));
+  Builder.CreateStore(lo, IREmitter.Regs[ConvToDirective(Oi::F0)]);
+  Builder.CreateStore(hi, IREmitter.Regs[ConvToDirective(Oi::F0)+1]);
+
+  ReadMap[ConvToDirective(Oi::F12)] = true;
+  ReadMap[ConvToDirective(Oi::F12)+1] = true;
+  WriteMap[ConvToDirective(Oi::F0)] = true;
+  WriteMap[ConvToDirective(Oi::F0)+1] = true;
+  return true;
+}
+
+bool SyscallsIface::HandleLibcPow(Value *&V, Value **First) {
+  SmallVector<Type*, 8> args(2, Type::getDoubleTy(getGlobalContext()));
+  FunctionType *ft = FunctionType::get(Type::getDoubleTy(getGlobalContext()),
+                                       args, /*isvararg*/true);
+  Value *fun = TheModule->getOrInsertFunction("pow", ft);
+  SmallVector<Value*, 8> params;
+  Value *v1 = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::F12)]);
+  Value *v2 = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::F12)+1]);
+  if (First)
+    *First = v1;
+  Value *v3 = Builder.CreateZExtOrTrunc(v2, Type::getInt64Ty(getGlobalContext()));
+  Value *v4 = Builder.CreateZExtOrTrunc(v1, Type::getInt64Ty(getGlobalContext()));
+  Value *v5 = Builder.CreateShl(v3, ConstantInt::get
+                                (Type::getInt64Ty(getGlobalContext()), 32));
+  Value *v6 = Builder.CreateOr(v5,v4);
+  Value *v7 = Builder.CreateBitCast(v6, Type::getDoubleTy(getGlobalContext()));
+
+  params.push_back(v7);
+  v1 = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::F14)]);
+  v2 = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::F14)+1]);
+  v3 = Builder.CreateZExtOrTrunc(v2, Type::getInt64Ty(getGlobalContext()));
+  v4 = Builder.CreateZExtOrTrunc(v1, Type::getInt64Ty(getGlobalContext()));
+  v5 = Builder.CreateShl(v3, ConstantInt::get
+                                (Type::getInt64Ty(getGlobalContext()), 32));
+  v6 = Builder.CreateOr(v5,v4);
+  v7 = Builder.CreateBitCast(v6, Type::getDoubleTy(getGlobalContext()));
+
+  params.push_back(v7);
+
+  Value *call = Builder.CreateCall(fun, params);
+  V = call;
+  Value *v8 = Builder.CreateBitCast(call, Type::getInt64Ty(getGlobalContext()));
+  Value *v9 = Builder.CreateLShr(v8, ConstantInt::get
+                                 (Type::getInt64Ty(getGlobalContext()), 32));
+  // Assume little endian for doubles
+  Value *hi = Builder.CreateSExtOrTrunc(v9, Type::getInt32Ty(getGlobalContext()));
+  Value *lo = Builder.CreateSExtOrTrunc(v8, Type::getInt32Ty(getGlobalContext()));
+  Builder.CreateStore(lo, IREmitter.Regs[ConvToDirective(Oi::F0)]);
+  Builder.CreateStore(hi, IREmitter.Regs[ConvToDirective(Oi::F0)+1]);
+
+  ReadMap[ConvToDirective(Oi::F12)] = true;
+  ReadMap[ConvToDirective(Oi::F12)+1] = true;
+  ReadMap[ConvToDirective(Oi::F14)] = true;
+  ReadMap[ConvToDirective(Oi::F14)+1] = true;
+  WriteMap[ConvToDirective(Oi::F0)] = true;
+  WriteMap[ConvToDirective(Oi::F0)+1] = true;
+  return true;
+}
+
 bool SyscallsIface::HandleSyscallWrite(Value *&V, Value **First) {
   SmallVector<Type*, 8> args(3, Type::getInt32Ty(getGlobalContext()));
   FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),

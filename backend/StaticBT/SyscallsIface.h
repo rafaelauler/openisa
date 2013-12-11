@@ -30,6 +30,10 @@ class SyscallsIface {
   bool HandleLibcFprintf(Value *&V, Value **First = 0);
   bool HandleLibcPrintf(Value *&V, Value **First = 0);
   bool HandleLibcScanf(Value *&V, Value **First = 0);
+  bool HandleLibcAtan(Value *&V, Value **First = 0);
+  bool HandleLibcCos(Value *&V, Value **First = 0);
+  bool HandleLibcSqrt(Value *&V, Value **First = 0);
+  bool HandleLibcPow(Value *&V, Value **First = 0);
 
  private:
   OiIREmitter &IREmitter;

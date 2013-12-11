@@ -364,6 +364,14 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
           return Syscalls.HandleLibcFprintf(V, First);
         if (val == "__isoc99_scanf")
           return Syscalls.HandleLibcScanf(V);
+        if (val == "atan")
+          return Syscalls.HandleLibcAtan(V);
+        if (val == "pow")
+          return Syscalls.HandleLibcPow(V);
+        if (val == "sqrt")
+          return Syscalls.HandleLibcSqrt(V);
+        if (val == "cos")
+          return Syscalls.HandleLibcCos(V);
       }
       uint64_t targetaddr;
       if (RelocReader.ResolveRelocation(targetaddr))
@@ -645,6 +653,23 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           HandleDoubleDstOperand(MI->getOperand(0), o01, o02)) {      
         Value *high, *low;
         Value *V = Builder.CreateFAdd(o1, o2);
+        HandleSaveDouble(V, high, low);
+        Builder.CreateStore(high, o01);
+        Builder.CreateStore(low, o02);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+        o1->dump();
+      }      
+      break;
+    }
+  case Oi::FMOV_D32:
+    {
+      DebugOut << "Handling FMOV\n";
+      Value *o01, *o02, *o1, *first;
+      if (HandleDoubleSrcOperand(MI->getOperand(1), o1, &first) &&       
+          HandleDoubleDstOperand(MI->getOperand(0), o01, o02)) {      
+        Value *high, *low;
+        Value *V = o1;
         HandleSaveDouble(V, high, low);
         Builder.CreateStore(high, o01);
         Builder.CreateStore(low, o02);
