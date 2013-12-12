@@ -8,6 +8,30 @@ typedef struct {
   int ano;
 } data;
 
+int data_para_dias(data d);
+
+int
+main() {
+  data inicio = {1, 1, 1};
+  data fim = {1, 1, 1};
+
+  printf("Calculadora de datas.\n");
+  printf("Digite a data de início (DD/MM/AAAA): ");
+  if (scanf("%d/%d/%d", &inicio.dia, &inicio.mes, &inicio.ano) != 3) {
+    printf("\nEntrada incorreta.\n");
+    exit(EXIT_FAILURE);
+  }
+  printf("Digite a data final (DD/MM/AAAA): ");
+  if (scanf("%d/%d/%d", &fim.dia, &fim.mes, &fim.ano) != 3) {
+    printf("\nEntrada incorreta.\n");
+    exit(EXIT_FAILURE);
+  }
+  
+  printf("A diferença é de %d dias.\n", data_para_dias(fim) -
+         data_para_dias(inicio));
+  exit(EXIT_SUCCESS);
+}
+
 int
 data_para_dias(data d) {
   int total = 0;
@@ -45,24 +69,3 @@ data_para_dias(data d) {
   return total;
 }
 
-int
-main() {
-  data inicio = {1, 1, 1};
-  data fim = {1, 1, 1};
-
-  printf("Calculadora de datas.\n");
-  printf("Digite a data de início (DD/MM/AAAA): ");
-  if (scanf("%d/%d/%d", &inicio.dia, &inicio.mes, &inicio.ano) != 3) {
-    printf("\nEntrada incorreta.\n");
-    exit(EXIT_FAILURE);
-  }
-  printf("Digite a data final (DD/MM/AAAA): ");
-  if (scanf("%d/%d/%d", &fim.dia, &fim.mes, &fim.ano) != 3) {
-    printf("\nEntrada incorreta.\n");
-    exit(EXIT_FAILURE);
-  }
-  
-  printf("A diferença é de %d dias.\n", data_para_dias(fim) -
-         data_para_dias(inicio));
-  exit(EXIT_SUCCESS);
-}

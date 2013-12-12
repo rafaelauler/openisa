@@ -1,0 +1,66 @@
+# Global Makefile used by all OpenISA tests (shootout benchmark).
+# You must include this file and define the variables:
+#   PROGRAMNAME
+#   STACKSIZE
+#
+
+#LLVMCONFIG?=llvm-config
+#LLVMLLC=$(shell $(LLVMCONFIG) --obj-root)/$(shell $(LLVMCONFIG) --build-mode)/bin/llc
+LLVMLLC=llc -relocation-model=static -O3
+#-view-dag-combine1-dags
+#-view-sched-dags
+#CLANG=clang -c -emit-llvm
+#CLANGARM=clang -target armv7--eabi -mcpu=cortex-a9
+CLANG=clang
+OPT=opt -O3
+#EMITLLVM=-ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
+EMITLLVM=-target mips-unknown-linux -emit-llvm -c --sysroot=/tools
+CROSS=mipsel-unknown-linux-gnu-gcc
+SBTOPT?=-optimize
+
+all: $(PROGRAMNAME)-oi-x86 $(PROGRAMNAME)-nat
+
+$(PROGRAMNAME)-nat: $(PROGRAMNAME).c
+	$(CLANG) -O3 $(PROGRAMNAME).c -o $(PROGRAMNAME)-nat
+
+$(PROGRAMNAME)-oi-ia64: $(PROGRAMNAME)-oi-ia64.s
+	$(CLANG) $(PROGRAMNAME)-oi-ia64.s -o $(PROGRAMNAME)-oi-ia64
+
+$(PROGRAMNAME)-oi-ia64.s: $(PROGRAMNAME)-oi.bc
+	$(LLVMLLC) -march=x86-64 $(PROGRAMNAME)-oi.bc -o $(PROGRAMNAME)-oi-ia64.s
+
+$(PROGRAMNAME)-oi-x86: $(PROGRAMNAME)-oi-x86.s
+	$(CLANG) -g $(PROGRAMNAME)-oi-x86.s -o $(PROGRAMNAME)-oi-x86
+
+$(PROGRAMNAME)-oi-x86.s: $(PROGRAMNAME)-oi.bc
+	$(OPT) $(PROGRAMNAME)-oi.bc -o $(PROGRAMNAME)-oi.bc
+	$(LLVMLLC) -march=x86 $(PROGRAMNAME)-oi.bc -o $(PROGRAMNAME)-oi-x86.s
+
+$(PROGRAMNAME).oi: $(PROGRAMNAME)-oi.o
+	$(CROSS) $(PROGRAMNAME)-oi.o -o $(PROGRAMNAME).oi
+
+$(PROGRAMNAME)-oi.o: $(PROGRAMNAME).s
+	../../backend/oife -assemble -filetype=obj -o=$(PROGRAMNAME)-oi.o $(PROGRAMNAME).s
+
+# Two methods to translate OpenISA code, one translates the .s assembly file,
+# while other translates object files. Use object files as default.
+$(PROGRAMNAME)-oi.bc: $(PROGRAMNAME)-oi.o
+	../../backend/oisbt $(SBTOPT) -stacksize $(STACKSIZE) $(PROGRAMNAME)-oi.o -o=$(PROGRAMNAME)-oi.bc
+
+# Method 2: Translate OpenISA directly from the assembly file (assembly
+# translation layer).
+#$(PROGRAMNAME)-oi.bc: $(PROGRAMNAME).s
+#	../../backend/oife $(PROGRAMNAME).s -o=$(PROGRAMNAME)-oi.bc
+
+read: $(PROGRAMNAME).s
+	../../backend/oife $(PROGRAMNAME).s
+
+$(PROGRAMNAME).s: $(PROGRAMNAME).bc
+	$(LLVMLLC) -load=../../backend/OIBackend.so -march=oi $(PROGRAMNAME).bc -o $(PROGRAMNAME).s
+
+$(PROGRAMNAME).bc: $(PROGRAMNAME).c
+	$(CLANG) $(EMITLLVM) -o $(PROGRAMNAME).bc $(PROGRAMNAME).c
+	$(OPT) $(PROGRAMNAME).bc -o $(PROGRAMNAME).bc
+
+clean:
+	-rm -rf $(PROGRAMNAME).s $(PROGRAMNAME).bc $(PROGRAMNAME)-oi.bc $(PROGRAMNAME)-oi-ia64.s $(PROGRAMNAME)-oi-ia64 $(PROGRAMNAME)-oi-x86.s $(PROGRAMNAME)-oi-x86 $(PROGRAMNAME)-oi.o $(PROGRAMNAME).oi $(PROGRAMNAME)-nat out-nat.txt out-oi.txt
