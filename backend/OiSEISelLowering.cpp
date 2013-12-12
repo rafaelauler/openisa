@@ -483,8 +483,7 @@ void OiSETargetLowering::
 getOpndList(SmallVectorImpl<SDValue> &Ops,
             std::deque< std::pair<unsigned, SDValue> > &RegsToPass,
             bool IsPICCall, bool GlobalOrExternal, bool InternalLinkage,
-            CallLoweringInfo &CLI, SDValue Callee, SDValue Chain,
-            unsigned nargs) const {
+            CallLoweringInfo &CLI, SDValue Callee, SDValue Chain) const {
   // T9 should contain the address of the callee function if
   // -reloction-model=pic or it is an indirect call.
   if (IsPICCall || !GlobalOrExternal) {
@@ -494,7 +493,7 @@ getOpndList(SmallVectorImpl<SDValue> &Ops,
     Ops.push_back(Callee);
 
   OiTargetLowering::getOpndList(Ops, RegsToPass, IsPICCall, GlobalOrExternal,
-                                InternalLinkage, CLI, Callee, Chain, nargs);
+                                InternalLinkage, CLI, Callee, Chain);
 }
 
 SDValue OiSETargetLowering::lowerMulDiv(SDValue Op, unsigned NewOpc,

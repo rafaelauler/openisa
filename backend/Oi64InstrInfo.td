@@ -346,11 +346,11 @@ def : InstAlias<"not $rt, $rs",
                 (NOR64 CPU64RegsOpnd:$rt, CPU64RegsOpnd:$rs, ZERO_64), 1>,
       Requires<[HasOi64]>;
 def : InstAlias<"j $rs", (JR64 CPU64Regs:$rs), 0>, Requires<[HasOi64]>;
-def : InstAlias<"jalr $rs,$nargs", (JALR64 RA_64, CPU64Regs:$rs, shamt:$nargs)>,
+def : InstAlias<"jalr $rs", (JALR64 RA_64, CPU64Regs:$rs)>,
       Requires<[HasOi64]>;
-def : InstAlias<"jal $rs,$nargs", (JALR64 RA_64, CPU64Regs:$rs, shamt:$nargs), 0>,
+def : InstAlias<"jal $rs", (JALR64 RA_64, CPU64Regs:$rs), 0>,
                  Requires<[HasOi64]>;
-def : InstAlias<"jal $rd,$rs,$nargs", (JALR64 CPU64Regs:$rd, CPU64Regs:$rs, shamt:$nargs), 0>,
+def : InstAlias<"jal $rd,$rs", (JALR64 CPU64Regs:$rd, CPU64Regs:$rs), 0>,
                  Requires<[HasOi64]>;
 def : InstAlias<"daddu $rs, $rt, $imm",
                 (DADDiu CPU64RegsOpnd:$rs, CPU64RegsOpnd:$rt, simm16_64:$imm),
