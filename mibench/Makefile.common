@@ -1,0 +1,49 @@
+# Mibench Basicmath Makefile adapted to run with OpenISA tools
+LLVMLLC=llc -relocation-model=static -O3
+LLVMLINK=llvm-link
+CLANG=clang
+OPT=opt -O3
+EMITLLVM=-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools
+CROSS=mipsel-unknown-linux-gnu-gcc
+SBTOPT?=-optimize
+
+FILE1_basenames := $(sort $(basename $(FILE1)))
+FILE1_bcs := $(FILE1_basenames:%=%.bc)
+FILE2_basenames := $(sort $(basename $(FILE2)))
+FILE2_bcs := $(FILE2_basenames:%=%.bc)
+
+TODO := $(TARGETS:%=%-oi-x86) $(TARGETS:%=%-nat)
+
+all: $(TODO)
+
+basicmath_small-nat: ${FILE1} Makefile
+	$(CLANG) -O3 -static ${FILE1} -o basicmath_small-nat -lm
+basicmath_large-nat: ${FILE2} Makefile
+	$(CLANG) -O3 -static ${FILE2} -o basicmath_large-nat -lm
+
+#
+# Wildcard rules
+#
+%.bc : %.c
+	$(CLANG) $(EMITLLVM) $< -o $@
+
+$(BENCHNAME)-oi-x86: ${FILE1_bcs}
+	$(LLVMLINK) ${FILE1_bcs} -o $(BENCHNAME).bc 
+	$(LLVMLLC) -load=../../../backend/OIBackend.so -march=oiel $(BENCHNAME).bc -o $(BENCHNAME).s
+	../../../backend/oife -assemble -filetype=obj -o=$(BENCHNAME)-oi.o $(BENCHNAME).s
+	../../../backend/oisbt $(SBTOPT) -stacksize 4000 $(BENCHNAME)-oi.o -o=$(BENCHNAME)-oi.bc
+	$(OPT) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi.bc
+	$(LLVMLLC) -march=x86 $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi-x86.s
+	$(CLANG) -g $(BENCHNAME)-oi-x86.s -o $(BENCHNAME)-oi-x86 -lm
+
+$(BENCHNAME2)-oi-x86: ${FILE2_bcs}
+	$(LLVMLINK) ${FILE2_bcs} -o $(BENCHNAME2).bc 
+	$(LLVMLLC) -load=../../../backend/OIBackend.so -march=oiel $(BENCHNAME2).bc -o $(BENCHNAME2).s
+	../../../backend/oife -assemble -filetype=obj -o=$(BENCHNAME2)-oi.o $(BENCHNAME2).s
+	../../../backend/oisbt $(SBTOPT) -stacksize 4000 $(BENCHNAME2)-oi.o -o=$(BENCHNAME2)-oi.bc
+	$(OPT) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi.bc
+	$(LLVMLLC) -march=x86 $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi-x86.s
+	$(CLANG) -g $(BENCHNAME2)-oi-x86.s -o $(BENCHNAME2)-oi-x86 -lm
+
+clean:
+	rm -rf basicmath_small-nat basicmath_large-nat output* *.bc *.o *.s $(TODO)

@@ -9,3 +9,8 @@ ELF object files (.o).
 Avoid using .bss data since there is a known issue with handling .bss data. 
 OiSBT relies on the ELF file offsets to layout the memory and the .bss data
 does not really exist in the object file.
+
+Watch out when using variable-arguments interface functions (printf) with
+double. OpenISA aligns the double according to a 8-byte alignment and a
+dummy parameter may be passed to the host printf function. Avoid this
+by not using double parameters in odd argument positions.
