@@ -32,6 +32,7 @@ class SyscallsIface {
   bool HandleLibcScanf(Value *&V, Value **First = 0);
   bool HandleLibcAtan(Value *&V, Value **First = 0);
   bool HandleLibcCos(Value *&V, Value **First = 0);
+  bool HandleLibcAcos(Value *&V, Value **First = 0);
   bool HandleLibcSqrt(Value *&V, Value **First = 0);
   bool HandleLibcPow(Value *&V, Value **First = 0);
 

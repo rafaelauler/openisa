@@ -348,6 +348,8 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
           return Syscalls.HandleLibcSqrt(V, First);
         if (val == "cos")
           return Syscalls.HandleLibcCos(V, First);
+        if (val == "acos")
+          return Syscalls.HandleLibcAcos(V, First);
       }
       uint64_t targetaddr;
       if (RelocReader.ResolveRelocation(targetaddr))
@@ -599,6 +601,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       }
       break;
     }
+  // XXX: Note for FCMP and MOVT: MIPS IV defines several FCC, floating-point
+  // codes. We always use the 0th bit (MIPS I mode).
+  // TODO: Implement all 8 CC bits.
   case Oi::FCMP_D32:
     {
       DebugOut << "Handling FCMP_D32\n";
@@ -611,12 +616,33 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           Value *one = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 1U);
           Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
           Value *select = Builder.CreateSelect(cmp, one, zero);
-          WriteMap[66] = true;
+          WriteMap[66] = true; // Ignores other FCC fields
           Builder.CreateStore(select, IREmitter.Regs[66]);
           assert(isa<Instruction>(first) && "Need to rework map logic");
           IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
           select->dump();
         }
+      }
+      break;
+    }
+  case Oi::MOVT_I:
+    {
+      DebugOut << "Handling MOVT\n";
+      Value *o0, *o1, *o2;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2) && // fcc0 encoded as reg1 TODO:fix
+          HandleAluDstOperand(MI->getOperand(0), o0)) {        
+        Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
+        Value *cmp;
+        Value *fcc = Builder.CreateLoad(IREmitter.Regs[66]);
+        cmp = Builder.CreateICmpNE(fcc, zero);
+        Value *loaddst = Builder.CreateLoad(o0);
+        Value *select = Builder.CreateSelect(cmp, o1, loaddst, "movt");
+        Builder.CreateStore(select, o0);
+        Value *first = GetFirstInstruction(o1, fcc, cmp, loaddst);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+        select->dump();
       }
       break;
     }
