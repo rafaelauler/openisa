@@ -57,30 +57,6 @@ Module* OiInstTranslate::takeModule() {
   return IREmitter.TheModule.take();
 }
 
-static Value* GetFirstInstruction(Value *o0, Value *o1) {
-  if (isa<Instruction>(o0))
-    return o0;
-  return o1;
-}
-
-static Value* GetFirstInstruction(Value *o0, Value *o1, Value *o2) {
-  if (isa<Instruction>(o0))
-    return o0;
-  if (isa<Instruction>(o1))
-    return o1;
-  return o2;
-}
-
-static Value* GetFirstInstruction(Value *o0, Value *o1, Value *o2, Value *o3) {
-  if (isa<Instruction>(o0))
-    return o0;
-  if (isa<Instruction>(o1))
-    return o1;
-  if (isa<Instruction>(o2))
-    return o2;
-  return o3;
-}
-
 bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
     unsigned reg = ConvToDirective(conv32(o.getReg()));
@@ -363,15 +339,15 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
         if (val == "fprintf")
           return Syscalls.HandleLibcFprintf(V, First);
         if (val == "__isoc99_scanf")
-          return Syscalls.HandleLibcScanf(V);
+          return Syscalls.HandleLibcScanf(V, First);
         if (val == "atan")
-          return Syscalls.HandleLibcAtan(V);
+          return Syscalls.HandleLibcAtan(V, First);
         if (val == "pow")
-          return Syscalls.HandleLibcPow(V);
+          return Syscalls.HandleLibcPow(V, First);
         if (val == "sqrt")
-          return Syscalls.HandleLibcSqrt(V);
+          return Syscalls.HandleLibcSqrt(V, First);
         if (val == "cos")
-          return Syscalls.HandleLibcCos(V);
+          return Syscalls.HandleLibcCos(V, First);
       }
       uint64_t targetaddr;
       if (RelocReader.ResolveRelocation(targetaddr))
@@ -653,6 +629,24 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           HandleDoubleDstOperand(MI->getOperand(0), o01, o02)) {      
         Value *high, *low;
         Value *V = Builder.CreateFAdd(o1, o2);
+        HandleSaveDouble(V, high, low);
+        Builder.CreateStore(high, o01);
+        Builder.CreateStore(low, o02);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+        o1->dump();
+      }      
+      break;
+    }
+  case Oi::FSUB_D32:
+    {
+      DebugOut << "Handling FSUB\n";
+      Value *o01, *o02, *o1, *o2, *first;
+      if (HandleDoubleSrcOperand(MI->getOperand(1), o1, &first) &&       
+          HandleDoubleSrcOperand(MI->getOperand(2), o2) &&       
+          HandleDoubleDstOperand(MI->getOperand(0), o01, o02)) {      
+        Value *high, *low;
+        Value *V = Builder.CreateFSub(o1, o2);
         HandleSaveDouble(V, high, low);
         Builder.CreateStore(high, o01);
         Builder.CreateStore(low, o02);

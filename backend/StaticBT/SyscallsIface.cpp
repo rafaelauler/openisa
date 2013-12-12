@@ -279,8 +279,6 @@ bool SyscallsIface::HandleLibcAtan(Value *&V, Value **First) {
   SmallVector<Value*, 8> params;
   Value *v1 = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::F12)]);
   Value *v2 = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::F12)+1]);
-  if (First)
-    *First = v1;
   Value *v3 = Builder.CreateZExtOrTrunc(v2, Type::getInt64Ty(getGlobalContext()));
   Value *v4 = Builder.CreateZExtOrTrunc(v1, Type::getInt64Ty(getGlobalContext()));
   Value *v5 = Builder.CreateShl(v3, ConstantInt::get
@@ -290,6 +288,8 @@ bool SyscallsIface::HandleLibcAtan(Value *&V, Value **First) {
 
   params.push_back(v7);
   Value *call = Builder.CreateCall(fun, params);
+  if (First)
+    *First = GetFirstInstruction(v1, call);
   V = call;
   Value *v8 = Builder.CreateBitCast(call, Type::getInt64Ty(getGlobalContext()));
   Value *v9 = Builder.CreateLShr(v8, ConstantInt::get
