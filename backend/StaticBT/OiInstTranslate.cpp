@@ -408,8 +408,6 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
           return Syscalls.HandleLibcPuts(V, First);
         if (val == "memset")
           return Syscalls.HandleLibcMemset(V, First);
-        if (val == "fwrite")
-          return Syscalls.HandleLibcFwrite(V, First);
         if (val == "printf")
           return Syscalls.HandleLibcPrintf(V, First);
         if (val == "fprintf")

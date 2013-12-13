@@ -28,7 +28,6 @@ class SyscallsIface {
                         bool *PtrTypes, Value **First);
   bool HandleLibcPuts(Value *&V, Value **First = 0);
   bool HandleLibcMemset(Value *&V, Value **First = 0);
-  bool HandleLibcFwrite(Value *&V, Value **First = 0);
   bool HandleLibcFprintf(Value *&V, Value **First = 0);
   bool HandleLibcPrintf(Value *&V, Value **First = 0);
   bool HandleLibcScanf(Value *&V, Value **First = 0);

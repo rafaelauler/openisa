@@ -203,36 +203,6 @@ bool SyscallsIface::HandleLibcMemset(Value *&V, Value **First) {
 
 // XXX: Handling a fixed number of 4 arguments, since we cannot infer how many
 // arguments the program is using with fprintf
-bool SyscallsIface::HandleLibcFwrite(Value *&V, Value **First) {
-  SmallVector<Type*, 8> args(4, Type::getInt32Ty(getGlobalContext()));
-  FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
-                                       args, /*isvararg*/false);
-  Value *fun = TheModule->getOrInsertFunction("fwrite", ft);
-  SmallVector<Value*, 8> params;
-  Value *f = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A0)]);
-  if (First)
-    *First = f;
-  Value *addrbuf = IREmitter.AccessShadowMemory(f, false);
-  params.push_back(Builder.CreatePtrToInt(addrbuf,
-                                          Type::getInt32Ty(getGlobalContext())));
-  params.push_back(Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A1)]));
-  params.push_back(Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A2)]));
-  addrbuf = IREmitter.AccessShadowMemory
-    (Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A3)]), false);
-  params.push_back(Builder.CreatePtrToInt(addrbuf,
-                                          Type::getInt32Ty(getGlobalContext())));
-  V = Builder.CreateStore(Builder.CreateCall(fun, params), IREmitter.Regs[ConvToDirective
-                                                                (Oi::V0)]);
-  ReadMap[ConvToDirective(Oi::A0)] = true;
-  ReadMap[ConvToDirective(Oi::A1)] = true;
-  ReadMap[ConvToDirective(Oi::A2)] = true;
-  ReadMap[ConvToDirective(Oi::A3)] = true;
-  WriteMap[ConvToDirective(Oi::V0)] = true;
-  return true;
-}
-
-// XXX: Handling a fixed number of 4 arguments, since we cannot infer how many
-// arguments the program is using with fprintf
 bool SyscallsIface::HandleLibcFprintf(Value *&V, Value **First) {
   SmallVector<Type*, 8> args(2, Type::getInt32Ty(getGlobalContext()));
   FunctionType *ft = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
