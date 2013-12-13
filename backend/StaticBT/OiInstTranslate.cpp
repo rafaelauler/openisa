@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define NDEBUG
+//#define NDEBUG
 
 #define DEBUG_TYPE "staticbt"
 #include "OiInstTranslate.h"
@@ -479,6 +479,23 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
         if (val == "memcpy") {
           bool PtrTypes[] = {true, true, false, true};
           return Syscalls.HandleGenericInt(V, "memcpy", 3, 1, PtrTypes, First);
+        }
+        if (val == "bcopy") {
+          bool PtrTypes[] = {true, true, false, false};
+          return Syscalls.HandleGenericInt(V, "bcopy", 3, 0, PtrTypes, First);
+        }
+        if (val == "htonl") {
+          bool PtrTypes[] = {false, false};
+          return Syscalls.HandleGenericInt(V, "htonl", 1, 1, PtrTypes, First);
+        }
+        if (val == "perror") {
+          bool PtrTypes[] = {true, false};
+          return Syscalls.HandleGenericInt(V, "perror", 1, 0, PtrTypes, First);
+
+        }
+        if (val == "__isoc99_sscanf") {
+          bool PtrTypes[] = {true, true, false, false, false};
+          return Syscalls.HandleGenericInt(V, "scanf", 4, 1, PtrTypes, First);
         }
       }
       uint64_t targetaddr;
@@ -1118,8 +1135,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       break;
     }
   case Oi::SLL:
+  case Oi::SLLV:
     {
-      DebugOut << "Handling SLL\n";
+      DebugOut << "Handling SLL SLLV\n";
       Value *o0, *o1, *o2;
       if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
           HandleAluSrcOperand(MI->getOperand(2), o2) &&
