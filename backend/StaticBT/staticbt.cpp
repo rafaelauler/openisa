@@ -2,6 +2,8 @@
 // main file staticbt.cpp
 //===----------------------------------------------------------------------===//
 
+#define NDEBUG
+
 #include "OiInstTranslate.h"
 #include "StringRefMemoryObject.h"
 #include "SBTUtils.h"
@@ -333,10 +335,12 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
     }
     StringRef name;
     if (error(i->getName(name))) break;
+#ifndef NDEBUG
     outs() << "Disassembly of section ";
     if (!SegmentName.empty())
       outs() << SegmentName << ",";
     outs() << name << ':';
+#endif
 
     // If the section has no symbols just insert a dummy one and disassemble
     // the whole section.
@@ -368,7 +372,9 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
         // This symbol has the same address as the next symbol. Skip it.
         continue;
 
+#ifndef NDEBUG
       outs() << '\n' << Symbols[si].second << ":\n";
+#endif
 
 #ifndef NDEBUG
         raw_ostream &DebugOut = DebugFlag ? dbgs() : nulls();
@@ -388,11 +394,15 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
         IP->UpdateCurAddr(Index + eoffset);
         if (DisAsm->getInstruction(Inst, Size, memoryObject, Index,
                                    DebugOut, nulls())) {
+#ifndef NDEBUG
           outs() << format("%8" PRIx64 ":", eoffset + Index);
           outs() << "\t";
           DumpBytes(StringRef(Bytes.data() + Index, Size));
+#endif
           IP->printInst(&Inst, outs(), "");
+#ifndef NDEBUG
           outs() << "\n";
+#endif
         } else {
           errs() << ToolName << ": warning: invalid instruction encoding\n";
           if (Size == 0)
