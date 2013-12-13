@@ -12,7 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "asm-printer"
+#define NDEBUG
+
+#define DEBUG_TYPE "staticbt"
 #include "OiInstTranslate.h"
 #include "OiInstrInfo.h"
 #include "StringRefMemoryObject.h"
@@ -616,7 +618,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       Value *first = GetFirstInstruction(o1, o2, v, v2);
       assert(isa<Instruction>(first) && "Need to rework map logic");
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-      v2->dump();
     }
     break;
   case Oi::SUBu:
@@ -632,7 +633,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v2->dump();
       }
       break;
     }
@@ -647,7 +647,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v2->dump();
       }
       break;
     }
@@ -670,7 +669,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o0, o1, o0se, o1se);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        o0se->dump();
       }
       break;
     }
@@ -696,7 +694,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o0, o1, vdiv, vmod);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        vdiv->dump();
       }
       break;
     }
@@ -710,7 +707,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o0, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v2->dump();
       }
       break;
     }
@@ -724,7 +720,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o0, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v2->dump();
       }
       break;
     }
@@ -738,7 +733,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v2 = Builder.CreateStore(srcHi, dstHi);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v->dump();
       }
       break;
     }
@@ -751,7 +745,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v = Builder.CreateStore(src, dst);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v->dump();
       }
       break;
     }
@@ -767,7 +760,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(lo, dst_lo);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        src->dump();
       }
       break;
     }
@@ -782,7 +774,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(v, dst);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        src->dump();
       }
       break;
     }
@@ -805,7 +796,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           Builder.CreateStore(select, IREmitter.Regs[66]);
           assert(isa<Instruction>(first) && "Need to rework map logic");
           IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-          select->dump();
         }
       }
       break;
@@ -826,7 +816,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           Builder.CreateStore(select, IREmitter.Regs[66]);
           assert(isa<Instruction>(first) && "Need to rework map logic");
           IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-          select->dump();
         }
       }
       break;
@@ -848,7 +837,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, fcc, cmp, loaddst);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        select->dump();
       }
       break;
     }
@@ -871,7 +859,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(high, o0hi);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        o1->dump();
       }      
       break;
     }
@@ -899,7 +886,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(v, o0);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        o1->dump();
       }      
       break;
     }
@@ -916,7 +902,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(high, o0hi);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        o1->dump();
       }      
       break;
     }
@@ -934,7 +919,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(high, o0hi);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        o1->dump();
       }      
       break;
     }
@@ -952,7 +936,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(high, o0hi);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        o1->dump();
       }      
       break;
     }
@@ -970,7 +953,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, v1);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v1->dump();
       }      
       break;
     }
@@ -987,7 +969,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, v1);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v1->dump();
       }      
       break;
     }
@@ -1005,7 +986,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, v1);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v1->dump();
       }      
       break;
     }
@@ -1020,7 +1000,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(v, o0);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v1->dump();
       }
       break;
     }
@@ -1040,7 +1019,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         first = GetFirstInstruction(first, o1, v1);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v1->dump();
       }      
       break;
     }
@@ -1058,7 +1036,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         first = GetFirstInstruction(first, o1, v1);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v1->dump();
       }      
       break;
     }
@@ -1073,7 +1050,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, v);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v->dump();
       }
       break;
     }
@@ -1098,7 +1074,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
                                         IREmitter.CreateBB(IREmitter.CurAddr+4));
         assert(isa<Instruction>(cmp) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(cmp);
-        v->dump();
       }
       break;
     }
@@ -1111,7 +1086,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v = Builder.CreateBr(Target);
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(v);
         IREmitter.CreateBB(IREmitter.CurAddr+4);
-        v->dump();
       }
       break;
     }
@@ -1127,7 +1101,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v2->dump();
       }
       break;
     }
@@ -1143,7 +1116,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v2->dump();
       }
       break;
     }
@@ -1159,7 +1131,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v2->dump();
       }
       break;
     }
@@ -1184,7 +1155,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, o2, cmp, loaddst);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        select->dump();
       }
       break;
     }
@@ -1201,7 +1171,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v2->dump();
       }
       break;
     }
@@ -1218,7 +1187,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v2->dump();
       }
       break;
     }
@@ -1235,7 +1203,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v2->dump();
       }
       break;
     }
@@ -1252,7 +1219,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v2->dump();
       }
       break;
     }
@@ -1294,7 +1260,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
 
         assert(isa<Instruction>(cmp) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(cmp);
-        cmp->dump();
       }      
       break;
     }
@@ -1335,7 +1300,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *first = GetFirstInstruction(o1, o2, cmp, v);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v->dump();
       }
       break;
     }
@@ -1350,7 +1314,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         first = v;
       assert(isa<Instruction>(first) && "Need to rework map logic");
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-      v->dump();
     }
     break;
   }
@@ -1363,7 +1326,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       Value *v = Builder.CreateStore(src, dst);
       assert(isa<Instruction>(first) && "Need to rework map logic");
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-      v->dump();
     }
     break;
   }
@@ -1381,7 +1343,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       Value *v = Builder.CreateStore(ext, dst);
       assert(isa<Instruction>(first) && "Need to rework map logic");
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-      v->dump();
     }    
     break;
   }
@@ -1395,7 +1356,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       first = GetFirstInstruction(src, first);
       assert(isa<Instruction>(first) && "Need to rework map logic");
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-      v->dump();
     }
     break;
   }
@@ -1409,7 +1369,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       first = GetFirstInstruction(src, tr, first);
       assert(isa<Instruction>(first) && "Need to rework map logic");
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-      v->dump();
     }
     break;
   }
@@ -1424,7 +1383,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     if(HandleCallTarget(MI->getOperand(0), call, &first)) {
       assert(isa<Instruction>(first) && "Need to rework map logic");
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-      call->dump();
     }
     break;
   }
@@ -1442,7 +1400,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       assert(isa<Instruction>(first) && "Need to rework map logic");      
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       IREmitter.FunctionRetMap[IREmitter.CurAddr] = IREmitter.CurFunAddr;
-      v->dump();
     } else {
       Value *src, *first = 0;
       if (HandleAluSrcOperand(MI->getOperand(0), src)) {
@@ -1456,7 +1413,6 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         assert(isa<Instruction>(first) && "Need to rework map logic");      
         IREmitter.CreateBB(IREmitter.CurAddr+4);
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
-        v->dump();
       } else {
         llvm_unreachable("Failed to handle indirect jump.");
       }
