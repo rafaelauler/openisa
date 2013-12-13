@@ -78,6 +78,8 @@ private:
                         Value **First, bool IsLoad, int width = 32);
   bool HandleDoubleMemOperand(const MCOperand &o, const MCOperand &o2,
                               Value *&V1, Value *&V2, Value **First, bool IsLoad);
+  bool HandleFloatMemOperand(const MCOperand &o, const MCOperand &o2,
+                             Value *&V, Value **First, bool IsLoad);
   bool HandleLUiOperand(const MCOperand &o, Value *&V, Value **First, bool IsLoad);
   bool HandleCallTarget(const MCOperand &o, Value *&V, Value **First = 0);
   bool HandleFCmpOperand(const MCOperand &o, Value *o0, Value *o1, Value *&V);
@@ -85,6 +87,10 @@ private:
   bool HandleSaveDouble(Value *In, Value *&Out1, Value *&Out2);
   bool HandleDoubleSrcOperand(const MCOperand &o, Value *&V, Value **First = 0);
   bool HandleDoubleDstOperand(const MCOperand &o, Value *&V1, Value *&V2);
+  bool HandleSaveFloat(Value *In, Value *&V);
+  bool HandleFloatSrcOperand(const MCOperand &o, Value *&V, Value **First = 0);
+  bool HandleFloatDstOperand(const MCOperand &o, Value *&V);
+
 
   void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printUnsignedImm(const MCInst *MI, int opNum, raw_ostream &O);

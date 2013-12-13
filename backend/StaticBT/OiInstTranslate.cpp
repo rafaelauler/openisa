@@ -112,6 +112,20 @@ bool OiInstTranslate::HandleDoubleSrcOperand(const MCOperand &o, Value *&V, Valu
   llvm_unreachable("Invalid Src operand");
 }
 
+bool OiInstTranslate::HandleFloatSrcOperand(const MCOperand &o, Value *&V, Value **First) {
+  if (o.isReg()) {
+    unsigned reg = ConvToDirective(conv32(o.getReg()));
+    Value *v = Builder.CreateLoad(IREmitter.Regs[reg]);
+    // Assume little endian for doubles
+    V = Builder.CreateBitCast(v, Type::getFloatTy(getGlobalContext()));
+    if (First != 0)
+      *First = v;
+    ReadMap[reg] = true;
+    return true;
+  } 
+  llvm_unreachable("Invalid Src operand");
+}
+
 bool OiInstTranslate::HandleDoubleDstOperand(const MCOperand &o, Value *&Low, Value *&High) {
   if (o.isReg()) {
     unsigned reg = ConvToDirective(conv32(o.getReg()));
@@ -120,6 +134,16 @@ bool OiInstTranslate::HandleDoubleDstOperand(const MCOperand &o, Value *&Low, Va
     High = IREmitter.Regs[reg+1];
     WriteMap[reg] = true;
     WriteMap[reg+1] = true;
+    return true;
+  }
+  llvm_unreachable("Invalid dst operand");
+}
+
+bool OiInstTranslate::HandleFloatDstOperand(const MCOperand &o, Value *&V) {
+  if (o.isReg()) {
+    unsigned reg = ConvToDirective(conv32(o.getReg()));
+    V = IREmitter.Regs[reg];
+    WriteMap[reg] = true;
     return true;
   }
   llvm_unreachable("Invalid dst operand");
@@ -175,6 +199,51 @@ bool OiInstTranslate::HandleDoubleMemOperand(const MCOperand &o, const MCOperand
   llvm_unreachable("Invalid Src operand");
 }
 
+bool OiInstTranslate::HandleFloatMemOperand(const MCOperand &o, const MCOperand &o2,
+                                            Value *&V, Value **First, bool IsLoad) {
+  if (o.isReg() && o2.isImm()) {
+    uint64_t myimm = o2.getImm();
+    uint64_t reltype = 0;
+    Value *idx, *addr, *base;
+    if (RelocReader.ResolveRelocation(myimm, &reltype)) {
+      if (reltype == ELF::R_MIPS_LO16) {
+        Value *V0 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                                     myimm + o2.getImm());
+        Value *V1 = Builder.CreateAnd(V0, ConstantInt::get
+                                      (Type::getInt32Ty(getGlobalContext()), 
+                                       0xFFFF));
+        idx = V1;
+        //Assume little endian doubles
+        unsigned reg = ConvToDirective(conv32(o.getReg()));
+        base = Builder.CreateLoad(IREmitter.Regs[reg]);
+        ReadMap[reg] = true;
+        addr = Builder.CreateAdd(base, idx);
+        if (First != 0) {
+          *First = GetFirstInstruction(V1, base, addr);
+        }
+      } else {
+        llvm_unreachable("Don't know how to handle this relocation");
+      }      
+    } else {
+      idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                             myimm);
+      unsigned reg = ConvToDirective(conv32(o.getReg()));
+      base = Builder.CreateLoad(IREmitter.Regs[reg]);
+      ReadMap[reg] = true;
+      addr = Builder.CreateAdd(base, idx);
+      if (First != 0)
+        *First = GetFirstInstruction(base, addr);
+    }
+    V = IREmitter.AccessShadowMemory(addr, IsLoad);
+    if (First != 0) {
+      *First = GetFirstInstruction(*First, V);
+    }
+    return true;
+  } 
+
+  llvm_unreachable("Invalid Src operand");
+}
+
 bool OiInstTranslate::HandleSaveDouble(Value *In, Value *&Low, Value *&High) {
   Value *v1 = Builder.CreateBitCast(In, Type::getInt64Ty(getGlobalContext()));
   Value *v2 = Builder.CreateLShr(v1, ConstantInt::get
@@ -182,6 +251,11 @@ bool OiInstTranslate::HandleSaveDouble(Value *In, Value *&Low, Value *&High) {
   // Assume little endian for doubles
   High = Builder.CreateSExtOrTrunc(v2, Type::getInt32Ty(getGlobalContext()));
   Low = Builder.CreateSExtOrTrunc(v1, Type::getInt32Ty(getGlobalContext()));
+  return true;
+}
+
+bool OiInstTranslate::HandleSaveFloat(Value *In, Value *&V) {
+  V = Builder.CreateBitCast(In, Type::getInt32Ty(getGlobalContext()));
   return true;
 }
 
@@ -346,10 +420,66 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
           return Syscalls.HandleLibcPow(V, First);
         if (val == "sqrt")
           return Syscalls.HandleLibcSqrt(V, First);
+        if (val == "atof")
+          return Syscalls.HandleLibcAtof(V, First);
+        if (val == "exp")
+          return Syscalls.HandleLibcExp(V, First);
         if (val == "cos")
           return Syscalls.HandleLibcCos(V, First);
         if (val == "acos")
           return Syscalls.HandleLibcAcos(V, First);
+        if (val == "rand") {
+          bool PtrTypes[] = {false};
+          return Syscalls.HandleGenericInt(V, "rand", 0, 1, PtrTypes, First);
+        }
+        if (val == "clock") {
+          bool PtrTypes[] = {false};
+          return Syscalls.HandleGenericInt(V, "clock", 0, 1, PtrTypes, First);
+        }
+        if (val == "fclose") {
+          bool PtrTypes[] = {false, false};
+          return Syscalls.HandleGenericInt(V, "fclose", 1, 1, PtrTypes, First);
+        }
+        if (val == "fopen") {
+          bool PtrTypes[] = {true, true, false};
+          return Syscalls.HandleGenericInt(V, "fopen", 2, 1, PtrTypes, First);
+        }
+        if (val == "fgetc") {
+          bool PtrTypes[] = {false, false};
+          return Syscalls.HandleGenericInt(V, "fgetc", 1, 1, PtrTypes, First);
+        }
+        if (val == "fputc") {
+          bool PtrTypes[] = {false, false, false};
+          return Syscalls.HandleGenericInt(V, "fputc", 2, 1, PtrTypes, First);
+        }
+        if (val == "strcmp") {
+          bool PtrTypes[] = {true, true, false};
+          return Syscalls.HandleGenericInt(V, "strcmp", 2, 1, PtrTypes, First);
+        }
+        if (val == "_IO_getc") {
+          bool PtrTypes[] = {false, false};
+          return Syscalls.HandleGenericInt(V, "getc", 1, 1, PtrTypes, First);
+        }
+        if (val == "fgets") {
+          bool PtrTypes[] = {true, false, false, true};
+          return Syscalls.HandleGenericInt(V, "fgets", 3, 1, PtrTypes, First);
+        }
+        if (val == "abs") {
+          bool PtrTypes[] = {false, false};
+          return Syscalls.HandleGenericInt(V, "abs", 1, 1, PtrTypes, First);
+        }
+        if (val == "fread") {
+          bool PtrTypes[] = {true, false, false, false, false};
+          return Syscalls.HandleGenericInt(V, "fread", 4, 1, PtrTypes, First);
+        }
+        if (val == "fwrite") {
+          bool PtrTypes[] = {true, false, false, false, false};
+          return Syscalls.HandleGenericInt(V, "fwrite", 4, 1, PtrTypes, First);
+        }
+        if (val == "memcpy") {
+          bool PtrTypes[] = {true, true, false, true};
+          return Syscalls.HandleGenericInt(V, "memcpy", 3, 1, PtrTypes, First);
+        }
       }
       uint64_t targetaddr;
       if (RelocReader.ResolveRelocation(targetaddr))
@@ -537,9 +667,36 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v5 = Builder.CreateStore(V3, IREmitter.Regs[32]);
         WriteMap[33] = true;
         WriteMap[32] = true;
-        assert(isa<Instruction>(o0) && "Need to rework map logic");
-        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(o0);
+        Value *first = GetFirstInstruction(o0, o1, o0se, o1se);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         o0se->dump();
+      }
+      break;
+    }
+  case Oi::SDIV:
+  case Oi::UDIV:
+    {
+      DebugOut << "Handling DIV\n";
+      if (HandleAluSrcOperand(MI->getOperand(0), o0) &&
+          HandleAluSrcOperand(MI->getOperand(1), o1)) {      
+        Value *vdiv;
+        Value *vmod; 
+        if (MI->getOpcode() == Oi::SDIV) {
+          vdiv = Builder.CreateSDiv(o0, o1);
+          vmod = Builder.CreateSRem(o0, o1);
+        } else {
+          vdiv = Builder.CreateUDiv(o0, o1);
+          vmod = Builder.CreateURem(o0, o1);
+        }
+        Value *v4 = Builder.CreateStore(vmod, IREmitter.Regs[33]);
+        Value *v5 = Builder.CreateStore(vdiv, IREmitter.Regs[32]);
+        WriteMap[33] = true;
+        WriteMap[32] = true;
+        Value *first = GetFirstInstruction(o0, o1, vdiv, vmod);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+        vdiv->dump();
       }
       break;
     }
@@ -585,6 +742,19 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       }
       break;
     }
+  case Oi::LWC1:
+    {
+      DebugOut << "Handling LWC1\n";
+      Value *dst, *src, *first;
+      if (HandleFloatDstOperand(MI->getOperand(0),dst) &&
+          HandleFloatMemOperand(MI->getOperand(1), MI->getOperand(2), src, &first, true)) {
+        Value *v = Builder.CreateStore(src, dst);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+        v->dump();
+      }
+      break;
+    }
   case Oi::SDC1:
     {
       DebugOut << "Handling SDC1\n";
@@ -601,6 +771,21 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       }
       break;
     }
+  case Oi::SWC1:
+    {
+      DebugOut << "Handling SWC1\n";
+      Value *dst, *src, *first;
+      if (HandleFloatSrcOperand(MI->getOperand(0), src, &first) &&
+          HandleFloatMemOperand(MI->getOperand(1), MI->getOperand(2), dst, 0, false)) {
+        Value *v;
+        HandleSaveFloat(src, v);
+        Builder.CreateStore(v, dst);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+        src->dump();
+      }
+      break;
+    }
   // XXX: Note for FCMP and MOVT: MIPS IV defines several FCC, floating-point
   // codes. We always use the 0th bit (MIPS I mode).
   // TODO: Implement all 8 CC bits.
@@ -611,6 +796,27 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       Value *o0, *o1, *first;
       if (HandleDoubleSrcOperand(MI->getOperand(0), o0, &first) &&
           HandleDoubleSrcOperand(MI->getOperand(1), o1)) {
+        Value *cmp;
+        if (HandleFCmpOperand(MI->getOperand(2), o0, o1, cmp)) {
+          Value *one = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 1U);
+          Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
+          Value *select = Builder.CreateSelect(cmp, one, zero);
+          WriteMap[66] = true; // Ignores other FCC fields
+          Builder.CreateStore(select, IREmitter.Regs[66]);
+          assert(isa<Instruction>(first) && "Need to rework map logic");
+          IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+          select->dump();
+        }
+      }
+      break;
+    }
+  case Oi::FCMP_S32:
+    {
+      DebugOut << "Handling FCMP_S32\n";
+      uint32_t cond;
+      Value *o0, *o1, *first;
+      if (HandleFloatSrcOperand(MI->getOperand(0), o0, &first) &&
+          HandleFloatSrcOperand(MI->getOperand(1), o1)) {
         Value *cmp;
         if (HandleFCmpOperand(MI->getOperand(2), o0, o1, cmp)) {
           Value *one = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 1U);
@@ -646,15 +852,20 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       }
       break;
     }
+  case Oi::FSUB_D32:
   case Oi::FADD_D32:
     {
-      DebugOut << "Handling FADD\n";
+      DebugOut << "Handling FADD_D32 FSUB_D32\n";
       Value *o0lo, *o0hi, *o1, *o2, *first;
       if (HandleDoubleSrcOperand(MI->getOperand(1), o1, &first) &&       
           HandleDoubleSrcOperand(MI->getOperand(2), o2) &&       
           HandleDoubleDstOperand(MI->getOperand(0), o0lo, o0hi)) {      
         Value *high, *low;
-        Value *V = Builder.CreateFAdd(o1, o2);
+        Value *V;
+        if (MI->getOpcode() == Oi::FADD_D32)
+          V = Builder.CreateFAdd(o1, o2);
+        else
+          V = Builder.CreateFSub(o1, o2);
         HandleSaveDouble(V, low, high);
         Builder.CreateStore(low, o0lo);
         Builder.CreateStore(high, o0hi);
@@ -664,18 +875,28 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       }      
       break;
     }
-  case Oi::FSUB_D32:
+  case Oi::FSUB_S:
+  case Oi::FADD_S:
+  case Oi::FMUL_S:
+  case Oi::FDIV_S:
     {
-      DebugOut << "Handling FSUB\n";
-      Value *o0lo, *o0hi, *o1, *o2, *first;
-      if (HandleDoubleSrcOperand(MI->getOperand(1), o1, &first) &&       
-          HandleDoubleSrcOperand(MI->getOperand(2), o2) &&       
-          HandleDoubleDstOperand(MI->getOperand(0), o0lo, o0hi)) {      
-        Value *high, *low;
-        Value *V = Builder.CreateFSub(o1, o2);
-        HandleSaveDouble(V, low, high);
-        Builder.CreateStore(high, o0hi);
-        Builder.CreateStore(low, o0lo);
+      DebugOut << "Handling FADD_S FSUB_S FMUL_S FDIV_S\n";
+      Value *o0, *o1, *o2, *first;
+      if (HandleFloatSrcOperand(MI->getOperand(1), o1, &first) &&       
+          HandleFloatSrcOperand(MI->getOperand(2), o2) &&       
+          HandleFloatDstOperand(MI->getOperand(0), o0)) {      
+        Value *v;
+        Value *V;
+        if (MI->getOpcode() == Oi::FADD_S)
+          V = Builder.CreateFAdd(o1, o2);
+        else if (MI->getOpcode() == Oi::FSUB_S)
+          V = Builder.CreateFSub(o1, o2);
+        else if (MI->getOpcode() == Oi::FMUL_S)
+          V = Builder.CreateFMul(o1, o2);
+        else
+          V = Builder.CreateFDiv(o1, o2);
+        HandleSaveFloat(V, v);
+        Builder.CreateStore(v, o0);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         o1->dump();
@@ -753,11 +974,61 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       }      
       break;
     }
+  case Oi::CVT_S_W:
+    {
+      DebugOut << "Handling CVT.S.W\n";
+      Value *o0, *o1;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&       
+          HandleFloatDstOperand(MI->getOperand(0), o0)) {      
+        Value *V;
+        Value *v1 = Builder.CreateSIToFP(o1, Type::getFloatTy(getGlobalContext()));
+        HandleSaveFloat(v1, V);
+        Value *v2 = Builder.CreateStore(V, o0);
+        Value *first = GetFirstInstruction(o1, v1);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+        v1->dump();
+      }      
+      break;
+    }
+  case Oi::CVT_D32_S:
+    {
+      DebugOut << "Handling CVT.D.S\n";
+      Value *o0lo, *o0hi, *o1, *first;
+      if (HandleFloatSrcOperand(MI->getOperand(1), o1, &first) &&       
+          HandleDoubleDstOperand(MI->getOperand(0), o0lo, o0hi)) {      
+        Value *high, *low;
+        Value *v1 = Builder.CreateFPExt(o1, Type::getDoubleTy(getGlobalContext()));
+        HandleSaveDouble(v1, low, high);
+        Value *v2 = Builder.CreateStore(low, o0lo);
+        Value *v3 = Builder.CreateStore(high, o0hi);
+        Value *first = GetFirstInstruction(o1, v1);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+        v1->dump();
+      }      
+      break;
+    }
+  case Oi::CVT_S_D32:
+    {
+      DebugOut << "Handling CVT.S.D\n";
+      Value *o0, *o1, *first, *v;
+      if (HandleDoubleSrcOperand(MI->getOperand(1), o1, &first) &&       
+          HandleFloatDstOperand(MI->getOperand(0), o0)) {
+        Value *v1 = Builder.CreateFPTrunc(o1, Type::getFloatTy(getGlobalContext()));
+        HandleSaveFloat(v1, v);
+        Builder.CreateStore(v, o0);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+        v1->dump();
+      }
+      break;
+    }
   case Oi::TRUNC_W_D32:
     {
       DebugOut << "Handling TRUNC.W.D\n";
-      Value *o0lo, *o0hi, *o1;
-      if (HandleDoubleSrcOperand(MI->getOperand(1), o1) &&       
+      Value *o0lo, *o0hi, *o1, *first;
+      if (HandleDoubleSrcOperand(MI->getOperand(1), o1, &first) &&       
           HandleDoubleDstOperand(MI->getOperand(0), o0lo, o0hi)) {      
         Value *high, *low;
         Value *v1 = Builder.CreateFPToSI(o1, Type::getInt32Ty(getGlobalContext()));
@@ -766,7 +1037,25 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         HandleSaveDouble(v3, low, high);
         Value *v4 = Builder.CreateStore(low, o0lo);
         Value *v5 = Builder.CreateStore(high, o0hi);
-        Value *first = GetFirstInstruction(o1, v1);
+        first = GetFirstInstruction(first, o1, v1);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+        v1->dump();
+      }      
+      break;
+    }
+  case Oi::TRUNC_W_S:
+    {
+      DebugOut << "Handling TRUNC.W.S\n";
+      Value *o0, *o1, *first;
+      if (HandleFloatSrcOperand(MI->getOperand(1), o1, &first) &&       
+          HandleFloatDstOperand(MI->getOperand(0), o0)) {      
+        Value *V;
+        Value *v1 = Builder.CreateFPToSI(o1, Type::getInt32Ty(getGlobalContext()));
+        Value *v3 = Builder.CreateBitCast(v1, Type::getFloatTy(getGlobalContext()));
+        HandleSaveFloat(v3, V);
+        Value *v4 = Builder.CreateStore(V, o0);
+        first = GetFirstInstruction(first, o1, v1);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         v1->dump();

@@ -224,18 +224,18 @@ void OiIREmitter::BuildLocalRegisterFile() {
 }
 
 void OiIREmitter::StartFunction(Twine &N) {
-  // Create a function with no parameters
-  FunctionType *FT = FunctionType::get(Type::getVoidTy(getGlobalContext()),
-                                       false);
   Function *F = 0;
   if (FirstFunction) {
+    SmallVector<Type*, 8> args(2, Type::getInt32Ty(getGlobalContext()));
+    FunctionType *FT = FunctionType::get(Type::getVoidTy(getGlobalContext()),
+                                         args, /*isvararg*/false);
     F = Function::Create(FT, Function::ExternalLinkage,
                          "main", &*TheModule);
     FirstFunction = false;
     CreateBB(0, F);
     UpdateInsertPoint();
     BuildLocalRegisterFile();
-    InsertStartupCode();
+    InsertStartupCode(F);
     CurFunAddr = CurAddr+4;
     if (!ProcessIndirectJumps())
       llvm_unreachable("ProcessIndirectJumps failed.");
@@ -243,6 +243,9 @@ void OiIREmitter::StartFunction(Twine &N) {
   } else {
     CurFunAddr = CurAddr+4;
     if (!OneRegion) {
+      // Create a function with no parameters
+      FunctionType *FT = FunctionType::get(Type::getVoidTy(getGlobalContext()),
+                                           false);
       F = reinterpret_cast<Function *>(TheModule->getOrInsertFunction(N.str(),
                                                                       FT));
       CreateBB(0, F);
@@ -254,11 +257,44 @@ void OiIREmitter::StartFunction(Twine &N) {
   }
 }
 
-void OiIREmitter::InsertStartupCode() {
+void OiIREmitter::InsertStartupCode(Function *F) {
   // Initialize the stack
   Value *size = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                                   ShadowSize);
   Builder.CreateStore(size, Regs[ConvToDirective(Oi::SP)]);
+  Function::arg_iterator args = F->arg_begin();
+  Value *argc = args++;
+  Value *argv = args++;
+  Builder.CreateStore(argc, Regs[ConvToDirective(Oi::A0)]);
+  Value *ptr = Builder.CreatePtrToInt(ShadowImageValue,
+                                      Type::getInt32Ty(getGlobalContext()));
+  Value *fixed = Builder.CreateSub(argv, ptr);
+  Builder.CreateStore(fixed, Regs[ConvToDirective(Oi::A1)]);
+  Value *iv = Builder.CreateAlloca(Type::getInt32Ty(getGlobalContext()));
+  Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
+  Value *two = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 2U);
+  Value *one = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 1U);
+  Builder.CreateStore(zero, iv);
+  BasicBlock *bb1 = BasicBlock::Create(getGlobalContext(), "loopbody", F);
+  BasicBlock *bb2 = BasicBlock::Create(getGlobalContext(), "loopexit", F);
+  Builder.CreateBr(bb1);
+  Builder.SetInsertPoint(bb1);
+  Value *ivload = Builder.CreateLoad(iv);
+  Value *ivshr = Builder.CreateShl(ivload, two);
+  Value *argvsum = Builder.CreateAdd(argv, ivshr);
+  Value *argvptr = Builder.CreateIntToPtr(argvsum, Type::getInt32PtrTy
+                                          (getGlobalContext()));  
+  Value *elem = Builder.CreateLoad(argvptr);
+  Value *elemfixed = Builder.CreateSub(elem, ptr);
+  Builder.CreateStore(elemfixed, argvptr);
+  Value *ivsum = Builder.CreateAdd(ivload, one);
+  Builder.CreateStore(ivsum, iv);
+  Value *cmp = Builder.CreateICmpNE(ivsum, argc);
+  Builder.CreateCondBr(cmp, bb1, bb2);
+  Builder.SetInsertPoint(bb2);
+ 
+  WriteMap[ConvToDirective(Oi::A0)] = true;
+  WriteMap[ConvToDirective(Oi::A1)] = true;
 }
 
 BasicBlock* OiIREmitter::CreateBB(uint64_t Addr, Function *F) {

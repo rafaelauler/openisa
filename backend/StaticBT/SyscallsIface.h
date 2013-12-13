@@ -24,6 +24,8 @@ class SyscallsIface {
   bool HandleLibcCalloc(Value *&V, Value **First = 0);
   bool HandleLibcFree(Value *&V, Value **First = 0);
   bool HandleLibcExit(Value *&V, Value **First = 0);
+  bool HandleGenericInt(Value *&V, StringRef Name, int numargs, int numret,
+                        bool *PtrTypes, Value **First);
   bool HandleLibcPuts(Value *&V, Value **First = 0);
   bool HandleLibcMemset(Value *&V, Value **First = 0);
   bool HandleLibcFwrite(Value *&V, Value **First = 0);
@@ -34,6 +36,8 @@ class SyscallsIface {
   bool HandleLibcCos(Value *&V, Value **First = 0);
   bool HandleLibcAcos(Value *&V, Value **First = 0);
   bool HandleLibcSqrt(Value *&V, Value **First = 0);
+  bool HandleLibcExp(Value *&V, Value **First);
+  bool HandleLibcAtof(Value *&V, Value **First);
   bool HandleLibcPow(Value *&V, Value **First = 0);
 
  private:
