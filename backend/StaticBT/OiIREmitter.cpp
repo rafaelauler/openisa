@@ -104,6 +104,7 @@ bool OiIREmitter::ProcessIndirectJumps() {
       BasicBlock *BB = CreateBB(TargetAddr);
       IndirectJumpTable.push_back(BlockAddress::get(BB));
       IndirectDestinations.push_back(BB);
+      IndirectDestinationsAddrs.push_back(TargetAddr);
       int JumpTableIndex = IndirectJumpTable.size() - 1;
       //      IndirectJumpTable[JumpTableIndex]->dump();
       *(int*)(&ShadowImage[offset]) = JumpTableIndex;
@@ -410,7 +411,16 @@ void OiIREmitter::CleanRegs() {
 }
 
 bool OiIREmitter::BuildReturnTablesOneRegion() {
-  for (DenseMap<int32_t, int32_t>::iterator I = FunctionRetMap.begin(), 
+  for (std::vector<uint32_t>::iterator I = IndirectDestinationsAddrs.begin(),
+         E = IndirectDestinationsAddrs.end(); I != E; ++I) {
+    uint32_t targetaddr = *I;
+    for (IndirectCallMapTy::iterator J = IndirectCallMap.begin(),
+           E2 = IndirectCallMap.end(); J != E2; ++J) {
+      uint32_t retaddr = *J;
+      FunctionCallMap[targetaddr].push_back(retaddr);
+    }
+  }
+  for (FunctionRetMapTy::iterator I = FunctionRetMap.begin(), 
          E = FunctionRetMap.end(); I != E; ++I) {
     uint32_t retaddr = I->first;
     uint32_t funcaddr = I->second;
@@ -420,7 +430,7 @@ bool OiIREmitter::BuildReturnTablesOneRegion() {
     
     Builder.SetInsertPoint(tgtins->getParent(), tgtins);
     
-    SmallVector<uint32_t, 4> CallSites = GetCallSitesFor(funcaddr);
+    std::vector<uint32_t> CallSites = GetCallSitesFor(funcaddr);
     if (CallSites.empty())
       continue;
 
@@ -432,7 +442,7 @@ bool OiIREmitter::BuildReturnTablesOneRegion() {
     // Delete the original ret instruction
     tgtins->eraseFromParent();
 
-    for (SmallVector<uint32_t, 4>::iterator J = CallSites.begin(), EJ = CallSites.end();
+    for (std::vector<uint32_t>::iterator J = CallSites.begin(), EJ = CallSites.end();
          J != EJ; ++J) {
       Value *site = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), *J);
       Value *cmp = Builder.CreateICmpEQ(site, ra);
@@ -456,19 +466,8 @@ bool OiIREmitter::BuildReturnTablesOneRegion() {
   }
 }
 
-SmallVector<uint32_t, 4> OiIREmitter::GetCallSitesFor(uint32_t FuncAddr) {
-  SmallVector<uint32_t, 4> Res;
-  for (DenseMap<int32_t, int32_t>::iterator I = FunctionCallMap.begin(),
-         E = FunctionCallMap.end(); I != E; ++I) {
-    uint32_t retaddr = I->first + 4;
-    uint32_t funcaddr = I->second;
-
-    if (funcaddr != FuncAddr)
-      continue;
-
-    Res.push_back(retaddr);
-  }
-  return Res;
+std::vector<uint32_t> OiIREmitter::GetCallSitesFor(uint32_t FuncAddr) {
+  return FunctionCallMap[FuncAddr];
 }
 
 bool OiIREmitter::HandleBackEdge(uint64_t Addr, BasicBlock *&Target) {
@@ -524,10 +523,27 @@ bool OiIREmitter::HandleBackEdge(uint64_t Addr, BasicBlock *&Target) {
   return true;
 }
 
+bool OiIREmitter::HandleIndirectCallOneRegion(Value *src, Value **First) {
+  Value *f;
+  Value *Target = AccessJumpTable(src, &f);
+  IndirectCallMap.insert(CurAddr + 4);
+  Builder.CreateStore
+    (ConstantInt::get(Type::getInt32Ty(getGlobalContext()), CurAddr+4),
+     Regs[ConvToDirective(Oi::RA)]);
+  IndirectBrInst *v = Builder.CreateIndirectBr(Target,
+                                               IndirectDestinations.size());
+  for(int I = 0, E = IndirectDestinations.size(); I != E; ++I) {
+    v->addDestination(IndirectDestinations[I]);
+  }        
+  if (First)
+    *First = GetFirstInstruction(*First, src, f);
+  CreateBB(CurAddr+4);
+}
+
 bool OiIREmitter::HandleLocalCallOneRegion(uint64_t Addr, Value *&V,
                                                Value **First) {
   BasicBlock *Target;
-  FunctionCallMap[CurAddr] = Addr;
+  FunctionCallMap[Addr].push_back(CurAddr + 4);
   if (Addr < CurAddr)
     HandleBackEdge(Addr, Target);
   else

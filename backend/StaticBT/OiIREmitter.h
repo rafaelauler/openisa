@@ -13,6 +13,7 @@
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
@@ -34,14 +35,18 @@ using namespace object;
 
 class OiIREmitter {
 public:
-  OiIREmitter(const ObjectFile *obj, uint64_t Stacksz): Obj(obj), 
-                 TheModule(new Module("outputtest", getGlobalContext())),
-                 Builder(getGlobalContext()), Regs(SmallVector<Value*,67>(67)),
-                 GlobalRegs(SmallVector<Value*,67>(67)),
-                 FirstFunction(true), CurAddr(0), CurSection(0), BBMap(),
-                 InsMap(), ReadMap(), WriteMap(), FunctionCallMap(),
-                 FunctionRetMap(), CurFunAddr(0), CurBlockAddr(0),
-                 StackSize(Stacksz), IndirectDestinations() {
+  typedef DenseMap<uint32_t, std::vector<uint32_t> > FunctionCallMapTy;
+  typedef DenseMap<uint32_t, uint32_t> FunctionRetMapTy;
+  typedef SmallPtrSet<uint32_t, 64> IndirectCallMapTy;
+
+  OiIREmitter(const ObjectFile *obj, uint64_t Stacksz): 
+    Obj(obj), TheModule(new Module("outputtest", getGlobalContext())),
+    Builder(getGlobalContext()), Regs(SmallVector<Value*,67>(67)),
+    GlobalRegs(SmallVector<Value*,67>(67)), FirstFunction(true), CurAddr(0),
+    CurSection(0), BBMap(), InsMap(), ReadMap(), WriteMap(), FunctionCallMap(),
+    FunctionRetMap(), IndirectCallMap(), CurFunAddr(0), CurBlockAddr(0),
+    StackSize(Stacksz), IndirectDestinations(), IndirectDestinationsAddrs()
+  {
     BuildShadowImage();
     BuildRegisterFile();
   }
@@ -56,8 +61,9 @@ public:
   StringMap<BasicBlock*> BBMap;
   DenseMap<int64_t, Instruction*> InsMap;
   DenseMap<int32_t, bool> ReadMap, WriteMap;
-  DenseMap<int32_t, int32_t> FunctionCallMap; // Used only in one-region mode
-  DenseMap<int32_t, int32_t> FunctionRetMap; // Used only in one-region mode
+  FunctionCallMapTy FunctionCallMap; // Used only in one-region mode
+  FunctionRetMapTy FunctionRetMap; // Used only in one-region mode
+  IndirectCallMapTy IndirectCallMap;
   uint64_t CurFunAddr;
   uint64_t CurBlockAddr;
   uint64_t StackSize;
@@ -65,6 +71,7 @@ public:
   Value* ShadowImageValue;
   Value* IndirectJumpTableValue;
   std::vector<BasicBlock*> IndirectDestinations;
+  std::vector<uint32_t> IndirectDestinationsAddrs;
   
 
   bool ProcessIndirectJumps();
@@ -72,8 +79,9 @@ public:
   void BuildRegisterFile();
   void BuildLocalRegisterFile();
   bool HandleBackEdge(uint64_t Addr, BasicBlock *&Target);
+  bool HandleIndirectCallOneRegion(Value *src, Value **First = 0);
   bool HandleLocalCallOneRegion(uint64_t Addr, Value *&V, Value **First = 0);
-  SmallVector<uint32_t, 4> GetCallSitesFor(uint32_t FuncAddr);
+  std::vector<uint32_t> GetCallSitesFor(uint32_t FuncAddr);
   bool BuildReturnTablesOneRegion();
   bool HandleLocalCall(uint64_t Addr, Value *&V, Value **First = 0);
   Value *AccessShadowMemory(Value *Idx, bool IsLoad, int width = 32);

@@ -497,6 +497,10 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
           bool PtrTypes[] = {true, true, false, false, false};
           return Syscalls.HandleGenericInt(V, "scanf", 4, 1, PtrTypes, First);
         }
+        if (val == "strchr") {
+          bool PtrTypes[] = {true, false, true};
+          return Syscalls.HandleGenericInt(V, "strchr", 2, 1, PtrTypes, First);
+        }
       }
       uint64_t targetaddr;
       if (RelocReader.ResolveRelocation(targetaddr))
@@ -1120,8 +1124,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       break;
     }
   case Oi::SRL:
+  case Oi::SRLV:
     {
-      DebugOut << "Handling SRL\n";
+      DebugOut << "Handling SRL SRLV\n";
       Value *o0, *o1, *o2;
       if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
           HandleAluSrcOperand(MI->getOperand(2), o2) &&
@@ -1390,7 +1395,15 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   }
   case Oi::JALR64:
   case Oi::JALR: {
-    llvm_unreachable("Can't handle indirect jumps yet.");
+    assert(OneRegion && "Can't handle indirect calls without -oneregion yet.");
+    Value *src, *first = 0;
+    if (HandleAluSrcOperand(MI->getOperand(0), src) &&
+        IREmitter.HandleIndirectCallOneRegion(src, &first)) {      
+      assert(isa<Instruction>(first) && "Need to rework map logic");
+      IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);     
+    } else {
+      llvm_unreachable("Failed to handle JALR.");
+    }
     break;
   }
   case Oi::JAL: {

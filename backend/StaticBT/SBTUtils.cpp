@@ -416,25 +416,25 @@ std::vector<std::pair<uint64_t, StringRef> > GetSymbolsList(const ObjectFile *Ob
 }
 
 Value* GetFirstInstruction(Value *o0, Value *o1) {
-  if (isa<Instruction>(o0))
+  if (o0 && isa<Instruction>(o0))
     return o0;
   return o1;
 }
 
 Value* GetFirstInstruction(Value *o0, Value *o1, Value *o2) {
-  if (isa<Instruction>(o0))
+  if (o0 && isa<Instruction>(o0))
     return o0;
-  if (isa<Instruction>(o1))
+  if (o1 && isa<Instruction>(o1))
     return o1;
   return o2;
 }
 
 Value* GetFirstInstruction(Value *o0, Value *o1, Value *o2, Value *o3) {
-  if (isa<Instruction>(o0))
+  if (o0 && isa<Instruction>(o0))
     return o0;
-  if (isa<Instruction>(o1))
+  if (o1 && isa<Instruction>(o1))
     return o1;
-  if (isa<Instruction>(o2))
+  if (o2 && isa<Instruction>(o2))
     return o2;
   return o3;
 }
