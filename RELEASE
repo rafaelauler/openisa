@@ -14,3 +14,7 @@ Watch out when using variable-arguments interface functions (printf) with
 double. OpenISA aligns the double according to a 8-byte alignment and a
 dummy parameter may be passed to the host printf function. Avoid this
 by not using double parameters in odd argument positions.
+
+Owing to some mystery, susan (mibench) needs to be compiled with "-debug-ir",
+otherwise a bug is triggered and a function called "a1d28" gets renamed
+to "a1d2\18" and the linker fails.
