@@ -2,6 +2,9 @@
 # You must include this file and define the variables:
 #   PROGRAMNAME
 #   STACKSIZE
+#   ARCH
+#   SBTOPT
+#   MATTR
 #
 
 #LLVMCONFIG?=llvm-config
@@ -16,9 +19,12 @@ OPT=opt -O3
 #EMITLLVM=-ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
 EMITLLVM=-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools
 CROSS=mipsel-unknown-linux-gnu-gcc
+CLANGARM=arm-linux-musleabihf-gcc-4.7.3 -static
 SBTOPT?=-optimize
+ARCH?=x86
+MATTR?=
 
-all: $(PROGRAMNAME)-oi-x86 $(PROGRAMNAME)-nat
+all: $(PROGRAMNAME)-oi-$(ARCH) $(PROGRAMNAME)-nat
 
 $(PROGRAMNAME)-nat: $(PROGRAMNAME).c
 	$(CLANG) -O3 $(PROGRAMNAME).c -o $(PROGRAMNAME)-nat -lm
@@ -32,9 +38,14 @@ $(PROGRAMNAME)-oi-ia64.s: $(PROGRAMNAME)-oi.bc
 $(PROGRAMNAME)-oi-x86: $(PROGRAMNAME)-oi-x86.s
 	$(CLANG) -g $(PROGRAMNAME)-oi-x86.s -o $(PROGRAMNAME)-oi-x86 -lm
 
-$(PROGRAMNAME)-oi-x86.s: $(PROGRAMNAME)-oi.bc
+$(PROGRAMNAME)-oi-arm: $(PROGRAMNAME)-oi-arm.s
+	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
+	cat $(PROGRAMNAME)-oi-arm.s >> aa.s
+	$(CLANGARM) -g aa.s -o $(PROGRAMNAME)-oi-arm -lm
+
+$(PROGRAMNAME)-oi-$(ARCH).s: $(PROGRAMNAME)-oi.bc
 	$(OPT) $(PROGRAMNAME)-oi.bc -o $(PROGRAMNAME)-oi.bc
-	$(LLVMLLC) -march=x86 $(PROGRAMNAME)-oi.bc -o $(PROGRAMNAME)-oi-x86.s
+	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(PROGRAMNAME)-oi.bc -o $(PROGRAMNAME)-oi-$(ARCH).s
 
 $(PROGRAMNAME).oi: $(PROGRAMNAME)-oi.o
 	$(CROSS) $(PROGRAMNAME)-oi.o -o $(PROGRAMNAME).oi
