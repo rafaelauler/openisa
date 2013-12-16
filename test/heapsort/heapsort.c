@@ -28,7 +28,7 @@ main(int argc, char *argv[]) {
 
   heapsort(N, ary);
 
-  printf("%.10g\n", ary[N]);
+  printf("%d %.10g\n", 0, ary[N]);
 
   free(ary);
   return(0);

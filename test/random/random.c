@@ -21,7 +21,7 @@ main(int argc, char *argv[]) {
   while (N--) {
     result = gen_random(100.0);
   }
-  printf("%.9f\n", result);
+  printf("%d %.9f\n", 0, result);
   return(0);
 }
 
