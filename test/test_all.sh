@@ -52,22 +52,44 @@ for dir in $(find . -maxdepth 1 -mindepth 1 -type d | cut -c 3-); do
             exit
         fi
         echo Running $dir native mode - current time is $(date) | tee -a $LOGFILE
+        timenat="99999"
         for iter in $(seq 1 $NUMTESTS); do
             $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${dir}-nat | tee out-golden.txt
             cat timeoutput.txt | tee -a $LOGFILE
+            curtime=$(cat timeoutput.txt)
+            dotest=$(bc <<< "scale=4; $curtime < $timenat")
+            if [ x"$dotest" == x"1" ]; then
+                timenat=$curtime
+            fi
             rm timeoutput.txt
         done
+        if [ x"$iter" != x"1" ]; then
+            echo -------- | tee -a $LOGFILE
+            echo $timenat | tee -a $LOGFILE
+        fi
 
         echo Running $dir OpenISA mode with opts $myopts - current time is $(date) | tee -a $LOGFILE
+        smallesttime="99999"
         for iter in $(seq 1 $NUMTESTS); do
             $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${dir}-oi-x86 | tee out-oi.txt
-            cat timeoutput.txt | tee -a $LOGFILE
+            curtime=$(cat timeoutput.txt)
+            percentage=$(bc <<< "scale=4; $curtime / $timenat")
+            echo $curtime "("${percentage}")" | tee -a $LOGFILE
+            dotest=$(bc <<< "scale=4; $curtime < $smallesttime")
+            if [ x"$dotest" == x"1" ]; then
+                smallesttime=$curtime
+            fi
             rm timeoutput.txt
         done
+        if [ x"$iter" != x"1" ]; then
+            echo -------- | tee -a $LOGFILE
+            percentage=$(bc <<< "scale=4; $smallesttime / $timenat")
+            echo $smallesttime "("${percentage}")" | tee -a $LOGFILE
+        fi
 
         diff out-golden.txt out-oi.txt
         if [ $? -ne 0 ]; then
-            echo Output mismatch | tee -a $LOGFILE
+            echo "!! Output mismatch !!" | tee -a $LOGFILE
         fi
         rm out-golden.txt out-oi.txt
     done;

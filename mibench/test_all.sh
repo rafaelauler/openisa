@@ -4,7 +4,7 @@ GSED=sed
 GNUTIME=/usr/bin/time
 LOGFILE=$(pwd)/log.txt
 # Number of times each binary execution is measured
-NUMTESTS=1
+NUMTESTS=3
 VERBOSE=false
 
 echo Tests started. Today is $(date). | tee -a $LOGFILE
@@ -39,16 +39,22 @@ ROOT=$(pwd)
 for index in ${!DIRS[*]}; do
     dir=${DIRS[index]}
     name=${NAMES[index]}
-    smallnat=${SMALL[index]/VAR/nat}
-    largenat=${LARGE[index]/VAR/nat}
-    smalloi=${SMALL[index]/VAR/oi-x86}
-    largeoi=${LARGE[index]/VAR/oi-x86}
-    outputsmallnat=${OUTPUTSMALL[index]/VAR/nat}
-    outputsmalloi=${OUTPUTSMALL[index]/VAR/oi-x86}
-    outputlargenat=${OUTPUTLARGE[index]/VAR/nat}
-    outputlargeoi=${OUTPUTLARGE[index]/VAR/oi-x86}
+    smallnat=${SMALL[index]//VAR/nat}
+    largenat=${LARGE[index]//VAR/nat}
+    smalloi=${SMALL[index]//VAR/oi-x86}
+    largeoi=${LARGE[index]//VAR/oi-x86}
+    outputsmallnat=${OUTPUTSMALL[index]//VAR/nat}
+    outputsmalloi=${OUTPUTSMALL[index]//VAR/oi-x86}
+    outputlargenat=${OUTPUTLARGE[index]//VAR/nat}
+    outputlargeoi=${OUTPUTLARGE[index]//VAR/oi-x86}
     cd $dir
     for opts in "-oneregion" "-nolocals" "-debug-ir"; do
+        if [ $opts == "-debug-ir" ]; then
+            if [ $dir == "automotive/susan" ]; then
+                echo Skipping $opts for $dir
+                continue
+            fi
+        fi
         myopts=$opts" -optimize"
         make clean &> /dev/null
         echo Building $dir with mode $myopts ...
@@ -70,55 +76,99 @@ for index in ${!DIRS[*]}; do
         fi
 
         echo Running $name in native mode "(small)" - current time is $(date) | tee -a $LOGFILE
+        timesmallnat="99999"
         for iter in $(seq 1 $NUMTESTS); do
             $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${smallnat} &> out-small-golden.txt
             cat timeoutput.txt | tee -a $LOGFILE
+            timecand=$(cat timeoutput.txt)
+            dotest=$(bc <<< "scale=4; $timecand < $timesmallnat")
+            if [ x"$dotest" == x"1" ]; then
+                timesmallnat=$timecand
+            fi
             rm timeoutput.txt
         done
+        if [ x"$iter" != x"1" ]; then
+            echo -------- | tee -a $LOGFILE
+            echo $timesmallnat | tee -a $LOGFILE
+        fi
 
         echo Running $name in native mode "(large)" - current time is $(date) | tee -a $LOGFILE
+        timelargenat="99999"
         for iter in $(seq 1 $NUMTESTS); do
             $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${largenat} &> out-large-golden.txt
             cat timeoutput.txt | tee -a $LOGFILE
+            timecand=$(cat timeoutput.txt)
+            dotest=$(bc <<< "scale=4; $timecand < $timelargenat")
+            if [ x"$dotest" == x"1" ]; then
+                timelargenat=$timecand
+            fi
             rm timeoutput.txt
         done
+        if [ x"$iter" != x"1" ]; then
+            echo -------- | tee -a $LOGFILE
+            echo $timelargenat | tee -a $LOGFILE
+        fi
 
         echo Running $name OpenISA mode "(small)" with opts $myopts - current time is $(date) | tee -a $LOGFILE
+        smallesttime="99999"
         for iter in $(seq 1 $NUMTESTS); do
             $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${smalloi} &> out-small-oi.txt
-            cat timeoutput.txt | tee -a $LOGFILE
+            curtime=$(cat timeoutput.txt)
+            percentage=$(bc <<< "scale=4; $curtime / $timesmallnat")
+            echo $curtime "("${percentage}")" | tee -a $LOGFILE
+            dotest=$(bc <<< "scale=4; $curtime < $smallesttime")
+            if [ x"$dotest" == x"1" ]; then
+                smallesttime=$curtime
+            fi
             rm timeoutput.txt
         done
+        if [ x"$iter" != x"1" ]; then
+            echo -------- | tee -a $LOGFILE
+            percentage=$(bc <<< "scale=4; $smallesttime / $timesmallnat")
+            echo $smallesttime "("${percentage}")" | tee -a $LOGFILE
+        fi
 
         diff out-small-golden.txt out-small-oi.txt &> /dev/null
         if [ $? -ne 0 ]; then
-            echo Output mismatch "(small)" | tee -a $LOGFILE
+            echo "!! Output mismatch (small) !!" | tee -a $LOGFILE
         fi
         rm out-small-golden.txt out-small-oi.txt
         if [ x"$outputsmallnat" != x"none" ]; then
             diff $outputsmallnat $outputsmalloi &> /dev/null
             if [ $? -ne 0 ]; then
-                echo Output mismatch "(small)" | tee -a $LOGFILE
+                echo "!! Output mismatch (small) !!" | tee -a $LOGFILE
             fi
             rm $outputsmallnat $outputsmalloi
         fi
 
         echo Running $name OpenISA mode "(large)" with opts $myopts - current time is $(date) | tee -a $LOGFILE
+        smallesttime="99999"
         for iter in $(seq 1 $NUMTESTS); do
             $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${largeoi} &> out-large-oi.txt
-            cat timeoutput.txt | tee -a $LOGFILE
+            curtime=$(cat timeoutput.txt)
+            percentage=$(bc <<< "scale=4; $curtime / $timelargenat")
+            echo $curtime "("${percentage}")" | tee -a $LOGFILE
+            dotest=$(bc <<< "scale=4; $curtime < $smallesttime")
+            if [ x"$dotest" == x"1" ]; then
+                smallesttime=$curtime
+            fi
             rm timeoutput.txt
         done
+        if [ x"$iter" != x"1" ]; then
+            echo -------- | tee -a $LOGFILE
+            percentage=$(bc <<< "scale=4; $smallesttime / $timelargenat")
+            echo $smallesttime "("${percentage}")" | tee -a $LOGFILE
+        fi
 
         diff out-large-golden.txt out-large-oi.txt
         if [ $? -ne 0 ]; then
-            echo Output mismatch "(large)" | tee -a $LOGFILE
+            echo "!! Output mismatch (large) !!" | tee -a $LOGFILE
         fi
         rm out-large-golden.txt out-large-oi.txt
         if [ x"$outputlargenat" != x"none" ]; then
             diff $outputlargenat $outputlargeoi &> /dev/null
             if [ $? -ne 0 ]; then
-                echo Output mismatch "(large)" | tee -a $LOGFILE
+                echo "!! Output mismatch (large) !!" | tee -a $LOGFILE
             fi
             rm $outputlargenat $outputlargeoi
         fi
