@@ -379,6 +379,10 @@ unsigned ConvToDirective(unsigned regnum) {
   return -1;
 }
 
+unsigned ConvToDirectiveDbl(unsigned regnum) {
+  return (ConvToDirective(regnum) - 34) >> 1;
+}
+
 uint64_t GetELFOffset(section_iterator &i) {
   DataRefImpl Sec = i->getRawDataRefImpl();
   const object::Elf_Shdr_Impl<object::ELFType<support::little, 2, false> > *sec =

@@ -188,38 +188,73 @@ void OiIREmitter::BuildShadowImage() {
 
 void OiIREmitter::BuildRegisterFile() {
   Type *ty = Type::getInt32Ty(getGlobalContext());
+  Type *dblTy = Type::getDoubleTy(getGlobalContext());
+  Type *fltTy = Type::getFloatTy(getGlobalContext());
   // 32 base regs  0-31
   // LO 32
   // HI 33
-  // 32 fp regs 34-65
+  // 32 float regs 34-65
   // FPCondCode 66
   for (int I = 0; I < 67; ++I) {
-    Constant *ci = ConstantInt::get(ty, 0U);
-    GlobalVariable *gv = new GlobalVariable(*TheModule, ty, false, 
+    Constant *ci;
+    Type *myty;
+    if (I < 34 || I == 66) {
+      ci = ConstantInt::get(ty, 0U);
+      myty = ty;
+    } else {
+      ci = ConstantFP::get(fltTy, 0.0f);
+      myty = fltTy;
+    }
+    GlobalVariable *gv = new GlobalVariable(*TheModule, myty, false, 
                                             GlobalValue::ExternalLinkage,
                                             ci, "reg");
     GlobalRegs[I] = gv;
+  }
+  for (int I = 0; I < 16; ++I) {
+    Constant *ci = ConstantFP::get(dblTy, 0.0);
+    GlobalVariable *gv = new GlobalVariable(*TheModule, dblTy, false, 
+                                            GlobalValue::ExternalLinkage,
+                                            ci, "dblreg");
+    DblGlobalRegs[I] = gv;
   }
 }
 
 void OiIREmitter::BuildLocalRegisterFile() {
   Type *ty = Type::getInt32Ty(getGlobalContext());
+  Type *dblTy = Type::getDoubleTy(getGlobalContext());
+  Type *fltTy = Type::getFloatTy(getGlobalContext());
   // 32 base regs  0-31
   // LO 32
   // HI 33
-  // 32 fp regs 34-65
+  // 32 float regs 34-65
   // FPCondCode 66
   if (NoLocals) {
     for (int I = 0; I < 67; ++I) {
       Regs[I] = GlobalRegs[I];
     }    
+    for (int I = 0; I < 16; ++I) {
+      DblRegs[I] = DblGlobalRegs[I];
+    }    
   } else {
     for (int I = 0; I < 67; ++I) {
-      AllocaInst *inst = Builder.CreateAlloca(ty, 0, "lreg");
+      Type *myty;
+      if (I < 34 || I == 66) {
+        myty = ty;
+      } else {
+        myty = fltTy;
+      }
+      AllocaInst *inst = Builder.CreateAlloca(myty, 0, "lreg");
       Regs[I] = inst;
       Builder.CreateStore(Builder.CreateLoad(GlobalRegs[I]), inst);
       WriteMap[I] = false;
       ReadMap[I] = false;
+    }
+    for (int I = 0; I < 16; ++I) {
+      AllocaInst *inst = Builder.CreateAlloca(dblTy, 0, "ldblreg");
+      DblRegs[I] = inst;
+      Builder.CreateStore(Builder.CreateLoad(DblGlobalRegs[I]), inst);
+      DblWriteMap[I] = false;
+      DblReadMap[I] = false;
     }
   }
 }
@@ -346,6 +381,9 @@ void OiIREmitter::HandleFunctionEntryPoint(Value **First) {
         *First = st; 
     }
   }
+  for (int I = 0; I < 16; ++I) {
+    Value *st = Builder.CreateStore(Builder.CreateLoad(DblGlobalRegs[I]), DblRegs[I]);
+  }
 }
 
 void OiIREmitter::HandleFunctionExitPoint(Value **First) {
@@ -359,6 +397,9 @@ void OiIREmitter::HandleFunctionExitPoint(Value **First) {
       if (First)
         *First = st; 
     }    
+  }
+  for (int I = 0; I < 16; ++I) {
+    Value *st = Builder.CreateStore(Builder.CreateLoad(DblRegs[I]), DblGlobalRegs[I]);
   }
 }
 
@@ -384,6 +425,33 @@ void OiIREmitter::CleanRegs() {
   for (int I = 0; I < 67; ++I) {
     if (!(WriteMap[I] || ReadMap[I])) {
       Instruction *inst = dyn_cast<Instruction>(Regs[I]);
+      if (inst) {
+        while (!inst->use_empty()) {
+          Instruction* UI = inst->use_back();
+          // These are assigning a value to the local copy of the reg, bu since
+          // we don't use it, we can delete the assignment.
+          if (isa<StoreInst>(UI)) {
+            UI->eraseFromParent();
+            continue;
+          }
+          assert (isa<LoadInst>(UI));
+          // Here we should have a false usage of the value. It is loading only
+          // in checkpoints (exit points) to save it back to the global copy.
+          // Since we do not really use it, we should delete the load and the
+          // store insruction that is using it.
+          assert (UI->hasOneUse());
+          Instruction* StUI = dyn_cast<Instruction>(UI->use_back());
+          assert (isa<StoreInst>(StUI));
+          StUI->eraseFromParent();
+          UI->eraseFromParent();
+        }
+        inst->eraseFromParent();
+      }
+    }
+  }
+  for (int I = 0; I < 16; ++I) {
+    if (!(DblWriteMap[I] || DblReadMap[I])) {
+      Instruction *inst = dyn_cast<Instruction>(DblRegs[I]);
       if (inst) {
         while (!inst->use_empty()) {
           Instruction* UI = inst->use_back();
@@ -591,6 +659,9 @@ Value *OiIREmitter::AccessShadowMemory(Value *Idx, bool IsLoad, int width) {
     break;
   case 32:
     targetType = Type::getInt32PtrTy(getGlobalContext());
+    break;
+  case 64:
+    targetType = Type::getDoublePtrTy(getGlobalContext());
     break;
   default:
     llvm_unreachable("Invalid memory access width");

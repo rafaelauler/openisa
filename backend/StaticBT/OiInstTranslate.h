@@ -77,7 +77,7 @@ private:
   bool HandleMemOperand(const MCOperand &o, const MCOperand &o2, Value *&V,
                         Value **First, bool IsLoad, int width = 32);
   bool HandleDoubleMemOperand(const MCOperand &o, const MCOperand &o2,
-                              Value *&V1, Value *&V2, Value **First, bool IsLoad);
+                              Value *&V1, Value **First, bool IsLoad);
   bool HandleFloatMemOperand(const MCOperand &o, const MCOperand &o2,
                              Value *&V, Value **First, bool IsLoad);
   bool HandleLUiOperand(const MCOperand &o, Value *&V, Value **First, bool IsLoad);
@@ -86,7 +86,7 @@ private:
   bool HandleBranchTarget(const MCOperand &o, BasicBlock *&Addr, bool IsRelative = true);
   bool HandleSaveDouble(Value *In, Value *&Out1, Value *&Out2);
   bool HandleDoubleSrcOperand(const MCOperand &o, Value *&V, Value **First = 0);
-  bool HandleDoubleDstOperand(const MCOperand &o, Value *&V1, Value *&V2);
+  bool HandleDoubleDstOperand(const MCOperand &o, Value *&V);
   bool HandleSaveFloat(Value *In, Value *&V);
   bool HandleFloatSrcOperand(const MCOperand &o, Value *&V, Value **First = 0);
   bool HandleFloatDstOperand(const MCOperand &o, Value *&V);

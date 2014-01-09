@@ -26,18 +26,14 @@ class SyscallsIface {
   bool HandleLibcExit(Value *&V, Value **First = 0);
   bool HandleGenericInt(Value *&V, StringRef Name, int numargs, int numret,
                         bool *PtrTypes, Value **First);
+  bool HandleGenericDouble(Value *&V, StringRef Name, int numargs, int numret,
+                        bool *PtrTypes, Value **First);
   bool HandleLibcPuts(Value *&V, Value **First = 0);
   bool HandleLibcMemset(Value *&V, Value **First = 0);
   bool HandleLibcFprintf(Value *&V, Value **First = 0);
   bool HandleLibcPrintf(Value *&V, Value **First = 0);
   bool HandleLibcScanf(Value *&V, Value **First = 0);
-  bool HandleLibcAtan(Value *&V, Value **First = 0);
-  bool HandleLibcCos(Value *&V, Value **First = 0);
-  bool HandleLibcAcos(Value *&V, Value **First = 0);
-  bool HandleLibcSqrt(Value *&V, Value **First = 0);
-  bool HandleLibcExp(Value *&V, Value **First);
   bool HandleLibcAtof(Value *&V, Value **First);
-  bool HandleLibcPow(Value *&V, Value **First = 0);
 
  private:
   OiIREmitter &IREmitter;

@@ -183,7 +183,7 @@ void OptimizeAndWriteBitcode(OiInstTranslate *oit) {
   Module *m = oit->takeModule();
   FunctionPassManager OurFPM(m);
 
-  if (Optimize) {
+  if (Optimize) {    
     OurFPM.add(createPromoteMemoryToRegisterPass());
     OurFPM.add(new OiCombinePass());
     OurFPM.add(createInstructionCombiningPass());
@@ -199,8 +199,7 @@ void OptimizeAndWriteBitcode(OiInstTranslate *oit) {
         continue;
       verifyFunction(*I);
       OurFPM.run(*I);
-    }
-
+      }
   }
 
   // Set up the optimizer pipeline.  Start with registering info about how the

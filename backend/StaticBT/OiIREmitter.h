@@ -42,8 +42,12 @@ public:
   OiIREmitter(const ObjectFile *obj, uint64_t Stacksz): 
     Obj(obj), TheModule(new Module("outputtest", getGlobalContext())),
     Builder(getGlobalContext()), Regs(SmallVector<Value*,67>(67)),
-    GlobalRegs(SmallVector<Value*,67>(67)), FirstFunction(true), CurAddr(0),
-    CurSection(0), BBMap(), InsMap(), ReadMap(), WriteMap(), FunctionCallMap(),
+    GlobalRegs(SmallVector<Value*,67>(67)),
+    DblRegs(SmallVector<Value*,16>(16)),
+    DblGlobalRegs(SmallVector<Value*,16>(16)),
+    FirstFunction(true), CurAddr(0),
+    CurSection(0), BBMap(), InsMap(), ReadMap(), WriteMap(), DblReadMap(),
+    DblWriteMap(), FunctionCallMap(),
     FunctionRetMap(), IndirectCallMap(), CurFunAddr(0), CurBlockAddr(0),
     StackSize(Stacksz), IndirectDestinations(), IndirectDestinationsAddrs()
   {
@@ -55,12 +59,13 @@ public:
   IRBuilder<> Builder;
   OwningArrayPtr<uint8_t> ShadowImage;
   SmallVector<Value*, 67> Regs, GlobalRegs;
+  SmallVector<Value*, 16> DblRegs, DblGlobalRegs;
   bool FirstFunction;
   uint64_t CurAddr;
   section_iterator* CurSection;
   StringMap<BasicBlock*> BBMap;
   DenseMap<int64_t, Instruction*> InsMap;
-  DenseMap<int32_t, bool> ReadMap, WriteMap;
+  DenseMap<int32_t, bool> ReadMap, WriteMap, DblReadMap, DblWriteMap;;
   FunctionCallMapTy FunctionCallMap; // Used only in one-region mode
   FunctionRetMapTy FunctionRetMap; // Used only in one-region mode
   IndirectCallMapTy IndirectCallMap;

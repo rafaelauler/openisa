@@ -23,6 +23,7 @@ using namespace object;
 unsigned conv32(unsigned regnum);
 unsigned ConvFromDirective(unsigned regnum);
 unsigned ConvToDirective(unsigned regnum);
+unsigned ConvToDirectiveDbl(unsigned regnum);
 bool error(error_code ec);
 uint64_t GetELFOffset(section_iterator &i);
 std::vector<std::pair<uint64_t, StringRef> > GetSymbolsList(const ObjectFile *Obj, section_iterator &i);
