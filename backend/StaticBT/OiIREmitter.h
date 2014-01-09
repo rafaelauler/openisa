@@ -89,7 +89,7 @@ public:
   std::vector<uint32_t> GetCallSitesFor(uint32_t FuncAddr);
   bool BuildReturnTablesOneRegion();
   bool HandleLocalCall(uint64_t Addr, Value *&V, Value **First = 0);
-  Value *AccessShadowMemory(Value *Idx, bool IsLoad, int width = 32);
+  Value *AccessShadowMemory(Value *Idx, bool IsLoad, int width = 32, bool isFloat = false);
   Value *AccessJumpTable(Value *Idx, Value **First = 0);
   void InsertStartupCode(Function *F);
   BasicBlock* CreateBB(uint64_t Addr = 0, Function *F = 0);

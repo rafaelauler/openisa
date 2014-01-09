@@ -222,7 +222,7 @@ bool OiInstTranslate::HandleFloatMemOperand(const MCOperand &o, const MCOperand 
       if (First != 0)
         *First = GetFirstInstruction(base, addr);
     }
-    V = IREmitter.AccessShadowMemory(addr, IsLoad);
+    V = IREmitter.AccessShadowMemory(addr, IsLoad, 32, true);
     if (First != 0) {
       *First = GetFirstInstruction(*First, V);
     }
@@ -243,7 +243,7 @@ bool OiInstTranslate::HandleSaveDouble(Value *In, Value *&Low, Value *&High) {
 }
 
 bool OiInstTranslate::HandleSaveFloat(Value *In, Value *&V) {
-  V = Builder.CreateBitCast(In, Type::getInt32Ty(getGlobalContext()));
+  V = In;
   return true;
 }
 

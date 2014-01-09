@@ -644,7 +644,7 @@ bool OiIREmitter::HandleLocalCall(uint64_t Addr, Value *&V, Value **First) {
   return true;
 }
 
-Value *OiIREmitter::AccessShadowMemory(Value *Idx, bool IsLoad, int width) {
+Value *OiIREmitter::AccessShadowMemory(Value *Idx, bool IsLoad, int width, bool isFloat) {
   SmallVector<Value*,4> Idxs;
   Idxs.push_back(ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U));
   Idxs.push_back(Idx);
@@ -658,7 +658,11 @@ Value *OiIREmitter::AccessShadowMemory(Value *Idx, bool IsLoad, int width) {
     targetType = Type::getInt16PtrTy(getGlobalContext());
     break;
   case 32:
-    targetType = Type::getInt32PtrTy(getGlobalContext());
+    if (isFloat) {
+      targetType = Type::getFloatPtrTy(getGlobalContext());
+    } else {
+      targetType = Type::getInt32PtrTy(getGlobalContext());
+    }
     break;
   case 64:
     targetType = Type::getDoublePtrTy(getGlobalContext());
