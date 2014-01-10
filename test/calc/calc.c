@@ -21,6 +21,7 @@ main() {
     printf("\nEntrada incorreta.\n");
     exit(EXIT_FAILURE);
   }
+  printf("%02d/%02d/%04d\n", inicio.dia, inicio.mes, inicio.ano);
   printf("Digite a data final (DD/MM/AAAA): ");
   if (scanf("%d/%d/%d", &fim.dia, &fim.mes, &fim.ano) != 3) {
     printf("\nEntrada incorreta.\n");
@@ -64,7 +65,6 @@ data_para_dias(data d) {
   }
   if (d.ano % 4 == 0 && d.mes > 2)
     total += 1;
-
   total += d.dia;
   return total;
 }

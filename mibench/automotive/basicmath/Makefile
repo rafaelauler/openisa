@@ -8,6 +8,6 @@ FILE2 = basicmath_large.c   rad2deg.c  cubic.c   isqrt.c
 
 TARGETS =basicmath_small basicmath_large
 
-SBTOPT?=-optimize
+SBTOPT?=-optimize -nolocals
 
 include ../../Makefile.common

@@ -4,7 +4,7 @@ GSED=sed
 GNUTIME=/usr/bin/time
 LOGFILE=$(pwd)/log.txt
 # Number of times each binary execution is measured
-NUMTESTS=3
+NUMTESTS=1
 VERBOSE=false
 
 echo Tests started. Today is $(date). | tee -a $LOGFILE
