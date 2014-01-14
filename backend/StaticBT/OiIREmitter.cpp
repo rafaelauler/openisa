@@ -405,17 +405,28 @@ void OiIREmitter::HandleFunctionExitPoint(Value **First) {
 
 void OiIREmitter::FixBBTerminators() {
   Function *F = Builder.GetInsertBlock()->getParent();
+  std::vector<BasicBlock*> ToDelete; 
 
   for (Function::iterator I = F->begin(), E = F->end(); I != E; ++I) {
     if (!I->getTerminator()) {
-      Builder.SetInsertPoint(&*I);
-      Instruction *Inst = &I->back();
-      if (isa<CallInst>(Inst)) {
-        CallInst *CInst = dyn_cast<CallInst>(Inst);
-        if (CInst->getCalledFunction()->getName() == "exit")
-          Builder.CreateRetVoid();
+      if (!I->empty()) {
+        Builder.SetInsertPoint(&*I);
+        Instruction *Inst = &I->back();
+        if (isa<CallInst>(Inst)) {
+          CallInst *CInst = dyn_cast<CallInst>(Inst);
+          if (CInst->getCalledFunction()->getName() == "exit")
+            Builder.CreateRetVoid();
+        }
+      } else {
+        // Empty basic block
+        BBMap[I->getName()] = 0;
+        ToDelete.push_back(&*I);
       }
     }
+  }
+  for (std::vector<BasicBlock*>::iterator I = ToDelete.begin(),
+         E = ToDelete.end(); I != E; ++I) {
+    (*I)->eraseFromParent();
   }
 }
 
