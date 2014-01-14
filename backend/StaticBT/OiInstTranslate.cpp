@@ -373,6 +373,9 @@ bool OiInstTranslate::HandleAluDstOperand(const MCOperand &o, Value *&V) {
 bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **First) {
   if (o.isImm()) {
     if (o.getImm() != 0U) {
+      uint64_t targetaddr;
+      if (RelocReader.ResolveRelocation(targetaddr))
+        return IREmitter.HandleLocalCall(o.getImm() + targetaddr, V, First);
       return IREmitter.HandleLocalCall(o.getImm(), V, First);
     } else { // Need to handle the relocation to find the correct jump address
       relocation_iterator ri = (*IREmitter.CurSection)->end_relocations();
@@ -459,7 +462,7 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
           return Syscalls.HandleGenericInt(V, "getc", 1, 1, PtrTypes, First);
         }
         if (val == "fgets") {
-          bool PtrTypes[] = {true, false, false, true};
+          bool PtrTypes[] = {true, false, false, false};
           return Syscalls.HandleGenericInt(V, "fgets", 3, 1, PtrTypes, First);
         }
         if (val == "abs") {
@@ -491,9 +494,10 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
           return Syscalls.HandleGenericInt(V, "perror", 1, 0, PtrTypes, First);
 
         }
-        if (val == "__isoc99_sscanf") {
-          bool PtrTypes[] = {true, true, false, false, false};
-          return Syscalls.HandleGenericInt(V, "scanf", 4, 1, PtrTypes, First);
+        if (val == "__isoc99_sscanf" ||
+            val == "sscanf") {
+          bool PtrTypes[] = {true, true, true, true, false};
+          return Syscalls.HandleGenericInt(V, "sscanf", 4, 1, PtrTypes, First);
         }
         if (val == "strchr") {
           bool PtrTypes[] = {true, false, true};
@@ -1154,7 +1158,12 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
           HandleAluSrcOperand(MI->getOperand(2), o2) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {      
-        Value *v = Builder.CreateShl(o1, o2);
+        Value *v;
+        //XXX: SLLV is decoded with operands inverted!
+        if (MI->getOpcode() == Oi::SLLV)
+          v = Builder.CreateShl(o2, o1);
+        else
+          v = Builder.CreateShl(o1, o2);
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
