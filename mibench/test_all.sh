@@ -10,29 +10,35 @@ VERBOSE=false
 echo Tests started. Today is $(date). | tee -a $LOGFILE
 
 DIRS=(automotive/basicmath
-automotive/susan
-automotive/susan
-automotive/susan)
+#automotive/susan
+#automotive/susan
+#automotive/susan
+network/patricia)
 SMALL=(basicmath_small-VAR
-"susan-VAR input_small.pgm output.smoothing-small-VAR.pgm -s"
-"susan-VAR input_small.pgm output.edges-small-VAR.pgm -e"
-"susan-VAR input_small.pgm output.corners-small-VAR.pgm -c")
+#"susan-VAR input_small.pgm output.smoothing-small-VAR.pgm -s"
+#"susan-VAR input_small.pgm output.edges-small-VAR.pgm -e"
+#"susan-VAR input_small.pgm output.corners-small-VAR.pgm -c"
+"patricia-VAR small.udp")
 LARGE=(basicmath_large-VAR
-"susan-VAR input_large.pgm output.smoothing-large-VAR.pgm -s"
-"susan-VAR input_large.pgm output.edges-large-VAR.pgm -e"
-"susan-VAR input_large.pgm output.corners-large-VAR.pgm -c")
+#"susan-VAR input_large.pgm output.smoothing-large-VAR.pgm -s"
+#"susan-VAR input_large.pgm output.edges-large-VAR.pgm -e"
+#"susan-VAR input_large.pgm output.corners-large-VAR.pgm -c"
+"patricia-VAR large.udp")
 NAMES=(basicmath
-susan-smoothing
-susan-edges
-susan-corners)
+#susan-smoothing
+#susan-edges
+#susan-corners
+patricia)
 OUTPUTSMALL=(none
-output.smoothing-small-VAR.pgm
-output.edges-small-VAR.pgm
-output.corners-small-VAR.pgm)
+#output.smoothing-small-VAR.pgm
+#output.edges-small-VAR.pgm
+#output.corners-small-VAR.pgm
+none)
 OUTPUTLARGE=(none
-output.smoothing-large-VAR.pgm
-output.edges-large-VAR.pgm
-output.corners-large-VAR.pgm)
+#output.smoothing-large-VAR.pgm
+#output.edges-large-VAR.pgm
+#output.corners-large-VAR.pgm
+none)
 
 ROOT=$(pwd)
 
@@ -172,6 +178,7 @@ for index in ${!DIRS[*]}; do
             fi
             rm $outputlargenat $outputlargeoi
         fi
+        SBTOPT="$myopts" make clean &> /dev/null
 
 
     done;
