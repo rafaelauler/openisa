@@ -1142,7 +1142,12 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
           HandleAluSrcOperand(MI->getOperand(2), o2) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {      
-        Value *v = Builder.CreateLShr(o1, o2);
+        Value *v;
+        //XXX: SRLV is decoded with operands inverted!
+        if (MI->getOpcode() == Oi::SRLV)
+          v = Builder.CreateLShr(o2, o1);
+        else
+          v = Builder.CreateLShr(o1, o2);
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
