@@ -286,9 +286,9 @@
 /* ********** Optional settings */
 
 #ifndef PPC
-typedef int        TOTAL_TYPE; /* this is faster for "int" but should be "float" for large d masks */
+typedef int        TOTAL_TYPE; /* this is faster for "int" but should be "double" for large d masks */
 #else
-typedef float      TOTAL_TYPE; /* for my PowerPC accelerator only */
+typedef double      TOTAL_TYPE; /* for my PowerPC accelerator only */
 #endif
 
 /*#define FOPENB*/           /* uncomment if using djgpp gnu C for DOS or certain Win95 compilers */
@@ -493,14 +493,14 @@ void setup_brightness_lut(bp,thresh,form)
   int   thresh, form;
 {
 int   k;
-float temp;
+double temp;
 
   *bp=(unsigned char *)malloc(516);
   *bp=*bp+258;
 
   for(k=-256;k<257;k++)
   {
-    temp=((float)k)/((float)thresh);
+    temp=((double)k)/((double)thresh);
     temp=temp*temp;
     if (form==6)
       temp=temp*temp*temp;
@@ -696,11 +696,11 @@ int   i, j;
 void susan_smoothing(three_by_three,in,dt,x_size,y_size,bp)
   int   three_by_three, x_size, y_size;
   uchar *in, *bp;
-  float dt;
+  double dt;
 {
 /* {{{ vars */
 
-float temp;
+double temp;
 int   n_max, increment, mask_size,
       i,j,x,y,area,brightness,tmp,centre;
 uchar *ip, *dp, *dpt, *cp, *out=in,
@@ -721,7 +721,7 @@ TOTAL_TYPE total;
   {
     printf("Distance_thresh (%f) too big for integer arithmetic.\n",dt);
     printf("Either reduce it to <=15 or recompile with variable \"total\"\n");
-    printf("as a float: see top \"defines\" section.\n");
+    printf("as a double: see top \"defines\" section.\n");
     exit(0);
   }
 
@@ -751,7 +751,7 @@ TOTAL_TYPE total;
   for(i=-mask_size; i<=mask_size; i++)
     for(j=-mask_size; j<=mask_size; j++)
     {
-      x = (int) (100.0 * exp( ((float)((i*i)+(j*j))) / temp ));
+      x = (int) (100.0 * exp( ((double)((i*i)+(j*j))) / temp ));
       *dpt++ = (unsigned char)x;
     }
 
@@ -989,7 +989,7 @@ uchar *mp;
               if (b02) { x=1; y=0; }
               else     { x=0; y=1; }
 	    }
-            if (((float)r[(i+y)*x_size+j+x]/(float)centre) > 0.7)
+            if (((double)r[(i+y)*x_size+j+x]/(double)centre) > 0.7)
 	    {
               if ( ( (x==0) && (mid[(i+(2*y))*x_size+j]>7) && (mid[(i+(2*y))*x_size+j-1]>7) && (mid[(i+(2*y))*x_size+j+1]>7) ) ||
                    ( (y==0) && (mid[(i)*x_size+j+(2*x)]>7) && (mid[(i+1)*x_size+j+(2*x)]>7) && (mid[(i-1)*x_size+j+(2*x)]>7) ) )
@@ -1088,7 +1088,7 @@ susan_edges(in,r,mid,bp,max_no,x_size,y_size)
   uchar *in, *bp, *mid;
   int   *r, max_no, x_size, y_size;
 {
-float z;
+double z;
 int   do_symmetry, i, j, m, n, a, b, x, y, w;
 uchar c,*p,*cp;
 
@@ -1219,14 +1219,14 @@ uchar c,*p,*cp;
           c=*(cp-*p++);y+=3*c;
           c=*(cp-*p);x+=c;y+=3*c;
 
-          z = sqrt((float)((x*x) + (y*y)));
-          if (z > (0.9*(float)n)) /* 0.5 */
+          z = sqrt((double)((x*x) + (y*y)));
+          if (z > (0.9*(double)n)) /* 0.5 */
 	  {
             do_symmetry=0;
             if (x==0)
               z=1000000.0;
             else
-              z=((float)y) / ((float)x);
+              z=((double)y) / ((double)x);
             if (z < 0) { z=-z; w=-1; }
             else w=1;
             if (z < 0.5) { /* vert_edge */ a=0; b=1; }
@@ -1305,7 +1305,7 @@ uchar c,*p,*cp;
           if (y==0)
             z = 1000000.0;
           else
-            z = ((float)x) / ((float)y);
+            z = ((double)x) / ((double)y);
           if (z < 0.5) { /* vertical */ a=0; b=1; }
           else { if (z > 2.0) { /* horizontal */ a=1; b=0; }
           else { /* diagonal */ if (w>0) { a=-1; b=1; }
@@ -1325,7 +1325,7 @@ susan_edges_small(in,r,mid,bp,max_no,x_size,y_size)
   uchar *in, *bp, *mid;
   int   *r, max_no, x_size, y_size;
 {
-float z;
+double z;
 int   do_symmetry, i, j, m, n, a, b, x, y, w;
 uchar c,*p,*cp;
 
@@ -1386,14 +1386,14 @@ uchar c,*p,*cp;
           c=*(cp-*p++);y+=c;
           c=*(cp-*p);x+=c;y+=c;
 
-          z = sqrt((float)((x*x) + (y*y)));
-          if (z > (0.4*(float)n)) /* 0.6 */
+          z = sqrt((double)((x*x) + (y*y)));
+          if (z > (0.4*(double)n)) /* 0.6 */
           {
             do_symmetry=0;
             if (x==0)
 	      z=1000000.0;
 	    else
-	      z=((float)y) / ((float)x);
+	      z=((double)y) / ((double)x);
 	    if (z < 0) { z=-z; w=-1; }
             else w=1;
             if (z < 0.5) { /* vert_edge */ a=0; b=1; }
@@ -1435,7 +1435,7 @@ uchar c,*p,*cp;
           if (y==0)
             z = 1000000.0;
           else
-            z = ((float)x) / ((float)y);
+            z = ((double)x) / ((double)y);
           if (z < 0.5) { /* vertical */ a=0; b=1; }
           else { if (z > 2.0) { /* horizontal */ a=1; b=0; }
           else { /* diagonal */ if (w>0) { a=-1; b=1; }
@@ -1491,7 +1491,7 @@ susan_corners(in,r,bp,max_no,corner_list,x_size,y_size)
 {
 int   n,x,y,sq,xx,yy,
       i,j,*cgx,*cgy;
-float divide;
+double divide;
 uchar c,*p,*cp;
 
   memset (r,0,x_size * y_size * sizeof(int));
@@ -1634,13 +1634,13 @@ uchar c,*p,*cp;
             if ( sq > ((n*n)/2) )
             {
               if(yy<xx) {
-                divide=(float)y/(float)abs(x);
+                divide=(double)y/(double)abs(x);
                 sq=abs(x)/x;
                 sq=*(cp-in[(i+FTOI(divide))*x_size+j+sq]) +
                    *(cp-in[(i+FTOI(2*divide))*x_size+j+2*sq]) +
                    *(cp-in[(i+FTOI(3*divide))*x_size+j+3*sq]);}
               else {
-                divide=(float)x/(float)abs(y);
+                divide=(double)x/(double)abs(y);
                 sq=abs(y)/y;
                 sq=*(cp-in[(i+sq)*x_size+j+FTOI(divide)]) +
                    *(cp-in[(i+2*sq)*x_size+j+FTOI(2*divide)]) +
@@ -1992,7 +1992,7 @@ FILE   *ofp;
 char   filename [80],
        *tcp;
 uchar  *in, *bp, *mid;
-float  dt=4.0;
+double  dt=4.0;
 int    *r,
        argindex=3,
        bt=20,

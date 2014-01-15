@@ -10,34 +10,40 @@ VERBOSE=false
 echo Tests started. Today is $(date). | tee -a $LOGFILE
 
 DIRS=(automotive/basicmath
-#automotive/susan
-#automotive/susan
-#automotive/susan
-network/patricia)
+automotive/susan
+automotive/susan
+automotive/susan
+network/patricia
+network/dijkstra)
 SMALL=(basicmath_small-VAR
-#"susan-VAR input_small.pgm output.smoothing-small-VAR.pgm -s"
-#"susan-VAR input_small.pgm output.edges-small-VAR.pgm -e"
-#"susan-VAR input_small.pgm output.corners-small-VAR.pgm -c"
-"patricia-VAR small.udp")
+"susan-VAR input_small.pgm output.smoothing-small-VAR.pgm -s"
+"susan-VAR input_small.pgm output.edges-small-VAR.pgm -e"
+"susan-VAR input_small.pgm output.corners-small-VAR.pgm -c"
+"patricia-VAR small.udp"
+"dijkstra_small-VAR input.dat")
 LARGE=(basicmath_large-VAR
-#"susan-VAR input_large.pgm output.smoothing-large-VAR.pgm -s"
-#"susan-VAR input_large.pgm output.edges-large-VAR.pgm -e"
-#"susan-VAR input_large.pgm output.corners-large-VAR.pgm -c"
-"patricia-VAR large.udp")
+"susan-VAR input_large.pgm output.smoothing-large-VAR.pgm -s"
+"susan-VAR input_large.pgm output.edges-large-VAR.pgm -e"
+"susan-VAR input_large.pgm output.corners-large-VAR.pgm -c"
+"patricia-VAR large.udp"
+"dijkstra_large-VAR input.dat")
 NAMES=(basicmath
-#susan-smoothing
-#susan-edges
-#susan-corners
-patricia)
+susan-smoothing
+susan-edges
+susan-corners
+patricia
+dijkstra)
 OUTPUTSMALL=(none
-#output.smoothing-small-VAR.pgm
-#output.edges-small-VAR.pgm
-#output.corners-small-VAR.pgm
+output.smoothing-small-VAR.pgm
+output.edges-small-VAR.pgm
+output.corners-small-VAR.pgm
+none
 none)
 OUTPUTLARGE=(none
-#output.smoothing-large-VAR.pgm
-#output.edges-large-VAR.pgm
-#output.corners-large-VAR.pgm
+output.smoothing-large-VAR.pgm
+output.edges-large-VAR.pgm
+output.corners-large-VAR.pgm
+none
 none)
 
 ROOT=$(pwd)
