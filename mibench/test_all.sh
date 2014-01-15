@@ -14,37 +14,49 @@ automotive/susan
 automotive/susan
 automotive/susan
 network/patricia
-network/dijkstra)
+network/dijkstra
+security/rijndael
+security/rijndael)
 SMALL=(basicmath_small-VAR
 "susan-VAR input_small.pgm output.smoothing-small-VAR.pgm -s"
 "susan-VAR input_small.pgm output.edges-small-VAR.pgm -e"
 "susan-VAR input_small.pgm output.corners-small-VAR.pgm -c"
 "patricia-VAR small.udp"
-"dijkstra_small-VAR input.dat")
+"dijkstra_small-VAR input.dat"
+"rijndael-VAR input_small.asc output_small.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"rijndael-VAR input_small.enc output_small.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321")
 LARGE=(basicmath_large-VAR
 "susan-VAR input_large.pgm output.smoothing-large-VAR.pgm -s"
 "susan-VAR input_large.pgm output.edges-large-VAR.pgm -e"
 "susan-VAR input_large.pgm output.corners-large-VAR.pgm -c"
 "patricia-VAR large.udp"
-"dijkstra_large-VAR input.dat")
+"dijkstra_large-VAR input.dat"
+"rijndael-VAR input_large.asc output_large.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"rijndael-VAR input_large.enc output_large.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321")
 NAMES=(basicmath
 susan-smoothing
 susan-edges
 susan-corners
 patricia
-dijkstra)
+dijkstra
+rijndael-encode
+rijndael-decode)
 OUTPUTSMALL=(none
 output.smoothing-small-VAR.pgm
 output.edges-small-VAR.pgm
 output.corners-small-VAR.pgm
 none
-none)
+none
+output_small.enc
+output_small.dec)
 OUTPUTLARGE=(none
 output.smoothing-large-VAR.pgm
 output.edges-large-VAR.pgm
 output.corners-large-VAR.pgm
 none
-none)
+none
+output_large.enc
+output_large.dec)
 
 ROOT=$(pwd)
 
@@ -63,6 +75,10 @@ for index in ${!DIRS[*]}; do
     for opts in "-oneregion" "-nolocals" "-debug-ir"; do
         if [ $opts == "-debug-ir" ]; then
             if [ $dir == "automotive/susan" ]; then
+                echo Skipping $opts for $dir
+                continue
+            fi
+            if [ $dir == "security/rijndael" ]; then
                 echo Skipping $opts for $dir
                 continue
             fi
