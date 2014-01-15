@@ -499,6 +499,15 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
           bool PtrTypes[] = {true, true, true, true, false};
           return Syscalls.HandleGenericInt(V, "sscanf", 4, 1, PtrTypes, First);
         }
+        if (val == "__isoc99_fscanf" ||
+            val == "fscanf") {
+          bool PtrTypes[] = {false, true, true, true, false};
+          return Syscalls.HandleGenericInt(V, "fscanf", 4, 1, PtrTypes, First);
+        }
+        if (val == "fflush") {
+          bool PtrTypes[] = {false, false};
+          return Syscalls.HandleGenericInt(V, "fflush", 1, 1, PtrTypes, First);
+        }
         if (val == "strchr") {
           bool PtrTypes[] = {true, false, true};
           return Syscalls.HandleGenericInt(V, "strchr", 2, 1, PtrTypes, First);
