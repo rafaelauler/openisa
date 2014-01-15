@@ -407,6 +407,10 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
           bool PtrTypes[] = {false, false};
           return Syscalls.HandleGenericDouble(V, "atan", 1, 1, PtrTypes, First);
         }
+        if (val == "sin") {
+          bool PtrTypes[] = {false, false};
+          return Syscalls.HandleGenericDouble(V, "sin", 1, 1, PtrTypes, First);
+        }
         if (val == "cos") {
           bool PtrTypes[] = {false, false};
           return Syscalls.HandleGenericDouble(V, "cos", 1, 1, PtrTypes, First);
@@ -433,6 +437,10 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
           bool PtrTypes[] = {false};
           return Syscalls.HandleGenericInt(V, "rand", 0, 1, PtrTypes, First);
         }
+        if (val == "srand") {
+          bool PtrTypes[] = {false, false};
+          return Syscalls.HandleGenericInt(V, "srand", 1, 1, PtrTypes, First);
+        }
         if (val == "clock") {
           bool PtrTypes[] = {false};
           return Syscalls.HandleGenericInt(V, "clock", 0, 1, PtrTypes, First);
@@ -456,6 +464,10 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
         if (val == "strcmp") {
           bool PtrTypes[] = {true, true, false};
           return Syscalls.HandleGenericInt(V, "strcmp", 2, 1, PtrTypes, First);
+        }
+        if (val == "strncmp") {
+          bool PtrTypes[] = {true, true, false, false};
+          return Syscalls.HandleGenericInt(V, "strncmp", 3, 1, PtrTypes, First);
         }
         if (val == "_IO_getc") {
           bool PtrTypes[] = {false, false};
