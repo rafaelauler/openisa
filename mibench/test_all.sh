@@ -16,7 +16,19 @@ automotive/susan
 network/patricia
 network/dijkstra
 security/rijndael
-security/rijndael)
+security/rijndael
+telecomm/FFT
+telecomm/FFT)
+ACTIVATE=(no #basicmath
+no #susan-smoothing
+no #susan-edges
+no #susan-corners
+no #patricia
+no #dijkstra
+no #rijndael-encode
+no #rijndael-decode
+yes #fft
+yes) #fft-inv
 SMALL=(basicmath_small-VAR
 "susan-VAR input_small.pgm output.smoothing-small-VAR.pgm -s"
 "susan-VAR input_small.pgm output.edges-small-VAR.pgm -e"
@@ -24,7 +36,9 @@ SMALL=(basicmath_small-VAR
 "patricia-VAR small.udp"
 "dijkstra_small-VAR input.dat"
 "rijndael-VAR input_small.asc output_small.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
-"rijndael-VAR input_small.enc output_small.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321")
+"rijndael-VAR input_small.enc output_small.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"fft-VAR 4 4096"
+"fft-VAR 4 8192 -i")
 LARGE=(basicmath_large-VAR
 "susan-VAR input_large.pgm output.smoothing-large-VAR.pgm -s"
 "susan-VAR input_large.pgm output.edges-large-VAR.pgm -e"
@@ -32,7 +46,9 @@ LARGE=(basicmath_large-VAR
 "patricia-VAR large.udp"
 "dijkstra_large-VAR input.dat"
 "rijndael-VAR input_large.asc output_large.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
-"rijndael-VAR input_large.enc output_large.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321")
+"rijndael-VAR input_large.enc output_large.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"fft-VAR 8 32768"
+"fft-VAR 8 32768 -i")
 NAMES=(basicmath
 susan-smoothing
 susan-edges
@@ -40,7 +56,9 @@ susan-corners
 patricia
 dijkstra
 rijndael-encode
-rijndael-decode)
+rijndael-decode
+fft
+fft-inv)
 OUTPUTSMALL=(none
 output.smoothing-small-VAR.pgm
 output.edges-small-VAR.pgm
@@ -48,7 +66,9 @@ output.corners-small-VAR.pgm
 none
 none
 output_small.enc
-output_small.dec)
+output_small.dec
+none
+none)
 OUTPUTLARGE=(none
 output.smoothing-large-VAR.pgm
 output.edges-large-VAR.pgm
@@ -56,7 +76,9 @@ output.corners-large-VAR.pgm
 none
 none
 output_large.enc
-output_large.dec)
+output_large.dec
+none
+none)
 
 ROOT=$(pwd)
 
@@ -71,6 +93,11 @@ for index in ${!DIRS[*]}; do
     outputsmalloi=${OUTPUTSMALL[index]//VAR/oi-x86}
     outputlargenat=${OUTPUTLARGE[index]//VAR/nat}
     outputlargeoi=${OUTPUTLARGE[index]//VAR/oi-x86}
+    active=${ACTIVATE[index]}
+    if [ $active == "no" ]; then
+        echo "Skipping $name"
+        continue
+    fi
     cd $dir
     for opts in "-oneregion" "-nolocals" "-debug-ir"; do
         if [ $opts == "-debug-ir" ]; then
