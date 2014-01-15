@@ -508,10 +508,35 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
           bool PtrTypes[] = {false, false};
           return Syscalls.HandleGenericInt(V, "fflush", 1, 1, PtrTypes, First);
         }
+        if (val == "feof") {
+          bool PtrTypes[] = {false, false};
+          return Syscalls.HandleGenericInt(V, "feof", 1, 1, PtrTypes, First);
+        }
+        if (val == "fgetpos") {
+          bool PtrTypes[] = {false, true, false};
+          return Syscalls.HandleGenericInt(V, "fgetpos", 2, 1, PtrTypes, First);
+        }
+        if (val == "fsetpos") {
+          bool PtrTypes[] = {false, true, false};
+          return Syscalls.HandleGenericInt(V, "fsetpos", 2, 1, PtrTypes, First);
+        }
+        if (val == "fseek") {
+          bool PtrTypes[] = {false, false, false, false};
+          return Syscalls.HandleGenericInt(V, "fseek", 3, 1, PtrTypes, First);
+        }
         if (val == "strchr") {
           bool PtrTypes[] = {true, false, true};
           return Syscalls.HandleGenericInt(V, "strchr", 2, 1, PtrTypes, First);
         }
+        if (val == "toupper") {
+          bool PtrTypes[] = {false, false};
+          return Syscalls.HandleGenericInt(V, "toupper", 1, 1, PtrTypes, First);
+        }
+        if (val == "tolower") {
+          bool PtrTypes[] = {false, false};
+          return Syscalls.HandleGenericInt(V, "tolower", 1, 1, PtrTypes, First);
+        }
+
       }
       uint64_t targetaddr;
       if (RelocReader.ResolveRelocation(targetaddr))
@@ -1380,6 +1405,23 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     }
     break;
   }
+  case Oi::LH:
+  case Oi::LHu: {
+    DebugOut << "Handling LH\n";
+    Value *dst, *src, *first;
+    if (HandleAluDstOperand(MI->getOperand(0),dst) &&
+        HandleMemOperand(MI->getOperand(1), MI->getOperand(2), src, &first, true, 16)) {
+      Value *ext;
+      if (MI->getOpcode() == Oi::LH) 
+        ext = Builder.CreateSExt(src, Type::getInt32Ty(getGlobalContext()));
+      else
+        ext = Builder.CreateZExt(src, Type::getInt32Ty(getGlobalContext()));
+      Value *v = Builder.CreateStore(ext, dst);
+      assert(isa<Instruction>(first) && "Need to rework map logic");
+      IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+    }    
+    break;
+  }
   case Oi::LB:
   case Oi::LBu: {
     DebugOut << "Handling LB\n";
@@ -1416,6 +1458,19 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     if (HandleAluSrcOperand(MI->getOperand(0),src) &&
         HandleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, &first, false, 8)) {
       Value *tr = Builder.CreateTrunc(src, Type::getInt8Ty(getGlobalContext()));
+      Value *v = Builder.CreateStore(tr, dst);
+      first = GetFirstInstruction(src, tr, first);
+      assert(isa<Instruction>(first) && "Need to rework map logic");
+      IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+    }
+    break;
+  }
+  case Oi::SH: {
+    DebugOut << "Handling SH\n";
+    Value *dst, *src, *first;
+    if (HandleAluSrcOperand(MI->getOperand(0),src) &&
+        HandleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, &first, false, 16)) {
+      Value *tr = Builder.CreateTrunc(src, Type::getInt16Ty(getGlobalContext()));
       Value *v = Builder.CreateStore(tr, dst);
       first = GetFirstInstruction(src, tr, first);
       assert(isa<Instruction>(first) && "Need to rework map logic");
