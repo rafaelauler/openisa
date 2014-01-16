@@ -916,6 +916,20 @@ defm SB  : StoreM<"sb", CPURegs, truncstorei8>, MMRel, LW_FM<0x28>;
 defm SH  : StoreM<"sh", CPURegs, truncstorei16>, MMRel, LW_FM<0x29>;
 defm SW  : StoreM<"sw", CPURegs, store>, MMRel, LW_FM<0x2b>;
 
+/// Oi NEW: Spill load/store
+def SPILLLW : InstSE<(outs CPURegs:$rt), (ins mem:$addr), "spilllw\t$rt, $addr",
+    [], NoItinerary, FrmI, "spilllw">, MMRel, LW_FM<0x37> {
+  let DecoderMethod = "DecodeMem";
+  let canFoldAsLoad = 1;
+  let mayLoad = 1;
+}
+
+def SPILLSW : InstSE<(outs), (ins CPURegs:$rt, mem:$addr), "spillsw\t$rt, $addr",
+    [], NoItinerary, FrmI, "spillsw">, MMRel, LW_FM<0x36> {
+  let DecoderMethod = "DecodeMem";
+  let mayStore = 1;
+}
+
 /// load/store left/right
 defm LWL : LoadLeftRightM<"lwl", OiLWL, CPURegs>, LW_FM<0x22>;
 defm LWR : LoadLeftRightM<"lwr", OiLWR, CPURegs>, LW_FM<0x26>;

@@ -256,6 +256,7 @@ void OiIREmitter::BuildLocalRegisterFile() {
       DblWriteMap[I] = false;
       DblReadMap[I] = false;
     }
+    SpilledRegs.clear();
   }
 }
 
@@ -653,6 +654,24 @@ bool OiIREmitter::HandleLocalCall(uint64_t Addr, Value *&V, Value **First) {
     *First = V;
   HandleFunctionEntryPoint();
   return true;
+}
+
+Value *OiIREmitter::AccessSpillMemory(unsigned Idx, bool IsLoad) {
+  errs() << Idx;
+  Value* ptr = SpilledRegs[Idx];
+  errs() << "Hello\n";
+  if (!ptr) {
+    Function *CurFun = Builder.GetInsertBlock()->getParent();
+    IRBuilder<> Builder(&CurFun->getEntryBlock(),
+                        CurFun->getEntryBlock().begin());
+    ptr = 
+      Builder.CreateAlloca(Type::getInt32Ty(getGlobalContext()), 0,
+                           StringRef("frame") + Twine(Idx));
+    SpilledRegs[Idx] = ptr;
+  }
+  if (IsLoad)
+    return Builder.CreateLoad(ptr);
+  return ptr;
 }
 
 Value *OiIREmitter::AccessShadowMemory(Value *Idx, bool IsLoad, int width, bool isFloat) {

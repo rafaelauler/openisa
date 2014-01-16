@@ -11,6 +11,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/ADT/OwningPtr.h"
+#include "llvm/ADT/IndexedMap.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -35,6 +36,7 @@ using namespace object;
 
 class OiIREmitter {
 public:
+  typedef DenseMap<uint32_t, Value*> SpilledRegsTy;
   typedef DenseMap<uint32_t, std::vector<uint32_t> > FunctionCallMapTy;
   typedef DenseMap<uint32_t, uint32_t> FunctionRetMapTy;
   typedef SmallPtrSet<uint32_t, 64> IndirectCallMapTy;
@@ -45,6 +47,7 @@ public:
     GlobalRegs(SmallVector<Value*,67>(67)),
     DblRegs(SmallVector<Value*,16>(16)),
     DblGlobalRegs(SmallVector<Value*,16>(16)),
+    SpilledRegs(),
     FirstFunction(true), CurAddr(0),
     CurSection(0), BBMap(), InsMap(), ReadMap(), WriteMap(), DblReadMap(),
     DblWriteMap(), FunctionCallMap(),
@@ -60,6 +63,7 @@ public:
   OwningArrayPtr<uint8_t> ShadowImage;
   SmallVector<Value*, 67> Regs, GlobalRegs;
   SmallVector<Value*, 16> DblRegs, DblGlobalRegs;
+  SpilledRegsTy SpilledRegs;
   bool FirstFunction;
   uint64_t CurAddr;
   section_iterator* CurSection;
@@ -89,6 +93,7 @@ public:
   std::vector<uint32_t> GetCallSitesFor(uint32_t FuncAddr);
   bool BuildReturnTablesOneRegion();
   bool HandleLocalCall(uint64_t Addr, Value *&V, Value **First = 0);
+  Value *AccessSpillMemory(unsigned Idx, bool IsLoad);
   Value *AccessShadowMemory(Value *Idx, bool IsLoad, int width = 32, bool isFloat = false);
   Value *AccessJumpTable(Value *Idx, Value **First = 0);
   void InsertStartupCode(Function *F);

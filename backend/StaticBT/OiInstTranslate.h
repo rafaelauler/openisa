@@ -74,6 +74,8 @@ private:
   bool HandleAluSrcOperand(const MCOperand &o, Value *&V);
   bool HandleAluDstOperand(const MCOperand &o, Value *&V);
   bool HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad);
+  bool HandleSpilledOperand(const MCOperand &o, const MCOperand &o2,
+                            Value *&V, Value **First, bool IsLoad);
   bool HandleMemOperand(const MCOperand &o, const MCOperand &o2, Value *&V,
                         Value **First, bool IsLoad, int width = 32);
   bool HandleDoubleMemOperand(const MCOperand &o, const MCOperand &o2,

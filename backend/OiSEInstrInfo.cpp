@@ -46,7 +46,7 @@ isLoadFromStackSlot(const MachineInstr *MI, int &FrameIndex) const
   if ((Opc == Oi::LW)    || (Opc == Oi::LW_P8)  || (Opc == Oi::LD) ||
       (Opc == Oi::LD_P8) || (Opc == Oi::LWC1)   || (Opc == Oi::LWC1_P8) ||
       (Opc == Oi::LDC1)  || (Opc == Oi::LDC164) ||
-      (Opc == Oi::LDC164_P8)) {
+      (Opc == Oi::LDC164_P8) || (Opc == Oi::SPILLLW)) {
     if ((MI->getOperand(1).isFI()) && // is a stack slot
         (MI->getOperand(2).isImm()) &&  // the imm is zero
         (isZeroImm(MI->getOperand(2)))) {
@@ -71,7 +71,7 @@ isStoreToStackSlot(const MachineInstr *MI, int &FrameIndex) const
   if ((Opc == Oi::SW)    || (Opc == Oi::SW_P8)  || (Opc == Oi::SD) ||
       (Opc == Oi::SD_P8) || (Opc == Oi::SWC1)   || (Opc == Oi::SWC1_P8) ||
       (Opc == Oi::SDC1)  || (Opc == Oi::SDC164) ||
-      (Opc == Oi::SDC164_P8)) {
+      (Opc == Oi::SDC164_P8) || (Opc == Oi::SPILLSW)) {
     if ((MI->getOperand(1).isFI()) && // is a stack slot
         (MI->getOperand(2).isImm()) &&  // the imm is zero
         (isZeroImm(MI->getOperand(2)))) {
@@ -182,7 +182,7 @@ storeRegToStack(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
   unsigned Opc = 0;
 
   if (Oi::CPURegsRegClass.hasSubClassEq(RC))
-    Opc = IsN64 ? Oi::SW_P8 : Oi::SW;
+    Opc = IsN64 ? Oi::SW_P8 : Oi::SPILLSW;
   else if (Oi::CPU64RegsRegClass.hasSubClassEq(RC))
     Opc = IsN64 ? Oi::SD_P8 : Oi::SD;
   else if (Oi::ACRegsRegClass.hasSubClassEq(RC))
@@ -215,7 +215,7 @@ loadRegFromStack(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
   unsigned Opc = 0;
 
   if (Oi::CPURegsRegClass.hasSubClassEq(RC))
-    Opc = IsN64 ? Oi::LW_P8 : Oi::LW;
+    Opc = IsN64 ? Oi::LW_P8 : Oi::SPILLLW;
   else if (Oi::CPU64RegsRegClass.hasSubClassEq(RC))
     Opc = IsN64 ? Oi::LD_P8 : Oi::LD;
   else if (Oi::ACRegsRegClass.hasSubClassEq(RC))

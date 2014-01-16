@@ -359,6 +359,25 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
   llvm_unreachable("Invalid Src operand");
 }
 
+bool OiInstTranslate::HandleSpilledOperand(const MCOperand &o, const MCOperand &o2,
+                                           Value *&V, Value **First, bool IsLoad) {
+  if (OneRegion || NoLocals)
+    return HandleMemOperand(o, o2, V, First, IsLoad);
+  assert(o.isReg() && o2.isImm() && "Invalid spilled operand.");
+  unsigned reg = ConvToDirective(conv32(o.getReg()));
+  assert((reg == 29 || reg == 30) 
+         && "Invalid spilled operand, reg should be SP or FP.");
+  uint64_t Idx = o2.getImm();
+  if (reg == 30)
+    Idx += 100000;
+  uint64_t reltype = 0;
+  assert(!RelocReader.ResolveRelocation(Idx, &reltype) && 
+         "Invalid spilled operand");
+  V = IREmitter.AccessSpillMemory(Idx, IsLoad);
+  *First = V;
+  return true;
+}
+
 bool OiInstTranslate::HandleAluDstOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
     unsigned reg = ConvToDirective(conv32(o.getReg()));
@@ -1412,6 +1431,33 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     if (HandleAluDstOperand(MI->getOperand(0),dst) &&
         HandleMemOperand(MI->getOperand(1), MI->getOperand(2), src, &first, true)) {
       Value *v = Builder.CreateStore(src, dst);
+      assert(isa<Instruction>(first) && "Need to rework map logic");
+      IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+    }
+    break;
+  }
+  case Oi::SPILLLW: {
+    DebugOut << "Handling SPILLLW\n";
+    Value *dst, *src, *first;
+    MI->dump();
+    if (HandleAluDstOperand(MI->getOperand(0),dst) &&
+        HandleSpilledOperand(MI->getOperand(1), MI->getOperand(2), src, &first, true)) {
+      Value *v = Builder.CreateStore(src, dst);
+      if (!isa<Instruction>(first))
+        first = v;
+      assert(isa<Instruction>(first) && "Need to rework map logic");
+      IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+    }
+    break;
+  }
+  case Oi::SPILLSW: {
+    DebugOut << "Handling SPILLSW\n";
+    Value *dst, *src, *first;
+    MI->dump();
+    if (HandleAluSrcOperand(MI->getOperand(0),src) &&
+        HandleSpilledOperand(MI->getOperand(1), MI->getOperand(2), dst, &first, false)) {
+      Value *v = Builder.CreateStore(src, dst);
+      first = GetFirstInstruction(src, first);
       assert(isa<Instruction>(first) && "Need to rework map logic");
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
     }
