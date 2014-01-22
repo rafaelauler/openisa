@@ -1987,9 +1987,9 @@ static void OiCombine(Instruction *v) {
                            m_ConstantInt<16>()),
                      m_And(m_Value(Y),
                            m_ConstantInt<0xFFFF>())))) {
-    if (X == Y) {
-      v->replaceAllUsesWith(X);
-    }
+    //    if (X == Y) {
+      v->replaceAllUsesWith(Y);
+      //    }
   }
 }
 
