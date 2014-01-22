@@ -71,11 +71,13 @@ private:
   IRBuilder<> &Builder;
   DenseMap<int32_t, bool> &ReadMap, &WriteMap;
 
-  bool HandleAluSrcOperand(const MCOperand &o, Value *&V);
+  bool HandleAluSrcOperand(const MCOperand &o, Value *&V, Value **First = 0);
   bool HandleAluDstOperand(const MCOperand &o, Value *&V);
   bool HandleMemExpr(const MCExpr &exp, Value *&V, bool IsLoad);
   bool HandleSpilledOperand(const MCOperand &o, const MCOperand &o2,
                             Value *&V, Value **First, bool IsLoad);
+  bool HandleGetSpilledAddress(const MCOperand &o, const MCOperand &o2,
+                         const MCOperand &dst, Value *&V, Value **First);
   bool HandleMemOperand(const MCOperand &o, const MCOperand &o2, Value *&V,
                         Value **First, bool IsLoad, int width = 32);
   bool HandleDoubleMemOperand(const MCOperand &o, const MCOperand &o2,

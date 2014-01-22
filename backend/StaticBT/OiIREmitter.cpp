@@ -28,6 +28,12 @@ NoLocals("nolocals", cl::desc("Do not use locals, always use global variables"))
 cl::opt<bool>
 OneRegion("oneregion", cl::desc("Consider the whole program to be one big function"));
 
+cl::opt<bool>
+OptimizeStack("optstack", cl::desc("Optimize stack vars by considering them as locals [experimental]"));
+
+cl::opt<bool>
+NoShadow("noshadow", cl::desc("Avoid adding shadowimage offset to every memory access"));
+
 }
 
 bool OiIREmitter::FindTextOffset(uint64_t &SectionAddr) {
@@ -256,7 +262,6 @@ void OiIREmitter::BuildLocalRegisterFile() {
       DblWriteMap[I] = false;
       DblReadMap[I] = false;
     }
-    SpilledRegs.clear();
   }
 }
 
@@ -269,24 +274,27 @@ void OiIREmitter::StartFunction(Twine &N) {
     F = Function::Create(FT, Function::ExternalLinkage,
                          "main", &*TheModule);
     FirstFunction = false;
-    CreateBB(0, F);
-    UpdateInsertPoint();
+    BasicBlock *BB = CreateBB(0x34, F);
+    CurBlockAddr = 0x34;
+    Builder.SetInsertPoint(BB);
     BuildLocalRegisterFile();
     InsertStartupCode(F);
-    CurFunAddr = CurAddr+4;
+    CurFunAddr = 0x34;
     if (!ProcessIndirectJumps())
       llvm_unreachable("ProcessIndirectJumps failed.");
 
   } else {
     CurFunAddr = CurAddr+4;
+    SpilledRegs.clear();
     if (!OneRegion) {
       // Create a function with no parameters
       FunctionType *FT = FunctionType::get(Type::getVoidTy(getGlobalContext()),
                                            false);
       F = reinterpret_cast<Function *>(TheModule->getOrInsertFunction(N.str(),
                                                                       FT));
-      CreateBB(0, F);
-      UpdateInsertPoint();
+      BasicBlock *BB = CreateBB(CurAddr+4, F);
+      CurBlockAddr = CurAddr+4;
+      Builder.SetInsertPoint(BB);
       BuildLocalRegisterFile();
     } else {
       CreateBB(CurAddr+4);
@@ -298,37 +306,49 @@ void OiIREmitter::InsertStartupCode(Function *F) {
   // Initialize the stack
   Value *size = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                                   ShadowSize);
-  Builder.CreateStore(size, Regs[ConvToDirective(Oi::SP)]);
+  if (NoShadow) {
+    Value *shadow = Builder.CreatePtrToInt(ShadowImageValue,
+                                           Type::getInt32Ty(getGlobalContext()));
+    Value *fixedSize = Builder.CreateAdd(size, shadow);
+    Builder.CreateStore(fixedSize, Regs[ConvToDirective(Oi::SP)]);
+  } else {
+    Builder.CreateStore(size, Regs[ConvToDirective(Oi::SP)]);
+  }
   Function::arg_iterator args = F->arg_begin();
   Value *argc = args++;
   Value *argv = args++;
   Builder.CreateStore(argc, Regs[ConvToDirective(Oi::A0)]);
-  Value *ptr = Builder.CreatePtrToInt(ShadowImageValue,
-                                      Type::getInt32Ty(getGlobalContext()));
-  Value *fixed = Builder.CreateSub(argv, ptr);
-  Builder.CreateStore(fixed, Regs[ConvToDirective(Oi::A1)]);
-  Value *iv = Builder.CreateAlloca(Type::getInt32Ty(getGlobalContext()));
-  Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
-  Value *two = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 2U);
-  Value *one = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 1U);
-  Builder.CreateStore(zero, iv);
-  BasicBlock *bb1 = BasicBlock::Create(getGlobalContext(), "loopbody", F);
-  BasicBlock *bb2 = BasicBlock::Create(getGlobalContext(), "loopexit", F);
-  Builder.CreateBr(bb1);
-  Builder.SetInsertPoint(bb1);
-  Value *ivload = Builder.CreateLoad(iv);
-  Value *ivshr = Builder.CreateShl(ivload, two);
-  Value *argvsum = Builder.CreateAdd(argv, ivshr);
-  Value *argvptr = Builder.CreateIntToPtr(argvsum, Type::getInt32PtrTy
-                                          (getGlobalContext()));  
-  Value *elem = Builder.CreateLoad(argvptr);
-  Value *elemfixed = Builder.CreateSub(elem, ptr);
-  Builder.CreateStore(elemfixed, argvptr);
-  Value *ivsum = Builder.CreateAdd(ivload, one);
-  Builder.CreateStore(ivsum, iv);
-  Value *cmp = Builder.CreateICmpNE(ivsum, argc);
-  Builder.CreateCondBr(cmp, bb1, bb2);
-  Builder.SetInsertPoint(bb2);
+  if (NoShadow) {
+    Builder.CreateStore(argv, Regs[ConvToDirective(Oi::A1)]);    
+  } else {
+    Value *ptr = Builder.CreatePtrToInt(ShadowImageValue,
+                                        Type::getInt32Ty(getGlobalContext()));
+    Value *fixed = Builder.CreateSub(argv, ptr);
+    Builder.CreateStore(fixed, Regs[ConvToDirective(Oi::A1)]);
+    Value *iv = Builder.CreateAlloca(Type::getInt32Ty(getGlobalContext()));
+    Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
+    Value *two = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 2U);
+    Value *one = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 1U);
+    Builder.CreateStore(zero, iv);
+    BasicBlock *bb1 = BasicBlock::Create(getGlobalContext(), "loopbody", F);
+    BasicBlock *bb2 = BasicBlock::Create(getGlobalContext(), "loopexit", F);
+    Builder.CreateBr(bb1);
+    Builder.SetInsertPoint(bb1);
+    Value *ivload = Builder.CreateLoad(iv);
+    Value *ivshr = Builder.CreateShl(ivload, two);
+    Value *argvsum = Builder.CreateAdd(argv, ivshr);
+    Value *argvptr = Builder.CreateIntToPtr(argvsum, Type::getInt32PtrTy
+                                            (getGlobalContext()));  
+    Value *elem = Builder.CreateLoad(argvptr);
+    Value *elemfixed = Builder.CreateSub(elem, ptr);
+    Builder.CreateStore(elemfixed, argvptr);
+    Value *ivsum = Builder.CreateAdd(ivload, one);
+    Builder.CreateStore(ivsum, iv);
+    Value *cmp = Builder.CreateICmpNE(ivsum, argc);
+    Builder.CreateCondBr(cmp, bb1, bb2);
+    Builder.SetInsertPoint(bb2);
+    BBMap["bb34"] = bb2;
+  }
  
   WriteMap[ConvToDirective(Oi::A0)] = true;
   WriteMap[ConvToDirective(Oi::A1)] = true;
@@ -342,8 +362,9 @@ BasicBlock* OiIREmitter::CreateBB(uint64_t Addr, Function *F) {
   std::string Idx = T.str();
 
   if (BBMap[Idx] == 0) {
-    if (F == 0)
+    if (F == 0) {
       F = Builder.GetInsertBlock()->getParent();
+    }
     BBMap[Idx] = BasicBlock::Create(getGlobalContext(), Idx, F);
   }
   return BBMap[Idx];
@@ -379,7 +400,7 @@ void OiIREmitter::HandleFunctionEntryPoint(Value **First) {
     if (!WroteFirst) {
       WroteFirst = true;
       if (First)
-        *First = st; 
+        *First = GetFirstInstruction(*First, st); 
     }
   }
   for (int I = 0; I < 16; ++I) {
@@ -396,7 +417,7 @@ void OiIREmitter::HandleFunctionExitPoint(Value **First) {
     if (!WroteFirst) {
       WroteFirst = true;
       if (First)
-        *First = st; 
+        *First = GetFirstInstruction(*First,st); 
     }    
   }
   for (int I = 0; I < 16; ++I) {
@@ -635,7 +656,7 @@ bool OiIREmitter::HandleLocalCallOneRegion(uint64_t Addr, Value *&V,
   //  printf("\nHandleLocalCallOneregion.CurAddr: %08LX\n", CurAddr+4);
   CreateBB(CurAddr+4);
   if (First)
-    *First = first;
+    *First = GetFirstInstruction(*First, first);
   return true;
 }
 
@@ -651,15 +672,13 @@ bool OiIREmitter::HandleLocalCall(uint64_t Addr, Value *&V, Value **First) {
   Value *fun = TheModule->getOrInsertFunction(Name, ft);
   V = Builder.CreateCall(fun);
   if (First && NoLocals)
-    *First = V;
+    *First = GetFirstInstruction(*First, V);
   HandleFunctionEntryPoint();
   return true;
 }
 
 Value *OiIREmitter::AccessSpillMemory(unsigned Idx, bool IsLoad) {
-  errs() << Idx;
   Value* ptr = SpilledRegs[Idx];
-  errs() << "Hello\n";
   if (!ptr) {
     Function *CurFun = Builder.GetInsertBlock()->getParent();
     IRBuilder<> Builder(&CurFun->getEntryBlock(),
@@ -675,10 +694,6 @@ Value *OiIREmitter::AccessSpillMemory(unsigned Idx, bool IsLoad) {
 }
 
 Value *OiIREmitter::AccessShadowMemory(Value *Idx, bool IsLoad, int width, bool isFloat) {
-  SmallVector<Value*,4> Idxs;
-  Idxs.push_back(ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U));
-  Idxs.push_back(Idx);
-  Value *gep = Builder.CreateGEP(ShadowImageValue, Idxs);
   Type *targetType = 0;
   switch (width) {
   case 8:
@@ -700,7 +715,16 @@ Value *OiIREmitter::AccessShadowMemory(Value *Idx, bool IsLoad, int width, bool 
   default:
     llvm_unreachable("Invalid memory access width");
   }
-  Value *ptr = Builder.CreateBitCast(gep, targetType);
+  Value *ptr = 0;
+  if (NoShadow) 
+    ptr = Builder.CreateIntToPtr(Idx, targetType);
+  else {
+    SmallVector<Value*,4> Idxs;
+    Idxs.push_back(ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U));
+    Idxs.push_back(Idx);
+    Value *gep = Builder.CreateGEP(ShadowImageValue, Idxs);
+    ptr = Builder.CreateBitCast(gep, targetType);
+  }
   if (IsLoad)
     return Builder.CreateLoad(ptr);
   return ptr;
@@ -715,7 +739,7 @@ Value *OiIREmitter::AccessJumpTable(Value *Idx, Value **First) {
     Type::getInt8PtrTy(getGlobalContext());
   Value *ptr = Builder.CreateBitCast(gep, targetType);
   if (First)
-    *First = gep;
+    *First = GetFirstInstruction(*First, gep);
   return ptr;
 }
 

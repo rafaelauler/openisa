@@ -8,6 +8,36 @@
 #include <stdlib.h>
 #define PI 3.1415
 
+
+struct MyNode {
+	int foo;
+	double bar;
+};
+
+/*
+ * Patricia tree mask.
+ * Each node in the tree can contain multiple masks, so this
+ * structure is where the mask and data are kept.
+ */
+struct ptree_mask {
+	unsigned long pm_mask;
+	void *pm_data;
+};
+
+
+/*
+ * Patricia tree node.
+ */
+struct ptree {
+	unsigned long p_key;		/* Node key		*/
+	struct ptree_mask *p_m;		/* Node masks		*/
+	unsigned char p_mlen;		/* Number of masks	*/
+	char p_b;			/* Bit to check		*/
+	struct ptree *p_left;		/* Left pointer		*/
+	struct ptree *p_right;		/* Right pointer	*/
+};
+
+
 float gen_random(float max);
 void heapsort(int n, double *ra);
 void SolveCubic(double  a,
@@ -16,6 +46,25 @@ void SolveCubic(double  a,
                 double  d,
                 int    *solutions,
                 double *x);
+
+
+int main (int argc, char **argv) {
+  int k;
+  FILE *fp;
+  if (argc<2) {
+    printf("Usage: dijkstra <filename>\n");
+    printf("Only supports matrix size is #define'd.\n");
+  }
+
+  /* open the adjacency matrix file */
+  fp = fopen (argv[1],"r");
+
+  fscanf(fp,"%d",&k);
+  printf("%d", k);
+
+  return 0;
+}
+
 
 /*
 int main(int argc, char **argv)
@@ -144,7 +193,7 @@ int main() {
 }
 */
 
-
+/*
 int main() {
     printf("%d %f\n", 0,     gen_random(1.0f));
     printf("%d %f\n", 0,     gen_random(1.0f));
@@ -160,6 +209,6 @@ gen_random(float max) {
   return( max * (last = (last * IA + IC) % IM) / IM );
 }
 
-
+*/
 
 

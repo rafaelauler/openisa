@@ -443,4 +443,16 @@ Value* GetFirstInstruction(Value *o0, Value *o1, Value *o2, Value *o3) {
   return o3;
 }
 
+Value* GetFirstInstruction(Value *o0, Value *o1, Value *o2, Value *o3, Value *o4) {
+  if (o0 && isa<Instruction>(o0))
+    return o0;
+  if (o1 && isa<Instruction>(o1))
+    return o1;
+  if (o2 && isa<Instruction>(o2))
+    return o2;
+  if (o3 && isa<Instruction>(o3))
+    return o3;
+  return o4;
+}
+
 }

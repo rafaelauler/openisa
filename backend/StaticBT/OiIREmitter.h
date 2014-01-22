@@ -27,6 +27,8 @@ namespace llvm {
 
 extern cl::opt<bool> NoLocals;
 extern cl::opt<bool> OneRegion;
+extern cl::opt<bool> OptimizeStack;
+extern cl::opt<bool> NoShadow;
 
 namespace object{
 class ObjectFile;

@@ -59,7 +59,7 @@ Module* OiInstTranslate::takeModule() {
   return IREmitter.TheModule.take();
 }
 
-bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
+bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V, Value **First) {
   if (o.isReg()) {
     unsigned reg = ConvToDirective(conv32(o.getReg()));
     if (reg == 0) {
@@ -76,9 +76,21 @@ bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V) {
       if (reltype == ELF::R_MIPS_LO16) {
         Value *V0 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                                      myimm + o.getImm());
-        Value *V1 = Builder.CreateAnd(V0, ConstantInt::get
-                                      (Type::getInt32Ty(getGlobalContext()), 
-                                       0xFFFF));
+        Value *V1 = 0, *fixedV0 = 0;
+        if (NoShadow) {
+          Value *shadow = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
+                                                 Type::getInt32Ty(getGlobalContext()));
+          fixedV0 = Builder.CreateAdd(V0, shadow);
+          V1 = Builder.CreateAnd(fixedV0, ConstantInt::get
+                                 (Type::getInt32Ty(getGlobalContext()), 
+                                  0xFFFF));
+        } else {
+          V1 = Builder.CreateAnd(V0, ConstantInt::get
+                                 (Type::getInt32Ty(getGlobalContext()), 
+                                  0xFFFF));
+        }
+        if (!First != 0)
+          *First = GetFirstInstruction(*First, fixedV0, V1);
         V = V1;
         return true;
       }
@@ -98,7 +110,7 @@ bool OiInstTranslate::HandleDoubleSrcOperand(const MCOperand &o, Value *&V, Valu
     unsigned reg = ConvToDirectiveDbl(conv32(o.getReg()));
     V = Builder.CreateLoad(IREmitter.DblRegs[reg]);
     if (First != 0)
-      *First = V;
+      *First = GetFirstInstruction(*First, V);
     IREmitter.DblReadMap[reg] = true;
     return true;
   } 
@@ -112,7 +124,7 @@ bool OiInstTranslate::HandleFloatSrcOperand(const MCOperand &o, Value *&V, Value
     // Assume little endian for doubles
     V = Builder.CreateBitCast(v, Type::getFloatTy(getGlobalContext()));
     if (First != 0)
-      *First = v;
+      *First = GetFirstInstruction(*First, V);
     ReadMap[reg] = true;
     return true;
   } 
@@ -151,9 +163,19 @@ bool OiInstTranslate::HandleDoubleMemOperand(const MCOperand &o, const MCOperand
       if (reltype == ELF::R_MIPS_LO16) {
         Value *V0 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                                      myimm + o2.getImm());
-        Value *V1 = Builder.CreateAnd(V0, ConstantInt::get
-                                      (Type::getInt32Ty(getGlobalContext()), 
-                                       0xFFFF));
+        Value *V1 = 0, *fixedV0 = 0;
+        if (NoShadow) {
+          Value *shadow = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
+                                                 Type::getInt32Ty(getGlobalContext()));
+          fixedV0 = Builder.CreateAdd(V0, shadow);
+          V1 = Builder.CreateAnd(fixedV0, ConstantInt::get
+                                 (Type::getInt32Ty(getGlobalContext()), 
+                                  0xFFFF));
+        } else {
+          V1 = Builder.CreateAnd(V0, ConstantInt::get
+                                        (Type::getInt32Ty(getGlobalContext()), 
+                                         0xFFFF));
+        }
         idx = V1;
         //Assume little endian doubles
         unsigned reg = ConvToDirective(conv32(o.getReg()));
@@ -161,7 +183,7 @@ bool OiInstTranslate::HandleDoubleMemOperand(const MCOperand &o, const MCOperand
         ReadMap[reg] = true;
         addr = Builder.CreateAdd(base, idx);
         if (First != 0) {
-          *First = GetFirstInstruction(V1, base, addr);
+          *First = GetFirstInstruction(*First, fixedV0, V1, base, addr);
         }
       } else {
         llvm_unreachable("Don't know how to handle this relocation");
@@ -175,7 +197,7 @@ bool OiInstTranslate::HandleDoubleMemOperand(const MCOperand &o, const MCOperand
       ReadMap[reg] = true;
       addr = Builder.CreateAdd(base, idx);
       if (First != 0)
-        *First = GetFirstInstruction(base, addr);
+        *First = GetFirstInstruction(*First, base, addr);
     }
     Low = IREmitter.AccessShadowMemory(addr, IsLoad, 64);
     if (First != 0) {
@@ -197,9 +219,19 @@ bool OiInstTranslate::HandleFloatMemOperand(const MCOperand &o, const MCOperand 
       if (reltype == ELF::R_MIPS_LO16) {
         Value *V0 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                                      myimm + o2.getImm());
-        Value *V1 = Builder.CreateAnd(V0, ConstantInt::get
-                                      (Type::getInt32Ty(getGlobalContext()), 
-                                       0xFFFF));
+        Value *V1 = 0, *fixedV0 = 0;
+        if (NoShadow) {
+          Value *shadow = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
+                                                 Type::getInt32Ty(getGlobalContext()));
+          fixedV0 = Builder.CreateAdd(V0, shadow);
+          V1 = Builder.CreateAnd(fixedV0, ConstantInt::get
+                                 (Type::getInt32Ty(getGlobalContext()), 
+                                  0xFFFF));
+        } else {
+          V1 = Builder.CreateAnd(V0, ConstantInt::get
+                                 (Type::getInt32Ty(getGlobalContext()), 
+                                  0xFFFF));
+        }
         idx = V1;
         //Assume little endian doubles
         unsigned reg = ConvToDirective(conv32(o.getReg()));
@@ -207,7 +239,7 @@ bool OiInstTranslate::HandleFloatMemOperand(const MCOperand &o, const MCOperand 
         ReadMap[reg] = true;
         addr = Builder.CreateAdd(base, idx);
         if (First != 0) {
-          *First = GetFirstInstruction(V1, base, addr);
+          *First = GetFirstInstruction(*First, fixedV0, V1, base, addr);
         }
       } else {
         llvm_unreachable("Don't know how to handle this relocation");
@@ -220,7 +252,7 @@ bool OiInstTranslate::HandleFloatMemOperand(const MCOperand &o, const MCOperand 
       ReadMap[reg] = true;
       addr = Builder.CreateAdd(base, idx);
       if (First != 0)
-        *First = GetFirstInstruction(base, addr);
+        *First = GetFirstInstruction(*First, base, addr);
     }
     V = IREmitter.AccessShadowMemory(addr, IsLoad, 32, true);
     if (First != 0) {
@@ -294,20 +326,31 @@ bool OiInstTranslate::HandleLUiOperand(const MCOperand &o, Value *&V, Value **Fi
     if (RelocReader.ResolveRelocation(addr)) {
       addr += o.getImm();
       Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), addr);    
+      if (NoShadow) {
+        Value *shadow = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
+                                               Type::getInt32Ty(getGlobalContext()));
+        Value *fixedIdx = Builder.CreateAdd(idx, shadow);
+        idx = fixedIdx;
+      } 
       Value *V1 = Builder.CreateLShr(idx, ConstantInt::get
                                      (Type::getInt32Ty(getGlobalContext()), 16));
-      *First = V1;
       Value *V2 = Builder.CreateShl(V1, ConstantInt::get
                                     (Type::getInt32Ty(getGlobalContext()), 16));
-      if (!isa<Instruction>(*First)) {
-        *First = V2;
-      }
+      if (First != 0)
+        *First = GetFirstInstruction(*First, V1, idx, V2);
       V = V2;
     } else {
       Value *idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), addr);    
+      if (NoShadow) {
+        Value *shadow = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
+                                               Type::getInt32Ty(getGlobalContext()));
+        Value *fixedIdx = Builder.CreateAdd(idx, shadow);
+        idx = fixedIdx;
+      } 
       Value *V2 = Builder.CreateShl(idx, ConstantInt::get
                                     (Type::getInt32Ty(getGlobalContext()), 16));
-      *First = V2;
+      if (First != 0)
+        *First = GetFirstInstruction(*First, idx, V2);
       V = V2;
     }
     return true;
@@ -319,6 +362,9 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
                                        Value *&V, Value **First, bool IsLoad,
                                        int width) {
   if (o.isReg() && o2.isImm()) {
+    uint32_t r = ConvToDirective(conv32(o.getReg()));
+    if (!NoLocals && OptimizeStack && (r == 29 || r == 30) && width == 32)
+      return HandleSpilledOperand(o, o2, V, First, IsLoad);
     uint64_t myimm = o2.getImm();
     uint64_t reltype = 0;
     Value *idx, *addr;
@@ -326,10 +372,18 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
       if (reltype == ELF::R_MIPS_LO16) {
         Value *V0 = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                                      myimm + o2.getImm());
-        Value *V1 = Builder.CreateAnd(V0, ConstantInt::get
-                                      (Type::getInt32Ty(getGlobalContext()), 
-                                       0xFFFF));
-        *First = V1;
+        Value *V1 = 0;
+        if (NoShadow) {
+          Value *shadow = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
+                                                 Type::getInt32Ty(getGlobalContext()));
+          Value *fixedV0 = Builder.CreateAdd(V0, shadow);
+          V0 = fixedV0;
+        }
+        V1 = Builder.CreateAnd(V0, ConstantInt::get
+                               (Type::getInt32Ty(getGlobalContext()), 
+                                0xFFFF));
+        if (First != 0)
+          *First = GetFirstInstruction(*First, V0, V1);
         idx = V1;
         unsigned reg = ConvToDirective(conv32(o.getReg()));
         Value *base = Builder.CreateLoad(IREmitter.Regs[reg]);
@@ -351,7 +405,8 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
       Value *base = Builder.CreateLoad(IREmitter.Regs[reg]);
       ReadMap[reg] = true;
       addr = Builder.CreateAdd(base, idx);
-      *First = base;
+      if (First != 0)
+        *First = GetFirstInstruction(*First, base);
     }
     V = IREmitter.AccessShadowMemory(addr, IsLoad, width);
     return true;
@@ -361,7 +416,7 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
 
 bool OiInstTranslate::HandleSpilledOperand(const MCOperand &o, const MCOperand &o2,
                                            Value *&V, Value **First, bool IsLoad) {
-  if (OneRegion || NoLocals)
+  if (NoLocals || !OptimizeStack)
     return HandleMemOperand(o, o2, V, First, IsLoad);
   assert(o.isReg() && o2.isImm() && "Invalid spilled operand.");
   unsigned reg = ConvToDirective(conv32(o.getReg()));
@@ -374,7 +429,40 @@ bool OiInstTranslate::HandleSpilledOperand(const MCOperand &o, const MCOperand &
   assert(!RelocReader.ResolveRelocation(Idx, &reltype) && 
          "Invalid spilled operand");
   V = IREmitter.AccessSpillMemory(Idx, IsLoad);
-  *First = V;
+  if (First)
+    *First = GetFirstInstruction(*First, V);
+  return true;
+}
+
+bool OiInstTranslate::HandleGetSpilledAddress(const MCOperand &o, const MCOperand &o2,
+                                        const MCOperand &dst, Value *&V,
+                                        Value **First) {
+  if (!OptimizeStack)
+    return false;
+  if (!o.isReg() || !o2.isImm() || !dst.isReg())
+    return false;
+  unsigned r1 = ConvToDirective(conv32(o.getReg()));
+  unsigned dstReg = ConvToDirective(conv32(dst.getReg()));
+  unsigned imm = o2.getImm();
+  if (dstReg == 29 || dstReg == 30)
+    return false;
+  if (r1 != 29 && r1 != 30)
+    return false;
+  if (r1 == 30)
+    imm += 100000;
+  Value* ptr = IREmitter.AccessSpillMemory(imm, false);
+  Value *castptr = Builder.CreatePtrToInt(ptr,
+                                          Type::getInt32Ty(getGlobalContext()));
+  if (!NoShadow) {
+    Value *shadow = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
+                                           Type::getInt32Ty(getGlobalContext()));
+    Value *fixed = Builder.CreateSub(castptr, shadow);
+    V = Builder.CreateStore(fixed, IREmitter.Regs[dstReg]);
+  } else {
+    V = Builder.CreateStore(castptr, IREmitter.Regs[dstReg]);    
+  }
+  *First = GetFirstInstruction(*First, ptr, castptr, V);
+
   return true;
 }
 
@@ -694,29 +782,37 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::ADDi:
   case Oi::ADDu:
   case Oi::ADD:
-    DebugOut << "Handling ADDiu, ADDi, ADDu, ADD\n";
-    Value *o0, *o1, *o2;
-    if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
-        HandleAluSrcOperand(MI->getOperand(2), o2) &&
-        HandleAluDstOperand(MI->getOperand(0), o0)) {
-      Value *v = Builder.CreateAdd(o1, o2);
-      Value *v2 = Builder.CreateStore(v, o0);
-      Value *first = GetFirstInstruction(o1, o2, v, v2);
-      assert(isa<Instruction>(first) && "Need to rework map logic");
-      IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+    {
+      DebugOut << "Handling ADDiu, ADDi, ADDu, ADD\n";
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleGetSpilledAddress(MI->getOperand(1), MI->getOperand(2),
+                                  MI->getOperand(0), o0, &first)) {
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+        break;
+      }
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2, &first) &&
+          HandleAluDstOperand(MI->getOperand(0), o0)) {
+        Value *v = Builder.CreateAdd(o1, o2);
+        Value *v2 = Builder.CreateStore(v, o0);
+        first = GetFirstInstruction(first, o1, o2, v, v2);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
+      }
+      break;
     }
-    break;
   case Oi::SUBu:
   case Oi::SUB:
     {
       DebugOut << "Handling SUBu, SUB\n";
-      Value *o0, *o1, *o2;
-      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
-          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2, &first) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {      
         Value *v = Builder.CreateSub(o1, o2);
         Value *v2 = Builder.CreateStore(v, o0);
-        Value *first = GetFirstInstruction(o1, o2, v, v2);
+        first = GetFirstInstruction(first, o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -725,12 +821,13 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::MUL:
     {
       DebugOut << "Handling MUL\n";
-      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
-          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2, &first) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {      
         Value *v = Builder.CreateMul(o1, o2);
         Value *v2 = Builder.CreateStore(v, o0);
-        Value *first = GetFirstInstruction(o1, o2, v, v2);
+        first = GetFirstInstruction(first, o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -739,8 +836,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::MULT:
     {
       DebugOut << "Handling MULT\n";
-      if (HandleAluSrcOperand(MI->getOperand(0), o0) &&
-          HandleAluSrcOperand(MI->getOperand(1), o1)) {      
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(0), o0, &first) &&
+          HandleAluSrcOperand(MI->getOperand(1), o1, &first)) {      
         Value *o0se = Builder.CreateSExtOrTrunc(o0, Type::getInt64Ty(getGlobalContext()));
         Value *o1se = Builder.CreateSExtOrTrunc(o1, Type::getInt64Ty(getGlobalContext()));
         Value *v = Builder.CreateMul(o0se, o1se);
@@ -752,7 +850,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v5 = Builder.CreateStore(V3, IREmitter.Regs[32]);
         WriteMap[33] = true;
         WriteMap[32] = true;
-        Value *first = GetFirstInstruction(o0, o1, o0se, o1se);
+        first = GetFirstInstruction(first, o0, o1, o0se, o1se);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -762,8 +860,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::UDIV:
     {
       DebugOut << "Handling DIV\n";
-      if (HandleAluSrcOperand(MI->getOperand(0), o0) &&
-          HandleAluSrcOperand(MI->getOperand(1), o1)) {      
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(0), o0, &first) &&
+          HandleAluSrcOperand(MI->getOperand(1), o1, &first)) {      
         Value *vdiv;
         Value *vmod; 
         if (MI->getOpcode() == Oi::SDIV) {
@@ -777,7 +876,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v5 = Builder.CreateStore(vdiv, IREmitter.Regs[32]);
         WriteMap[33] = true;
         WriteMap[32] = true;
-        Value *first = GetFirstInstruction(o0, o1, vdiv, vmod);
+        first = GetFirstInstruction(first, o0, o1, vdiv, vmod);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -786,6 +885,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::MFHI:
     {
       DebugOut << "Handling MFHI\n";
+      Value *o0;
       if (HandleAluDstOperand(MI->getOperand(0), o0)) {
         Value *v = Builder.CreateLoad(IREmitter.Regs[33]);
         ReadMap[33] = true;
@@ -799,6 +899,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::MFLO:
     {
       DebugOut << "Handling MFLO\n";
+      Value *o0;
       if (HandleAluDstOperand(MI->getOperand(0), o0)) {
         Value *v = Builder.CreateLoad(IREmitter.Regs[32]);
         ReadMap[33] = true;
@@ -812,7 +913,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::LDC1:
     {
       DebugOut << "Handling LDC1\n";
-      Value *dst, *src, *first;
+      Value *dst, *src, *first = 0;
       if (HandleDoubleDstOperand(MI->getOperand(0),dst) &&
           HandleDoubleMemOperand(MI->getOperand(1), MI->getOperand(2), src, &first, true)) {
         Value *v = Builder.CreateStore(src, dst);
@@ -824,7 +925,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::LWC1:
     {
       DebugOut << "Handling LWC1\n";
-      Value *dst, *src, *first;
+      Value *dst, *src, *first = 0;
       if (HandleFloatDstOperand(MI->getOperand(0),dst) &&
           HandleFloatMemOperand(MI->getOperand(1), MI->getOperand(2), src, &first, true)) {
         Value *v = Builder.CreateStore(src, dst);
@@ -836,7 +937,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::SDC1:
     {
       DebugOut << "Handling SDC1\n";
-      Value *dst, *src, *first;
+      Value *dst, *src, *first = 0;
       if (HandleDoubleSrcOperand(MI->getOperand(0), src, &first) &&
           HandleDoubleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, 0, false)) {
         Builder.CreateStore(src, dst);
@@ -848,7 +949,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::SWC1:
     {
       DebugOut << "Handling SWC1\n";
-      Value *dst, *src, *first;
+      Value *dst, *src, *first = 0;
       if (HandleFloatSrcOperand(MI->getOperand(0), src, &first) &&
           HandleFloatMemOperand(MI->getOperand(1), MI->getOperand(2), dst, 0, false)) {
         Value *v;
@@ -866,7 +967,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     {
       DebugOut << "Handling FCMP_D32\n";
       uint32_t cond;
-      Value *o0, *o1, *first;
+      Value *o0, *o1, *first = 0;
       if (HandleDoubleSrcOperand(MI->getOperand(0), o0, &first) &&
           HandleDoubleSrcOperand(MI->getOperand(1), o1)) {
         Value *cmp;
@@ -886,7 +987,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     {
       DebugOut << "Handling FCMP_S32\n";
       uint32_t cond;
-      Value *o0, *o1, *first;
+      Value *o0, *o1, *first = 0;
       if (HandleFloatSrcOperand(MI->getOperand(0), o0, &first) &&
           HandleFloatSrcOperand(MI->getOperand(1), o1)) {
         Value *cmp;
@@ -905,9 +1006,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::MOVT_I:
     {
       DebugOut << "Handling MOVT\n";
-      Value *o0, *o1, *o2;
-      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
-          HandleAluSrcOperand(MI->getOperand(2), o2) && // fcc0 encoded as reg1 TODO:fix
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2, &first) && // fcc0 encoded as reg1 TODO:fix
           HandleAluDstOperand(MI->getOperand(0), o0)) {        
         Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
         Value *cmp;
@@ -916,7 +1017,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *loaddst = Builder.CreateLoad(o0);
         Value *select = Builder.CreateSelect(cmp, o1, loaddst, "movt");
         Builder.CreateStore(select, o0);
-        Value *first = GetFirstInstruction(o1, fcc, cmp, loaddst);
+        first = GetFirstInstruction(first, o1, fcc, cmp, loaddst);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -926,7 +1027,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::FADD_D32:
     {
       DebugOut << "Handling FADD_D32 FSUB_D32\n";
-      Value *o0, *o1, *o2, *first;
+      Value *o0, *o1, *o2, *first = 0;
       if (HandleDoubleSrcOperand(MI->getOperand(1), o1, &first) &&       
           HandleDoubleSrcOperand(MI->getOperand(2), o2) &&       
           HandleDoubleDstOperand(MI->getOperand(0), o0)) {      
@@ -947,7 +1048,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::FDIV_S:
     {
       DebugOut << "Handling FADD_S FSUB_S FMUL_S FDIV_S\n";
-      Value *o0, *o1, *o2, *first;
+      Value *o0, *o1, *o2, *first = 0;
       if (HandleFloatSrcOperand(MI->getOperand(1), o1, &first) &&       
           HandleFloatSrcOperand(MI->getOperand(2), o2) &&       
           HandleFloatDstOperand(MI->getOperand(0), o0)) {      
@@ -971,7 +1072,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::FMOV_D32:
     {
       DebugOut << "Handling FMOV\n";
-      Value *o0, *o1, *first;
+      Value *o0, *o1, *first = 0;
       if (HandleDoubleSrcOperand(MI->getOperand(1), o1, &first) &&       
           HandleDoubleDstOperand(MI->getOperand(0), o0)) {      
         Value *V = o1;
@@ -984,7 +1085,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::FMUL_D32:
     {
       DebugOut << "Handling FMUL\n";
-      Value *o0, *o1, *o2, *first;
+      Value *o0, *o1, *o2, *first = 0;
       if (HandleDoubleSrcOperand(MI->getOperand(1), o1, &first) &&       
           HandleDoubleSrcOperand(MI->getOperand(2), o2) &&       
           HandleDoubleDstOperand(MI->getOperand(0), o0)) {      
@@ -998,7 +1099,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::FDIV_D32:
     {
       DebugOut << "Handling FDIV\n";
-      Value *o0lo, *o0hi, *o1, *o2, *first;
+      Value *o0, *o0lo, *o0hi, *o1, *o2, *first = 0;
       if (HandleDoubleSrcOperand(MI->getOperand(1), o1, &first) &&       
           HandleDoubleSrcOperand(MI->getOperand(2), o2) &&       
           HandleDoubleDstOperand(MI->getOperand(0), o0)) {      
@@ -1028,14 +1129,14 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::CVT_S_W:
     {
       DebugOut << "Handling CVT.S.W\n";
-      Value *o0, *o1;
-      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&       
+      Value *o0, *o1, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&       
           HandleFloatDstOperand(MI->getOperand(0), o0)) {      
         Value *V;
         Value *v1 = Builder.CreateSIToFP(o1, Type::getFloatTy(getGlobalContext()));
         HandleSaveFloat(v1, V);
         Value *v2 = Builder.CreateStore(V, o0);
-        Value *first = GetFirstInstruction(o1, v1);
+        Value *first = GetFirstInstruction(first, o1, v1);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }      
@@ -1044,7 +1145,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::CVT_D32_S:
     {
       DebugOut << "Handling CVT.D.S\n";
-      Value *o0, *o1, *first;
+      Value *o0, *o1, *first = 0;
       if (HandleFloatSrcOperand(MI->getOperand(1), o1, &first) &&       
           HandleDoubleDstOperand(MI->getOperand(0), o0)) {      
         Value *v1 = Builder.CreateFPExt(o1, Type::getDoubleTy(getGlobalContext()));
@@ -1058,7 +1159,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::CVT_S_D32:
     {
       DebugOut << "Handling CVT.S.D\n";
-      Value *o0, *o1, *first, *v;
+      Value *o0, *o1, *first = 0, *v;
       if (HandleDoubleSrcOperand(MI->getOperand(1), o1, &first) &&       
           HandleFloatDstOperand(MI->getOperand(0), o0)) {
         Value *v1 = Builder.CreateFPTrunc(o1, Type::getFloatTy(getGlobalContext()));
@@ -1072,7 +1173,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::TRUNC_W_D32:
     {
       DebugOut << "Handling TRUNC.W.D\n";
-      Value *o0, *o1, *first;
+      Value *o0, *o1, *first = 0;
       if (HandleDoubleSrcOperand(MI->getOperand(1), o1, &first) &&       
           HandleDoubleDstOperand(MI->getOperand(0), o0)) {      
         Value *v1 = Builder.CreateFPToSI(o1, Type::getInt32Ty(getGlobalContext()));
@@ -1088,7 +1189,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::TRUNC_W_S:
     {
       DebugOut << "Handling TRUNC.W.S\n";
-      Value *o0, *o1, *first;
+      Value *o0, *o1, *first = 0;
       if (HandleFloatSrcOperand(MI->getOperand(1), o1, &first) &&       
           HandleFloatDstOperand(MI->getOperand(0), o0)) {      
         Value *V;
@@ -1124,8 +1225,8 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::MTC1:
     {
       DebugOut << "Handling MTC1\n";
-      Value *o0, *o1;
-      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&       
+      Value *o0, *o1, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&       
           HandleDoubleDstOperand(MI->getOperand(0), o0)) {
         Value *hi, *lo;
         Value *previousVal = Builder.CreateLoad(o0);
@@ -1142,7 +1243,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *v6 = Builder.CreateOr(v5,v4);
         Value *dblSrc = Builder.CreateBitCast(v6, Type::getDoubleTy(getGlobalContext()));
         Value *v = Builder.CreateStore(dblSrc, o0);
-        Value *first = GetFirstInstruction(o1, o0,previousVal);
+        first = GetFirstInstruction(first, o1, o0,previousVal);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -1187,13 +1288,13 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::SRA:
     {
       DebugOut << "Handling SRA\n";
-      Value *o0, *o1, *o2;
-      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
-          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2, &first) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {      
         Value *v = Builder.CreateAShr(o1, o2);
         Value *v2 = Builder.CreateStore(v, o0);
-        Value *first = GetFirstInstruction(o1, o2, v, v2);
+        first = GetFirstInstruction(first, o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -1203,9 +1304,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::SRLV:
     {
       DebugOut << "Handling SRL SRLV\n";
-      Value *o0, *o1, *o2;
-      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
-          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2, &first) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {      
         Value *v;
         //XXX: SRLV is decoded with operands inverted!
@@ -1214,7 +1315,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         else
           v = Builder.CreateLShr(o1, o2);
         Value *v2 = Builder.CreateStore(v, o0);
-        Value *first = GetFirstInstruction(o1, o2, v, v2);
+        first = GetFirstInstruction(first, o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -1224,9 +1325,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::SLLV:
     {
       DebugOut << "Handling SLL SLLV\n";
-      Value *o0, *o1, *o2;
-      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
-          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2, &first) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {      
         Value *v;
         //XXX: SLLV is decoded with operands inverted!
@@ -1235,7 +1336,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         else
           v = Builder.CreateShl(o1, o2);
         Value *v2 = Builder.CreateStore(v, o0);
-        Value *first = GetFirstInstruction(o1, o2, v, v2);
+        first = GetFirstInstruction(first, o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -1245,9 +1346,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::MOVZ_I_I:
     {
       DebugOut << "Handling MOVN, MOVZ\n";
-      Value *o0, *o1, *o2;
-      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
-          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2, &first) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {        
         Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
         Value *cmp;
@@ -1259,7 +1360,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Value *loaddst = Builder.CreateLoad(o0);
         Value *select = Builder.CreateSelect(cmp, o1, loaddst, "movz_n");
         Builder.CreateStore(select, o0);
-        Value *first = GetFirstInstruction(o1, o2, cmp, loaddst);
+        first = GetFirstInstruction(first, o1, o2, cmp, loaddst);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -1269,13 +1370,13 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::OR:
     {
       DebugOut << "Handling ORi, OR\n";
-      Value *o0, *o1, *o2;
-      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
-          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2, &first) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {      
         Value *v = Builder.CreateOr(o1, o2);
         Value *v2 = Builder.CreateStore(v, o0);
-        Value *first = GetFirstInstruction(o1, o2, v, v2);
+        first = GetFirstInstruction(first, o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -1284,14 +1385,14 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::NOR:
     {
       DebugOut << "Handling NORi, NOR\n";
-      Value *o0, *o1, *o2;
-      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
-          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2, &first) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {      
         Value *v = Builder.CreateOr(o1, o2);
         Value *v2 = Builder.CreateNot(v);
         Value *v3 = Builder.CreateStore(v2, o0);
-        Value *first = GetFirstInstruction(o1, o2, v, v2);
+        first = GetFirstInstruction(first, o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -1301,13 +1402,13 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::AND:
     {
       DebugOut << "Handling ANDi, AND\n";
-      Value *o0, *o1, *o2;
-      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
-          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2, &first) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {      
         Value *v = Builder.CreateAnd(o1, o2);
         Value *v2 = Builder.CreateStore(v, o0);
-        Value *first = GetFirstInstruction(o1, o2, v, v2);
+        first = GetFirstInstruction(first, o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -1317,13 +1418,13 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::XOR:
     {
       DebugOut << "Handling XORi, XOR\n";
-      Value *o0, *o1, *o2;
-      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
-          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2, &first) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {      
         Value *v = Builder.CreateXor(o1, o2);
         Value *v2 = Builder.CreateStore(v, o0);
-        Value *first = GetFirstInstruction(o1, o2, v, v2);
+        first = GetFirstInstruction(first, o1, o2, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -1335,9 +1436,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::SLT:
     {
       DebugOut << "Handling SLT\n";
-      Value *o0, *o1, *o2;
-      if (HandleAluSrcOperand(MI->getOperand(1), o1) &&
-          HandleAluSrcOperand(MI->getOperand(2), o2) &&
+      Value *o0, *o1, *o2, *first = 0;
+      if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&
+          HandleAluSrcOperand(MI->getOperand(2), o2, &first) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {      
 
         Function *F = Builder.GetInsertBlock()->getParent();
@@ -1365,8 +1466,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.SetInsertPoint(FT);
         IREmitter.CurBlockAddr = IREmitter.CurAddr+4;
 
-        assert(isa<Instruction>(cmp) && "Need to rework map logic");
-        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(cmp);
+        first = GetFirstInstruction(first, cmp);
+        assert(isa<Instruction>(first) && "Need to rework map logic");
+        IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }      
       break;
     }
@@ -1377,9 +1479,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::BLEZ:
     {
       DebugOut << "Handling BEQ, BNE, BLTZ\n";
-      Value *o1, *o2;
+      Value *o1, *o2, *first = 0;
       BasicBlock *True = 0;
-      if (HandleAluSrcOperand(MI->getOperand(0), o1)) {
+      if (HandleAluSrcOperand(MI->getOperand(0), o1, &first)) {
         Value *cmp;
         if (MI->getOpcode() == Oi::BEQ) {
           HandleAluSrcOperand(MI->getOperand(1), o2);
@@ -1404,7 +1506,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         }
         Value *v = Builder.CreateCondBr(cmp, True, 
                                         IREmitter.CreateBB(IREmitter.CurAddr+4));
-        Value *first = GetFirstInstruction(o1, o2, cmp, v);
+        first = GetFirstInstruction(first, o1, o2, cmp, v);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       }
@@ -1413,7 +1515,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::LUi:
   case Oi::LUi64: {
     DebugOut << "Handling LUi\n";
-    Value *dst, *src, *first;
+    Value *dst, *src, *first = 0;
     if (HandleAluDstOperand(MI->getOperand(0),dst) &&
         HandleLUiOperand(MI->getOperand(1), src, &first, true)) {
       Value *v = Builder.CreateStore(src, dst);
@@ -1427,7 +1529,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::LW:
   case Oi::LW64: {
     DebugOut << "Handling LW\n";
-    Value *dst, *src, *first;
+    Value *dst, *src, *first = 0;
     if (HandleAluDstOperand(MI->getOperand(0),dst) &&
         HandleMemOperand(MI->getOperand(1), MI->getOperand(2), src, &first, true)) {
       Value *v = Builder.CreateStore(src, dst);
@@ -1438,8 +1540,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   }
   case Oi::SPILLLW: {
     DebugOut << "Handling SPILLLW\n";
-    Value *dst, *src, *first;
-    MI->dump();
+    Value *dst, *src, *first = 0;
     if (HandleAluDstOperand(MI->getOperand(0),dst) &&
         HandleSpilledOperand(MI->getOperand(1), MI->getOperand(2), src, &first, true)) {
       Value *v = Builder.CreateStore(src, dst);
@@ -1452,8 +1553,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   }
   case Oi::SPILLSW: {
     DebugOut << "Handling SPILLSW\n";
-    Value *dst, *src, *first;
-    MI->dump();
+    Value *dst, *src, *first = 0;
     if (HandleAluSrcOperand(MI->getOperand(0),src) &&
         HandleSpilledOperand(MI->getOperand(1), MI->getOperand(2), dst, &first, false)) {
       Value *v = Builder.CreateStore(src, dst);
@@ -1466,7 +1566,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::LH:
   case Oi::LHu: {
     DebugOut << "Handling LH\n";
-    Value *dst, *src, *first;
+    Value *dst, *src, *first = 0;
     if (HandleAluDstOperand(MI->getOperand(0),dst) &&
         HandleMemOperand(MI->getOperand(1), MI->getOperand(2), src, &first, true, 16)) {
       Value *ext;
@@ -1483,7 +1583,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::LB:
   case Oi::LBu: {
     DebugOut << "Handling LB\n";
-    Value *dst, *src, *first;
+    Value *dst, *src, *first = 0;
     if (HandleAluDstOperand(MI->getOperand(0),dst) &&
         HandleMemOperand(MI->getOperand(1), MI->getOperand(2), src, &first, true, 8)) {
       Value *ext;
@@ -1500,11 +1600,11 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::SW:
   case Oi::SW64: {
     DebugOut << "Handling SW\n";
-    Value *dst, *src, *first;
-    if (HandleAluSrcOperand(MI->getOperand(0),src) &&
-        HandleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, &first, false)) {
+    Value *dst, *src, *first1 = 0, *first2 = 0, *first = 0;
+    if (HandleAluSrcOperand(MI->getOperand(0),src, &first1) &&
+        HandleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, &first2, false)) {
       Value *v = Builder.CreateStore(src, dst);
-      first = GetFirstInstruction(src, first);
+      first = GetFirstInstruction(first1, src, first2);
       assert(isa<Instruction>(first) && "Need to rework map logic");
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
     }
@@ -1512,12 +1612,12 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   }
   case Oi::SB: {
     DebugOut << "Handling SB\n";
-    Value *dst, *src, *first;
-    if (HandleAluSrcOperand(MI->getOperand(0),src) &&
-        HandleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, &first, false, 8)) {
+    Value *dst, *src, *first1 = 0, *first2 = 0, *first = 0;
+    if (HandleAluSrcOperand(MI->getOperand(0),src, &first1) &&
+        HandleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, &first2, false, 8)) {
       Value *tr = Builder.CreateTrunc(src, Type::getInt8Ty(getGlobalContext()));
       Value *v = Builder.CreateStore(tr, dst);
-      first = GetFirstInstruction(src, tr, first);
+      first = GetFirstInstruction(first1, src, tr, first2);
       assert(isa<Instruction>(first) && "Need to rework map logic");
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
     }
@@ -1525,12 +1625,12 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   }
   case Oi::SH: {
     DebugOut << "Handling SH\n";
-    Value *dst, *src, *first;
-    if (HandleAluSrcOperand(MI->getOperand(0),src) &&
-        HandleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, &first, false, 16)) {
+    Value *dst, *src, *first1 = 0, *first2 = 0, *first = 0;
+    if (HandleAluSrcOperand(MI->getOperand(0),src, &first1) &&
+        HandleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, &first2, false, 16)) {
       Value *tr = Builder.CreateTrunc(src, Type::getInt16Ty(getGlobalContext()));
       Value *v = Builder.CreateStore(tr, dst);
-      first = GetFirstInstruction(src, tr, first);
+      first = GetFirstInstruction(first1, src, tr, first2);
       assert(isa<Instruction>(first) && "Need to rework map logic");
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
     }
@@ -1540,7 +1640,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::JALR: {
     assert(OneRegion && "Can't handle indirect calls without -oneregion yet.");
     Value *src, *first = 0;
-    if (HandleAluSrcOperand(MI->getOperand(0), src) &&
+    if (HandleAluSrcOperand(MI->getOperand(0), src, &first) &&
         IREmitter.HandleIndirectCallOneRegion(src, &first)) {      
       assert(isa<Instruction>(first) && "Need to rework map logic");
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);     
@@ -1551,7 +1651,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   }
   case Oi::JAL: {
     DebugOut << "Handling JAL\n";
-    Value *call, *first;
+    Value *call, *first = 0;
     if(HandleCallTarget(MI->getOperand(0), call, &first)) {
       assert(isa<Instruction>(first) && "Need to rework map logic");
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
@@ -1574,7 +1674,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       IREmitter.FunctionRetMap[IREmitter.CurAddr] = IREmitter.CurFunAddr;
     } else {
       Value *src, *first = 0;
-      if (HandleAluSrcOperand(MI->getOperand(0), src)) {
+      if (HandleAluSrcOperand(MI->getOperand(0), src, &first)) {
         Value *Target = IREmitter.AccessJumpTable(src, &first);
         IndirectBrInst *v = Builder.CreateIndirectBr(Target,
           IREmitter.IndirectDestinations.size());

@@ -19,14 +19,14 @@ security/rijndael
 security/rijndael
 telecomm/FFT
 telecomm/FFT)
-ACTIVATE=(no #basicmath
-no #susan-smoothing
-no #susan-edges
-no #susan-corners
-no #patricia
-no #dijkstra
-no #rijndael-encode
-no #rijndael-decode
+ACTIVATE=(yes #basicmath
+yes #susan-smoothing
+yes #susan-edges
+yes #susan-corners
+yes #patricia
+yes #dijkstra
+yes #rijndael-encode
+yes #rijndael-decode
 yes #fft
 yes) #fft-inv
 SMALL=(basicmath_small-VAR

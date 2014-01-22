@@ -18,7 +18,7 @@ bool SyscallsIface::HandleLibcAtoi(Value *&V, Value **First) {
   SmallVector<Value*, 8> params;
   Value *f = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A0)]);
   if (First)
-    *First = f;
+    *First = GetFirstInstruction(*First, f);
   Value *addrbuf = IREmitter.AccessShadowMemory(f, false);
   params.push_back(Builder.CreatePtrToInt(addrbuf,
                                           Type::getInt32Ty(getGlobalContext())));
@@ -37,14 +37,19 @@ bool SyscallsIface::HandleLibcMalloc(Value *&V, Value **First) {
   SmallVector<Value*, 8> params;
   Value *f = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A0)]);
   if (First)
-    *First = f;
+    *First = GetFirstInstruction(*First, f);
   params.push_back(f);
   Value *mal = Builder.CreateCall(fun, params);
-  Value *ptr = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
-                                      Type::getInt32Ty(getGlobalContext()));
-  Value *fixed = Builder.CreateSub(mal, ptr);
-  V = Builder.CreateStore(fixed, IREmitter.Regs[ConvToDirective
-                                      (Oi::V0)]);
+  if (NoShadow) {
+    V = Builder.CreateStore(mal, IREmitter.Regs[ConvToDirective
+                                                  (Oi::V0)]);
+  } else {
+    Value *ptr = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
+                                        Type::getInt32Ty(getGlobalContext()));
+    Value *fixed = Builder.CreateSub(mal, ptr);
+    V = Builder.CreateStore(fixed, IREmitter.Regs[ConvToDirective
+                                                  (Oi::V0)]);
+  }
   ReadMap[ConvToDirective(Oi::A0)] = true;
   WriteMap[ConvToDirective(Oi::V0)] = true;
   return true;
@@ -57,16 +62,21 @@ bool SyscallsIface::HandleLibcCalloc(Value *&V, Value **First) {
   Value *fun = TheModule->getOrInsertFunction("calloc", ft);
   Value *f = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A0)]);
   if (First)
-    *First = f;
+    *First = GetFirstInstruction(*First, f);
   SmallVector<Value*, 8> params;
   params.push_back(f);
   params.push_back(Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A1)]));
   Value *mal = Builder.CreateCall(fun, params);
-  Value *ptr = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
-                                      Type::getInt32Ty(getGlobalContext()));
-  Value *fixed = Builder.CreateSub(mal, ptr);
-  V = Builder.CreateStore(fixed, IREmitter.Regs[ConvToDirective
-                                      (Oi::V0)]);
+  if (NoShadow) {
+    V = Builder.CreateStore(mal, IREmitter.Regs[ConvToDirective
+                                                  (Oi::V0)]);
+  } else {
+    Value *ptr = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
+                                        Type::getInt32Ty(getGlobalContext()));
+    Value *fixed = Builder.CreateSub(mal, ptr);
+    V = Builder.CreateStore(fixed, IREmitter.Regs[ConvToDirective
+                                                  (Oi::V0)]);
+  }
   ReadMap[ConvToDirective(Oi::A0)] = true;
   ReadMap[ConvToDirective(Oi::A1)] = true;
   WriteMap[ConvToDirective(Oi::V0)] = true;
@@ -81,7 +91,7 @@ bool SyscallsIface::HandleLibcFree(Value *&V, Value **First) {
   SmallVector<Value*, 8> params;
   Value *f = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A0)]);
   if (First)
-    *First = f;
+    *First = GetFirstInstruction(*First, f);
   Value *addrbuf = IREmitter.AccessShadowMemory
     (f, false);
   params.push_back(Builder.CreatePtrToInt(addrbuf,
@@ -99,7 +109,7 @@ bool SyscallsIface::HandleLibcExit(Value *&V, Value **First) {
   SmallVector<Value*, 8> params;
   Value *f = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A0)]);
   if (First)
-    *First = f;
+    *First = GetFirstInstruction(*First, f);
   params.push_back(f);
   V = Builder.CreateCall(fun, params);
   ReadMap[ConvToDirective(Oi::A0)] = true;
@@ -125,7 +135,7 @@ bool SyscallsIface::HandleGenericInt(Value *&V, StringRef Name, int numargs,
     for (int I = 0, E = numargs; I != E; ++I) {
       Value *f = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A0)+I]);
       if (I == 0 && First)
-        *First = f;
+        *First = GetFirstInstruction(*First, f);
       if (PtrTypes[I]) {
         Value *addrbuf = IREmitter.AccessShadowMemory(f, false);
         params.push_back(Builder.CreatePtrToInt
@@ -139,15 +149,20 @@ bool SyscallsIface::HandleGenericInt(Value *&V, StringRef Name, int numargs,
   } else {
     V = Builder.CreateCall(fun, params);
     if (First)
-      *First = V;
+      *First = GetFirstInstruction(*First, V);
   }
   if (numret > 0) {
     if (PtrTypes[numargs]) {
-      Value *ptr = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
-                                          Type::getInt32Ty(getGlobalContext()));
-      Value *fixed = Builder.CreateSub(V, ptr);
-      V = Builder.CreateStore(fixed, IREmitter.Regs[ConvToDirective
-                                                    (Oi::V0)]);
+      if (NoShadow) {
+        V = Builder.CreateStore(V, IREmitter.Regs[ConvToDirective
+                                                  (Oi::V0)]);
+      } else {
+        Value *ptr = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
+                                            Type::getInt32Ty(getGlobalContext()));
+        Value *fixed = Builder.CreateSub(V, ptr);
+        V = Builder.CreateStore(fixed, IREmitter.Regs[ConvToDirective
+                                                      (Oi::V0)]);
+      }
     } else {
       Builder.CreateStore(V, IREmitter.Regs[ConvToDirective(Oi::V0)]);
     }
@@ -165,7 +180,7 @@ bool SyscallsIface::HandleLibcPuts(Value *&V, Value **First) {
   SmallVector<Value*, 8> params;
   Value *f = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A0)]);
   if (First)
-    *First = f;
+    *First = GetFirstInstruction(*First, f);
   Value *addrbuf = IREmitter.AccessShadowMemory
     (f, false);
   params.push_back(Builder.CreatePtrToInt(addrbuf,
@@ -185,7 +200,7 @@ bool SyscallsIface::HandleLibcMemset(Value *&V, Value **First) {
   SmallVector<Value*, 8> params;
   Value *f = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A0)]);
   if (First)
-    *First = f;
+    *First = GetFirstInstruction(*First, f);
   Value *addrbuf = IREmitter.AccessShadowMemory
     (f, false);
   params.push_back(Builder.CreatePtrToInt(addrbuf,
@@ -211,7 +226,7 @@ bool SyscallsIface::HandleLibcFprintf(Value *&V, Value **First) {
   SmallVector<Value*, 8> params;
   Value *f = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A0)]);
   if (First)
-    *First = f;
+    *First = GetFirstInstruction(*First, f);
   params.push_back(f);
   Value *addrbuf = IREmitter.AccessShadowMemory
     (Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A1)]), false);
@@ -239,7 +254,7 @@ bool SyscallsIface::HandleLibcPrintf(Value *&V, Value **First) {
   SmallVector<Value*, 8> params;
   Value *f = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A0)]);
   if (First)
-    *First = f;
+    *First = GetFirstInstruction(*First, f);
   Value *addrbuf = IREmitter.AccessShadowMemory(f, false);
   params.push_back(Builder.CreatePtrToInt(addrbuf,
                                           Type::getInt32Ty(getGlobalContext())));
@@ -266,7 +281,7 @@ bool SyscallsIface::HandleLibcScanf(Value *&V, Value **First) {
   SmallVector<Value*, 8> params;
   Value *f = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A0)]);
   if (First)
-    *First = f;
+    *First = GetFirstInstruction(*First, f);
   Value *addrbuf0 = IREmitter.AccessShadowMemory(f, false);
   Value *addrbuf1 = IREmitter.AccessShadowMemory
     (Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A1)]), false);
@@ -311,7 +326,7 @@ bool SyscallsIface::HandleGenericDouble(Value *&V, StringRef Name, int numargs,
     for (int I = 0, E = numargs; I != E; ++I) {
       Value *f = Builder.CreateLoad(IREmitter.DblRegs[ConvToDirectiveDbl(Oi::F12)+I]);
       if (I == 0 && First)
-        *First = f;
+        *First = GetFirstInstruction(*First, f);
       if (PtrTypes[I]) {
         llvm_unreachable("Cannot currently handle pointers");
       } else {
@@ -323,7 +338,7 @@ bool SyscallsIface::HandleGenericDouble(Value *&V, StringRef Name, int numargs,
   } else {
     V = Builder.CreateCall(fun, params);
     if (First)
-      *First = V;
+      *First = GetFirstInstruction(*First, V);
   }
   if (numret > 0) {
     if (PtrTypes[numargs]) {
@@ -346,7 +361,7 @@ bool SyscallsIface::HandleLibcAtof(Value *&V, Value **First) {
 
   Value *f = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A0)]);
   if (First)
-    *First = f;
+    *First = GetFirstInstruction(*First, f);
   Value *addrbuf = IREmitter.AccessShadowMemory(f, false);
   params.push_back(Builder.CreatePtrToInt(addrbuf,
                                           Type::getInt32Ty(getGlobalContext())));
@@ -368,7 +383,7 @@ bool SyscallsIface::HandleSyscallWrite(Value *&V, Value **First) {
   SmallVector<Value*, 8> params;
   Value *f = Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A0)]);
   if (First)
-    *First = f;
+    *First = GetFirstInstruction(*First, f);
   params.push_back(f);
   Value *addrbuf = IREmitter.AccessShadowMemory
     (Builder.CreateLoad(IREmitter.Regs[ConvToDirective(Oi::A1)]), false);
