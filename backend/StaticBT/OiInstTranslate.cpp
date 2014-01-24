@@ -1267,7 +1267,8 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
                                               (getGlobalContext()), 0U));
         }
         Value *v = Builder.CreateCondBr(cmp, True, 
-                                        IREmitter.CreateBB(IREmitter.CurAddr+4));
+                                        IREmitter.CreateBB(IREmitter.CurAddr+
+                                                           GetInstructionSize()));
         assert(isa<Instruction>(cmp) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(cmp);
       }
@@ -1281,7 +1282,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       if (HandleBranchTarget(MI->getOperand(0), Target, false)) {
         Value *v = Builder.CreateBr(Target);
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(v);
-        IREmitter.CreateBB(IREmitter.CurAddr+4);
+        IREmitter.CreateBB(IREmitter.CurAddr+GetInstructionSize());
       }
       break;
     }
@@ -1444,7 +1445,8 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Function *F = Builder.GetInsertBlock()->getParent();
         BasicBlock *BB1 = BasicBlock::Create(getGlobalContext(), "", F);
         BasicBlock *BB2 = BasicBlock::Create(getGlobalContext(), "", F);
-        BasicBlock *FT = IREmitter.CreateBB(IREmitter.CurAddr+4);
+        BasicBlock *FT = IREmitter.CreateBB(IREmitter.CurAddr
+                                            + GetInstructionSize());
 
         Value *cmp = 0;
         if (MI->getOpcode() == Oi::SLTiu ||
@@ -1464,7 +1466,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         Builder.CreateStore(zero, o0);
         Builder.CreateBr(FT);
         Builder.SetInsertPoint(FT);
-        IREmitter.CurBlockAddr = IREmitter.CurAddr+4;
+        IREmitter.CurBlockAddr = IREmitter.CurAddr + GetInstructionSize();
 
         first = GetFirstInstruction(first, cmp);
         assert(isa<Instruction>(first) && "Need to rework map logic");
@@ -1505,7 +1507,8 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           cmp = Builder.CreateICmpSGT(o1, o2);
         }
         Value *v = Builder.CreateCondBr(cmp, True, 
-                                        IREmitter.CreateBB(IREmitter.CurAddr+4));
+                                        IREmitter.CreateBB(IREmitter.CurAddr
+                                                      + GetInstructionSize()));
         first = GetFirstInstruction(first, o1, o2, cmp, v);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
@@ -1683,7 +1686,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
         }        
         first = GetFirstInstruction(src, first, v);
         assert(isa<Instruction>(first) && "Need to rework map logic");      
-        IREmitter.CreateBB(IREmitter.CurAddr+4);
+        IREmitter.CreateBB(IREmitter.CurAddr+GetInstructionSize());
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
       } else {
         llvm_unreachable("Failed to handle indirect jump.");

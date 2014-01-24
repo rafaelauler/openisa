@@ -284,7 +284,7 @@ void OiIREmitter::StartFunction(Twine &N) {
       llvm_unreachable("ProcessIndirectJumps failed.");
 
   } else {
-    CurFunAddr = CurAddr+4;
+    CurFunAddr = CurAddr+GetInstructionSize();
     SpilledRegs.clear();
     if (!OneRegion) {
       // Create a function with no parameters
@@ -292,12 +292,12 @@ void OiIREmitter::StartFunction(Twine &N) {
                                            false);
       F = reinterpret_cast<Function *>(TheModule->getOrInsertFunction(N.str(),
                                                                       FT));
-      BasicBlock *BB = CreateBB(CurAddr+4, F);
-      CurBlockAddr = CurAddr+4;
+      BasicBlock *BB = CreateBB(CurAddr+GetInstructionSize(), F);
+      CurBlockAddr = CurAddr+GetInstructionSize();
       Builder.SetInsertPoint(BB);
       BuildLocalRegisterFile();
     } else {
-      CreateBB(CurAddr+4);
+      CreateBB(CurAddr+GetInstructionSize());
     }
   }
 }
@@ -583,7 +583,7 @@ bool OiIREmitter::HandleBackEdge(uint64_t Addr, BasicBlock *&Target) {
 
   Instruction *TgtIns = InsMap[Addr];
   while (TgtIns == 0 && Addr < CurAddr) {
-    Addr += 4;
+    Addr += 8;
     TgtIns = InsMap[Addr];
   }
     
@@ -627,10 +627,12 @@ bool OiIREmitter::HandleBackEdge(uint64_t Addr, BasicBlock *&Target) {
 bool OiIREmitter::HandleIndirectCallOneRegion(Value *src, Value **First) {
   Value *f;
   Value *Target = AccessJumpTable(src, &f);
-  IndirectCallMap.insert(CurAddr + 4);
+  IndirectCallMap.insert(CurAddr + GetInstructionSize());
   Builder.CreateStore
-    (ConstantInt::get(Type::getInt32Ty(getGlobalContext()), CurAddr+4),
+    (ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
+                      CurAddr+GetInstructionSize()),
      Regs[ConvToDirective(Oi::RA)]);
+  WriteMap[ConvToDirective(Oi::RA)] = true;
   IndirectBrInst *v = Builder.CreateIndirectBr(Target,
                                                IndirectDestinations.size());
   for(int I = 0, E = IndirectDestinations.size(); I != E; ++I) {
@@ -638,23 +640,25 @@ bool OiIREmitter::HandleIndirectCallOneRegion(Value *src, Value **First) {
   }        
   if (First)
     *First = GetFirstInstruction(*First, src, f);
-  CreateBB(CurAddr+4);
+  CreateBB(CurAddr+GetInstructionSize());
 }
 
 bool OiIREmitter::HandleLocalCallOneRegion(uint64_t Addr, Value *&V,
                                                Value **First) {
   BasicBlock *Target;
-  FunctionCallMap[Addr].push_back(CurAddr + 4);
+  FunctionCallMap[Addr].push_back(CurAddr + GetInstructionSize());
   if (Addr < CurAddr)
     HandleBackEdge(Addr, Target);
   else
     Target = CreateBB(Addr);
   Value *first = Builder.CreateStore
-    (ConstantInt::get(Type::getInt32Ty(getGlobalContext()), CurAddr+4),
+    (ConstantInt::get(Type::getInt32Ty(getGlobalContext()), CurAddr+
+                      GetInstructionSize()),
                                Regs[ConvToDirective(Oi::RA)]);
+  WriteMap[ConvToDirective(Oi::RA)] = true;
   V = Builder.CreateBr(Target);
-  //  printf("\nHandleLocalCallOneregion.CurAddr: %08LX\n", CurAddr+4);
-  CreateBB(CurAddr+4);
+  //  printf("\nHandleLocalCallOneregion.CurAddr: %08LX\n", CurAddr+GetInstructionSize());
+  CreateBB(CurAddr+GetInstructionSize());
   if (First)
     *First = GetFirstInstruction(*First, first);
   return true;

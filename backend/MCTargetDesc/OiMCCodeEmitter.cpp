@@ -139,7 +139,7 @@ EncodeInstruction(const MCInst &MI, raw_ostream &OS,
     Oi::LowerDextDins(TmpInst);
   }
 
-  uint32_t Binary = getBinaryCodeForInstr(TmpInst, Fixups);
+  uint64_t Binary = getBinaryCodeForInstr(TmpInst, Fixups);
 
   // Check for unimplemented opcodes.
   // Unfortunately in OI both NOP and SLL will come in with Binary == 0

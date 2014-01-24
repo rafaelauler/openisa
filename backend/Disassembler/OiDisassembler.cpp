@@ -124,17 +124,17 @@ static DecodeStatus DecodeCCRRegisterClass(MCInst &Inst,
                                            const void *Decoder);
 
 static DecodeStatus DecodeHWRegsRegisterClass(MCInst &Inst,
-                                              unsigned Insn,
+                                              uint64_t Insn,
                                               uint64_t Address,
                                               const void *Decoder);
 
 static DecodeStatus DecodeAFGR64RegisterClass(MCInst &Inst,
-                                              unsigned RegNo,
+                                              uint64_t RegNo,
                                               uint64_t Address,
                                               const void *Decoder);
 
 static DecodeStatus DecodeHWRegs64RegisterClass(MCInst &Inst,
-                                                unsigned Insn,
+                                                uint64_t Insn,
                                                 uint64_t Address,
                                                 const void *Decoder);
 
@@ -159,42 +159,42 @@ static DecodeStatus DecodeBranchTarget(MCInst &Inst,
                                        const void *Decoder);
 
 static DecodeStatus DecodeBC1(MCInst &Inst,
-                              unsigned Insn,
+                              uint64_t Insn,
                               uint64_t Address,
                               const void *Decoder);
 
 
 static DecodeStatus DecodeJumpTarget(MCInst &Inst,
-                                     unsigned Insn,
+                                     uint64_t Insn,
                                      uint64_t Address,
                                      const void *Decoder);
 
 static DecodeStatus DecodeMem(MCInst &Inst,
-                              unsigned Insn,
+                              uint64_t Insn,
                               uint64_t Address,
                               const void *Decoder);
 
-static DecodeStatus DecodeFMem(MCInst &Inst, unsigned Insn,
+static DecodeStatus DecodeFMem(MCInst &Inst, uint64_t Insn,
                                uint64_t Address,
                                const void *Decoder);
 
 static DecodeStatus DecodeSimm16(MCInst &Inst,
-                                 unsigned Insn,
+                                 uint64_t Insn,
                                  uint64_t Address,
                                  const void *Decoder);
 
 static DecodeStatus DecodeCondCode(MCInst &Inst,
-                                   unsigned Insn,
+                                   uint64_t Insn,
                                    uint64_t Address,
                                    const void *Decoder);
 
 static DecodeStatus DecodeInsSize(MCInst &Inst,
-                                  unsigned Insn,
+                                  uint64_t Insn,
                                   uint64_t Address,
                                   const void *Decoder);
 
 static DecodeStatus DecodeExtSize(MCInst &Inst,
-                                  unsigned Insn,
+                                  uint64_t Insn,
                                   uint64_t Address,
                                   const void *Decoder);
 
@@ -242,34 +242,42 @@ extern "C" void LLVMInitializeOiDisassembler() {
 
 #include "OiGenDisassemblerTables.inc"
 
-  /// readInstruction - read four bytes from the MemoryObject
-  /// and return 32 bit word sorted according to the given endianess
-static DecodeStatus readInstruction32(const MemoryObject &region,
+  /// readInstruction - read five bytes from the MemoryObject
+  /// and return 64 bit word sorted according to the given endianess
+static DecodeStatus readInstruction64(const MemoryObject &region,
                                       uint64_t address,
                                       uint64_t &size,
-                                      uint32_t &insn,
+                                      uint64_t &insn,
                                       bool isBigEndian) {
-  uint8_t Bytes[4];
+  uint8_t Bytes[8];
 
-  // We want to read exactly 4 Bytes of data.
-  if (region.readBytes(address, 4, (uint8_t*)Bytes, NULL) == -1) {
+  // We want to read exactly 8 Bytes of data.
+  if (region.readBytes(address, 8, (uint8_t*)Bytes, NULL) == -1) {
     size = 0;
     return MCDisassembler::Fail;
   }
 
   if (isBigEndian) {
-    // Encoded as a big-endian 32-bit word in the stream.
-    insn = (Bytes[3] <<  0) |
-           (Bytes[2] <<  8) |
-           (Bytes[1] << 16) |
-           (Bytes[0] << 24);
+    // Encoded as a big-endian 64-bit word in the stream.
+    insn = ((uint64_t)Bytes[7] <<  0) |
+      ((uint64_t)Bytes[6] <<  8) |
+      ((uint64_t)Bytes[5] << 16) |
+      ((uint64_t)Bytes[4] << 24) |
+      ((uint64_t)Bytes[3] << 32) |
+      ((uint64_t)Bytes[2] << 40) |
+      ((uint64_t)Bytes[1] << 48) |
+      ((uint64_t)Bytes[0] << 56);
   }
   else {
-    // Encoded as a small-endian 32-bit word in the stream.
-    insn = (Bytes[0] <<  0) |
-           (Bytes[1] <<  8) |
-           (Bytes[2] << 16) |
-           (Bytes[3] << 24);
+    // Encoded as a small-endian 64-bit word in the stream.
+    insn = ((uint64_t)Bytes[0] <<  0) |
+      ((uint64_t)Bytes[1] <<  8) |
+      ((uint64_t)Bytes[2] << 16) |
+      ((uint64_t)Bytes[3] << 24) |
+      ((uint64_t)Bytes[4] << 32) |
+      ((uint64_t)Bytes[5] << 40) |
+      ((uint64_t)Bytes[6] << 48) |
+      ((uint64_t)Bytes[7] << 56);
   }
 
   return MCDisassembler::Success;
@@ -282,18 +290,18 @@ OiDisassembler::getInstruction(MCInst &instr,
                                  uint64_t Address,
                                  raw_ostream &vStream,
                                  raw_ostream &cStream) const {
-  uint32_t Insn;
+  uint64_t Insn;
 
-  DecodeStatus Result = readInstruction32(Region, Address, Size,
+  DecodeStatus Result = readInstruction64(Region, Address, Size,
                                           Insn, isBigEndian);
   if (Result == MCDisassembler::Fail)
     return MCDisassembler::Fail;
 
   // Calling the auto-generated decoder function.
-  Result = decodeInstruction(DecoderTableOi32, instr, Insn, Address,
+  Result = decodeInstruction(DecoderTableOi64, instr, Insn, Address,
                              this, STI);
   if (Result != MCDisassembler::Fail) {
-    Size = 4;
+    Size = 8;
     return Result;
   }
 
@@ -307,25 +315,25 @@ Oi64Disassembler::getInstruction(MCInst &instr,
                                    uint64_t Address,
                                    raw_ostream &vStream,
                                    raw_ostream &cStream) const {
-  uint32_t Insn;
+  uint64_t Insn;
 
-  DecodeStatus Result = readInstruction32(Region, Address, Size,
+  DecodeStatus Result = readInstruction64(Region, Address, Size,
                                           Insn, isBigEndian);
   if (Result == MCDisassembler::Fail)
     return MCDisassembler::Fail;
 
   // Calling the auto-generated decoder function.
-  Result = decodeInstruction(DecoderTableOi6432, instr, Insn, Address,
+  Result = decodeInstruction(DecoderTableOi6464, instr, Insn, Address,
                              this, STI);
   if (Result != MCDisassembler::Fail) {
-    Size = 4;
+    Size = 8;
     return Result;
   }
   // If we fail to decode in Oi64 decoder space we can try in Oi32
-  Result = decodeInstruction(DecoderTableOi32, instr, Insn, Address,
+  Result = decodeInstruction(DecoderTableOi64, instr, Insn, Address,
                              this, STI);
   if (Result != MCDisassembler::Fail) {
-    Size = 4;
+    Size = 8;
     return Result;
   }
 
@@ -410,12 +418,12 @@ static DecodeStatus DecodeCCRRegisterClass(MCInst &Inst,
 }
 
 static DecodeStatus DecodeMem(MCInst &Inst,
-                              unsigned Insn,
+                              uint64_t Insn,
                               uint64_t Address,
                               const void *Decoder) {
   int Offset = SignExtend32<16>(Insn & 0xffff);
-  unsigned Reg = fieldFromInstruction(Insn, 16, 5);
-  unsigned Base = fieldFromInstruction(Insn, 21, 5);
+  unsigned Reg = fieldFromInstruction(Insn, 20, 7);
+  unsigned Base = fieldFromInstruction(Insn, 27, 7);
 
   Reg = getReg(Decoder, Oi::CPURegsRegClassID, Reg);
   Base = getReg(Decoder, Oi::CPURegsRegClassID, Base);
@@ -432,12 +440,12 @@ static DecodeStatus DecodeMem(MCInst &Inst,
 }
 
 static DecodeStatus DecodeFMem(MCInst &Inst,
-                               unsigned Insn,
+                               uint64_t Insn,
                                uint64_t Address,
                                const void *Decoder) {
   int Offset = SignExtend32<16>(Insn & 0xffff);
-  unsigned Reg = fieldFromInstruction(Insn, 16, 5);
-  unsigned Base = fieldFromInstruction(Insn, 21, 5);
+  unsigned Reg = fieldFromInstruction(Insn, 20, 7);
+  unsigned Base = fieldFromInstruction(Insn, 27, 7);
 
   Reg = getReg(Decoder, Oi::FGR64RegClassID, Reg);
   Base = getReg(Decoder, Oi::CPURegsRegClassID, Base);
@@ -451,7 +459,7 @@ static DecodeStatus DecodeFMem(MCInst &Inst,
 
 
 static DecodeStatus DecodeHWRegsRegisterClass(MCInst &Inst,
-                                              unsigned RegNo,
+                                              uint64_t RegNo,
                                               uint64_t Address,
                                               const void *Decoder) {
   // Currently only hardware register 29 is supported.
@@ -462,7 +470,7 @@ static DecodeStatus DecodeHWRegsRegisterClass(MCInst &Inst,
 }
 
 static DecodeStatus DecodeCondCode(MCInst &Inst,
-                                   unsigned Insn,
+                                   uint64_t Insn,
                                    uint64_t Address,
                                    const void *Decoder) {
   int CondCode = Insn & 0xf;
@@ -471,7 +479,7 @@ static DecodeStatus DecodeCondCode(MCInst &Inst,
 }
 
 static DecodeStatus DecodeAFGR64RegisterClass(MCInst &Inst,
-                                              unsigned RegNo,
+                                              uint64_t RegNo,
                                               uint64_t Address,
                                               const void *Decoder) {
   if (RegNo > 30 || RegNo %2)
@@ -484,7 +492,7 @@ static DecodeStatus DecodeAFGR64RegisterClass(MCInst &Inst,
 }
 
 static DecodeStatus DecodeHWRegs64RegisterClass(MCInst &Inst,
-                                                unsigned RegNo,
+                                                uint64_t RegNo,
                                                 uint64_t Address,
                                                 const void *Decoder) {
   //Currently only hardware register 29 is supported
@@ -541,7 +549,7 @@ static DecodeStatus DecodeBranchTarget(MCInst &Inst,
 }
 
 static DecodeStatus DecodeBC1(MCInst &Inst,
-                              unsigned Insn,
+                              uint64_t Insn,
                               uint64_t Address,
                               const void *Decoder) {
   unsigned BranchOffset = Insn & 0xffff;
@@ -551,18 +559,18 @@ static DecodeStatus DecodeBC1(MCInst &Inst,
 }
 
 static DecodeStatus DecodeJumpTarget(MCInst &Inst,
-                                     unsigned Insn,
+                                     uint64_t Insn,
                                      uint64_t Address,
                                      const void *Decoder) {
 
-  unsigned JumpOffset = fieldFromInstruction(Insn, 0, 26) << 2;
+  unsigned JumpOffset = fieldFromInstruction(Insn, 0, 32) << 2;
   Inst.addOperand(MCOperand::CreateImm(JumpOffset));
   return MCDisassembler::Success;
 }
 
 
 static DecodeStatus DecodeSimm16(MCInst &Inst,
-                                 unsigned Insn,
+                                 uint64_t Insn,
                                  uint64_t Address,
                                  const void *Decoder) {
   Inst.addOperand(MCOperand::CreateImm(SignExtend32<16>(Insn)));
@@ -570,7 +578,7 @@ static DecodeStatus DecodeSimm16(MCInst &Inst,
 }
 
 static DecodeStatus DecodeInsSize(MCInst &Inst,
-                                  unsigned Insn,
+                                  uint64_t Insn,
                                   uint64_t Address,
                                   const void *Decoder) {
   // First we need to grab the pos(lsb) from MCInst.
@@ -581,7 +589,7 @@ static DecodeStatus DecodeInsSize(MCInst &Inst,
 }
 
 static DecodeStatus DecodeExtSize(MCInst &Inst,
-                                  unsigned Insn,
+                                  uint64_t Insn,
                                   uint64_t Address,
                                   const void *Decoder) {
   int Size = (int) Insn  + 1;

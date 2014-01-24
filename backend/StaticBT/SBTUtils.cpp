@@ -455,4 +455,8 @@ Value* GetFirstInstruction(Value *o0, Value *o1, Value *o2, Value *o3, Value *o4
   return o4;
 }
 
+uint32_t GetInstructionSize() {
+  return 8;
+}
+
 }

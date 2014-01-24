@@ -196,9 +196,9 @@ unsigned OiCodeEmitter::getBranchTargetOpValue(const MachineInstr &MI,
 
 unsigned OiCodeEmitter::getMemEncoding(const MachineInstr &MI,
                                          unsigned OpNo) const {
-  // Base register is encoded in bits 20-16, offset is encoded in bits 15-0.
+  // Base register is encoded in bits 26-20, offset is encoded in bits 15-0.
   assert(MI.getOperand(OpNo).isReg());
-  unsigned RegBits = getMachineOpValue(MI, MI.getOperand(OpNo)) << 16;
+  unsigned RegBits = getMachineOpValue(MI, MI.getOperand(OpNo)) << 20;
   return (getMachineOpValue(MI, MI.getOperand(OpNo+1)) & 0xFFFF) | RegBits;
 }
 

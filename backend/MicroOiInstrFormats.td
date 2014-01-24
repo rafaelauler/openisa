@@ -8,7 +8,7 @@ class ADD_FM_MM<bits<6> op, bits<10> funct> : MMArch {
   bits<5> rs;
   bits<5> rd;
 
-  bits<32> Inst;
+  bits<64> Inst;
 
   let Inst{31-26} = op;
   let Inst{25-21} = rt;
@@ -23,7 +23,7 @@ class ADDI_FM_MM<bits<6> op> : MMArch {
   bits<5>  rt;
   bits<16> imm16;
 
-  bits<32> Inst;
+  bits<64> Inst;
 
   let Inst{31-26} = op;
   let Inst{25-21} = rt;
@@ -36,7 +36,7 @@ class SLTI_FM_MM<bits<6> op> : MMArch {
   bits<5> rs;
   bits<16> imm16;
 
-  bits<32> Inst;
+  bits<64> Inst;
 
   let Inst{31-26} = op;
   let Inst{25-21} = rs;
@@ -48,7 +48,7 @@ class LUI_FM_MM : MMArch {
   bits<5> rt;
   bits<16> imm16;
 
-  bits<32> Inst;
+  bits<64> Inst;
 
   let Inst{31-26} = 0x10;
   let Inst{25-21} = 0xd;
@@ -60,7 +60,7 @@ class MULT_FM_MM<bits<10> funct> : MMArch {
   bits<5>  rs;
   bits<5>  rt;
 
-  bits<32> Inst;
+  bits<64> Inst;
 
   let Inst{31-26} = 0x00;
   let Inst{25-21} = rt;
@@ -74,7 +74,7 @@ class SRA_FM_MM<bits<10> funct, bit rotate> : MMArch {
   bits<5> rt;
   bits<5> shamt;
 
-  bits<32> Inst;
+  bits<64> Inst;
 
   let Inst{31-26} = 0;
   let Inst{25-21} = rd;
@@ -89,7 +89,7 @@ class SRLV_FM_MM<bits<10> funct, bit rotate> : MMArch {
   bits<5> rt;
   bits<5> rs;
 
-  bits<32> Inst;
+  bits<64> Inst;
 
   let Inst{31-26} = 0;
   let Inst{25-21} = rt;
@@ -103,7 +103,7 @@ class LW_FM_MM<bits<6> op> : MMArch {
   bits<5> rt;
   bits<21> addr;
 
-  bits<32> Inst;
+  bits<64> Inst;
 
   let Inst{31-26} = op;
   let Inst{25-21} = rt;

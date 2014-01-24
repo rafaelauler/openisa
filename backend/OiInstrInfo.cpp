@@ -48,7 +48,7 @@ void OiInstrInfo::
 insertNoop(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI) const
 {
   DebugLoc DL;
-  //BuildMI(MBB, MI, DL, get(Oi::NOP));
+  //  BuildMI(MBB, MI, DL, get(Oi::NOP));
 }
 
 MachineMemOperand *OiInstrInfo::GetMemOperand(MachineBasicBlock &MBB, int FI,

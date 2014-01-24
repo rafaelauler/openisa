@@ -241,11 +241,11 @@ public:
     // Check for a less than instruction size number of bytes
     // FIXME: 16 bit instructions are not handled yet here.
     // We shouldn't be using a hard coded number for instruction size.
-    if (Count % 4) return false;
+    //    if (Count % 4) return false;
 
-    uint64_t NumNops = Count / 4;
+    uint64_t NumNops = Count;
     for (uint64_t i = 0; i != NumNops; ++i)
-      OW->Write32(0);
+      OW->Write8(0);
     return true;
   }
 }; // class OiAsmBackend

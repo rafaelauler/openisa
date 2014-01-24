@@ -432,8 +432,8 @@ class LoadUpper<string opstr, RegisterClass RC, Operand Imm>:
 
 class FMem<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern,
           InstrItinClass itin>: FFI<op, outs, ins, asmstr, pattern> {
-  bits<21> addr;
-  let Inst{25-21} = addr{20-16};
+  bits<23> addr;
+  let Inst{33-27} = addr{22-16};
   let Inst{15-0}  = addr{15-0};
   let DecoderMethod = "DecodeMem";
 }
@@ -1025,6 +1025,7 @@ def WSBH : SubwordSwap<"wsbh", CPURegsOpnd>, SEB_FM<2, 0x20>;
 
 /// No operation.
 def NOP : PseudoSE<(outs), (ins), []>, PseudoInstExpansion<(SLL ZERO, ZERO, 0)>;
+//def NOP : OiInstNOP<(outs), (ins), "nop", []>;
 
 // FrameIndexes are legalized when they are operands from load/store
 // instructions. The same not happens for stack address copies, so an
