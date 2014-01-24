@@ -45,10 +45,10 @@ public:
 
   OiIREmitter(const ObjectFile *obj, uint64_t Stacksz): 
     Obj(obj), TheModule(new Module("outputtest", getGlobalContext())),
-    Builder(getGlobalContext()), Regs(SmallVector<Value*,67>(67)),
-    GlobalRegs(SmallVector<Value*,67>(67)),
-    DblRegs(SmallVector<Value*,16>(16)),
-    DblGlobalRegs(SmallVector<Value*,16>(16)),
+    Builder(getGlobalContext()), Regs(SmallVector<Value*,259>(259)),
+    GlobalRegs(SmallVector<Value*,259>(259)),
+    DblRegs(SmallVector<Value*,64>(64)),
+    DblGlobalRegs(SmallVector<Value*,64>(64)),
     SpilledRegs(),
     FirstFunction(true), CurAddr(0),
     CurSection(0), BBMap(), InsMap(), ReadMap(), WriteMap(), DblReadMap(),
@@ -63,8 +63,8 @@ public:
   OwningPtr<Module> TheModule;
   IRBuilder<> Builder;
   OwningArrayPtr<uint8_t> ShadowImage;
-  SmallVector<Value*, 67> Regs, GlobalRegs;
-  SmallVector<Value*, 16> DblRegs, DblGlobalRegs;
+  SmallVector<Value*, 259> Regs, GlobalRegs;
+  SmallVector<Value*, 64> DblRegs, DblGlobalRegs;
   SpilledRegsTy SpilledRegs;
   bool FirstFunction;
   uint64_t CurAddr;

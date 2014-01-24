@@ -891,7 +891,7 @@ unsigned OiAsmParser::getReg(int RC, int RegNo) {
 
 int OiAsmParser::matchRegisterByNumber(unsigned RegNum, unsigned RegClass) {
 
-  if (RegNum > 31)
+  if (RegNum > 65)
     return -1;
 
   return getReg(RegClass, RegNum);
@@ -1986,12 +1986,12 @@ unsigned OiAsmParser::validateTargetOperandClass(MCParsedAsmOperand *Op,
     switch(Operand.getReg()) {
     case Oi::ZERO_64: OpKind = MCK_CPU64Regs; break;
     case Oi::AT_64: OpKind = MCK_CPU64Regs; break;
-    case Oi::V0_64: OpKind = MCK_Reg1; break;
-    case Oi::V1_64: OpKind = MCK_Reg1; break;
-    case Oi::A0_64: OpKind = MCK_Reg1; break;
-    case Oi::A1_64: OpKind = MCK_Reg1; break;
-    case Oi::A2_64: OpKind = MCK_Reg1; break;
-    case Oi::A3_64: OpKind = MCK_Reg1; break;
+    case Oi::V0_64: OpKind = MCK_Reg6; break;
+    case Oi::V1_64: OpKind = MCK_Reg6; break;
+    case Oi::A0_64: OpKind = MCK_Reg6; break;
+    case Oi::A1_64: OpKind = MCK_Reg6; break;
+    case Oi::A2_64: OpKind = MCK_Reg6; break;
+    case Oi::A3_64: OpKind = MCK_Reg6; break;
     case Oi::T0_64: OpKind = MCK_CPU64Regs; break;
     case Oi::T1_64: OpKind = MCK_CPU64Regs; break;
     case Oi::T2_64: OpKind = MCK_CPU64Regs; break;
@@ -2000,8 +2000,8 @@ unsigned OiAsmParser::validateTargetOperandClass(MCParsedAsmOperand *Op,
     case Oi::T5_64: OpKind = MCK_CPU64Regs; break;
     case Oi::T6_64: OpKind = MCK_CPU64Regs; break;
     case Oi::T7_64: OpKind = MCK_CPU64Regs; break;
-    case Oi::S0_64: OpKind = MCK_Reg1; break;
-    case Oi::S1_64: OpKind = MCK_Reg1; break;
+    case Oi::S0_64: OpKind = MCK_Reg6; break;
+    case Oi::S1_64: OpKind = MCK_Reg6; break;
     case Oi::S2_64: OpKind = MCK_CPU64Regs; break;
     case Oi::S3_64: OpKind = MCK_CPU64Regs; break;
     case Oi::S4_64: OpKind = MCK_CPU64Regs; break;

@@ -196,15 +196,15 @@ void OiIREmitter::BuildRegisterFile() {
   Type *ty = Type::getInt32Ty(getGlobalContext());
   Type *dblTy = Type::getDoubleTy(getGlobalContext());
   Type *fltTy = Type::getFloatTy(getGlobalContext());
-  // 32 base regs  0-31
-  // LO 32
-  // HI 33
-  // 32 float regs 34-65
-  // FPCondCode 66
-  for (int I = 0; I < 67; ++I) {
+  // 128 base regs  0-127
+  // 128 float regs 128-255
+  // LO 256
+  // HI 257
+  // FPCondCode 258
+  for (int I = 0; I < 259; ++I) {
     Constant *ci;
     Type *myty;
-    if (I < 34 || I == 66) {
+    if (I < 128 || I > 255) {
       ci = ConstantInt::get(ty, 0U);
       myty = ty;
     } else {
@@ -216,7 +216,7 @@ void OiIREmitter::BuildRegisterFile() {
                                             ci, "reg");
     GlobalRegs[I] = gv;
   }
-  for (int I = 0; I < 16; ++I) {
+  for (int I = 0; I < 64; ++I) {
     Constant *ci = ConstantFP::get(dblTy, 0.0);
     GlobalVariable *gv = new GlobalVariable(*TheModule, dblTy, false, 
                                             GlobalValue::ExternalLinkage,
@@ -229,22 +229,22 @@ void OiIREmitter::BuildLocalRegisterFile() {
   Type *ty = Type::getInt32Ty(getGlobalContext());
   Type *dblTy = Type::getDoubleTy(getGlobalContext());
   Type *fltTy = Type::getFloatTy(getGlobalContext());
-  // 32 base regs  0-31
-  // LO 32
-  // HI 33
-  // 32 float regs 34-65
-  // FPCondCode 66
+  // 128 base regs  0-127
+  // 128 float regs 128-255
+  // LO 256
+  // HI 257
+  // FPCondCode 258
   if (NoLocals) {
-    for (int I = 0; I < 67; ++I) {
+    for (int I = 0; I < 259; ++I) {
       Regs[I] = GlobalRegs[I];
     }    
-    for (int I = 0; I < 16; ++I) {
+    for (int I = 0; I < 64; ++I) {
       DblRegs[I] = DblGlobalRegs[I];
     }    
   } else {
-    for (int I = 0; I < 67; ++I) {
+    for (int I = 0; I < 259; ++I) {
       Type *myty;
-      if (I < 34 || I == 66) {
+      if (I < 128 || I > 255) {
         myty = ty;
       } else {
         myty = fltTy;
@@ -255,7 +255,7 @@ void OiIREmitter::BuildLocalRegisterFile() {
       WriteMap[I] = false;
       ReadMap[I] = false;
     }
-    for (int I = 0; I < 16; ++I) {
+    for (int I = 0; I < 64; ++I) {
       AllocaInst *inst = Builder.CreateAlloca(dblTy, 0, "ldblreg");
       DblRegs[I] = inst;
       Builder.CreateStore(Builder.CreateLoad(DblGlobalRegs[I]), inst);

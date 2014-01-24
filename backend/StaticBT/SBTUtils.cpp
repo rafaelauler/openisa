@@ -223,6 +223,7 @@ unsigned ConvFromDirective(unsigned regnum) {
   case 25:
     return Oi::T9;
   }
+  llvm_unreachable("Invalid register");
   return -1;
 }
 
@@ -292,6 +293,77 @@ unsigned ConvToDirective(unsigned regnum) {
     return 24;
   case Oi::T9:
     return 25;
+  case Oi::R32:
+    return 32;
+  case Oi::R33:
+    return 33;
+  case Oi::R34:
+    return 34;
+  case Oi::R35:
+    return 35;
+  case Oi::R36:
+    return 36;
+  case Oi::R37:
+    return 37;
+  case Oi::R38:
+    return 38;
+  case Oi::R39:
+    return 39;
+  case Oi::R40:
+    return 40;
+  case Oi::R41:
+    return 41;
+  case Oi::R42:
+    return 42;
+  case Oi::R43:
+    return 43;
+  case Oi::R44:
+    return 44;
+  case Oi::R45:
+    return 45;
+  case Oi::R46:
+    return 46;
+  case Oi::R47:
+    return 47;
+  case Oi::R48:
+    return 48;
+  case Oi::R49:
+    return 49;
+  case Oi::R50:
+    return 50;
+  case Oi::R51:
+    return 51;
+  case Oi::R52:
+    return 52;
+  case Oi::R53:
+    return 53;
+  case Oi::R54:
+    return 54;
+  case Oi::R55:
+    return 55;
+  case Oi::R56:
+    return 56;
+  case Oi::R57:
+    return 57;
+  case Oi::R58:
+    return 58;
+  case Oi::R59:
+    return 59;
+  case Oi::R60:
+    return 60;
+  case Oi::R61:
+    return 61;
+  case Oi::R62:
+    return 62;
+  case Oi::R63:
+    return 63;
+  case Oi::R64:
+    return 64;
+  case Oi::R65:
+    return 65;
+
+
+
     // Floating point registers
   case Oi::D0:
   case Oi::F0:

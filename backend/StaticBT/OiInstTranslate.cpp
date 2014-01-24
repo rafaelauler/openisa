@@ -846,10 +846,10 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
                                        (Type::getInt64Ty(getGlobalContext()), 32));
         Value *V2 = Builder.CreateSExtOrTrunc(V1, Type::getInt32Ty(getGlobalContext()));
         Value *V3 = Builder.CreateSExtOrTrunc(v, Type::getInt32Ty(getGlobalContext()));
-        Value *v4 = Builder.CreateStore(V2, IREmitter.Regs[33]);
-        Value *v5 = Builder.CreateStore(V3, IREmitter.Regs[32]);
-        WriteMap[33] = true;
-        WriteMap[32] = true;
+        Value *v4 = Builder.CreateStore(V2, IREmitter.Regs[257]);
+        Value *v5 = Builder.CreateStore(V3, IREmitter.Regs[256]);
+        WriteMap[257] = true;
+        WriteMap[256] = true;
         first = GetFirstInstruction(first, o0, o1, o0se, o1se);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
@@ -872,10 +872,10 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           vdiv = Builder.CreateUDiv(o0, o1);
           vmod = Builder.CreateURem(o0, o1);
         }
-        Value *v4 = Builder.CreateStore(vmod, IREmitter.Regs[33]);
-        Value *v5 = Builder.CreateStore(vdiv, IREmitter.Regs[32]);
-        WriteMap[33] = true;
-        WriteMap[32] = true;
+        Value *v4 = Builder.CreateStore(vmod, IREmitter.Regs[257]);
+        Value *v5 = Builder.CreateStore(vdiv, IREmitter.Regs[256]);
+        WriteMap[257] = true;
+        WriteMap[256] = true;
         first = GetFirstInstruction(first, o0, o1, vdiv, vmod);
         assert(isa<Instruction>(first) && "Need to rework map logic");
         IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
@@ -887,8 +887,8 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       DebugOut << "Handling MFHI\n";
       Value *o0;
       if (HandleAluDstOperand(MI->getOperand(0), o0)) {
-        Value *v = Builder.CreateLoad(IREmitter.Regs[33]);
-        ReadMap[33] = true;
+        Value *v = Builder.CreateLoad(IREmitter.Regs[257]);
+        ReadMap[257] = true;
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o0, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
@@ -901,8 +901,8 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       DebugOut << "Handling MFLO\n";
       Value *o0;
       if (HandleAluDstOperand(MI->getOperand(0), o0)) {
-        Value *v = Builder.CreateLoad(IREmitter.Regs[32]);
-        ReadMap[33] = true;
+        Value *v = Builder.CreateLoad(IREmitter.Regs[256]);
+        ReadMap[257] = true;
         Value *v2 = Builder.CreateStore(v, o0);
         Value *first = GetFirstInstruction(o0, v, v2);
         assert(isa<Instruction>(first) && "Need to rework map logic");
@@ -975,8 +975,8 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           Value *one = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 1U);
           Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
           Value *select = Builder.CreateSelect(cmp, one, zero);
-          WriteMap[66] = true; // Ignores other FCC fields
-          Builder.CreateStore(select, IREmitter.Regs[66]);
+          WriteMap[258] = true; // Ignores other FCC fields
+          Builder.CreateStore(select, IREmitter.Regs[258]);
           assert(isa<Instruction>(first) && "Need to rework map logic");
           IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         }
@@ -995,8 +995,8 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           Value *one = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 1U);
           Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
           Value *select = Builder.CreateSelect(cmp, one, zero);
-          WriteMap[66] = true; // Ignores other FCC fields
-          Builder.CreateStore(select, IREmitter.Regs[66]);
+          WriteMap[258] = true; // Ignores other FCC fields
+          Builder.CreateStore(select, IREmitter.Regs[258]);
           assert(isa<Instruction>(first) && "Need to rework map logic");
           IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
         }
@@ -1012,7 +1012,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
           HandleAluDstOperand(MI->getOperand(0), o0)) {        
         Value *zero = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U);
         Value *cmp;
-        Value *fcc = Builder.CreateLoad(IREmitter.Regs[66]);
+        Value *fcc = Builder.CreateLoad(IREmitter.Regs[258]);
         cmp = Builder.CreateICmpNE(fcc, zero);
         Value *loaddst = Builder.CreateLoad(o0);
         Value *select = Builder.CreateSelect(cmp, o1, loaddst, "movt");
@@ -1257,12 +1257,12 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       if (HandleBranchTarget(MI->getOperand(0), True)) {
         Value *cmp;
         if (MI->getOpcode() == Oi::BC1T) {
-          ReadMap[66] = true;
-          cmp = Builder.CreateSExtOrTrunc(Builder.CreateLoad(IREmitter.Regs[66]),
+          ReadMap[258] = true;
+          cmp = Builder.CreateSExtOrTrunc(Builder.CreateLoad(IREmitter.Regs[258]),
                                     Type::getInt1Ty(getGlobalContext()));
         } else {
-          ReadMap[66] = true;
-          cmp = Builder.CreateICmpEQ(Builder.CreateLoad(IREmitter.Regs[66]),
+          ReadMap[258] = true;
+          cmp = Builder.CreateICmpEQ(Builder.CreateLoad(IREmitter.Regs[258]),
                              ConstantInt::get(Type::getInt32Ty
                                               (getGlobalContext()), 0U));
         }

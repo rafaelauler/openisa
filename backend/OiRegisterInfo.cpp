@@ -54,7 +54,10 @@ OiRegisterInfo::getRegPressureLimit(const TargetRegisterClass *RC,
   switch (RC->getID()) {
   default:
     return 0;
-  case Oi::CPURegsRegClassID:
+  case Oi::CPURegsRegClassID: {
+    const TargetFrameLowering *TFI = MF.getTarget().getFrameLowering();
+    return 60 - TFI->hasFP(MF);
+  }
   case Oi::CPU64RegsRegClassID:
   case Oi::DSPRegsRegClassID: {
     const TargetFrameLowering *TFI = MF.getTarget().getFrameLowering();

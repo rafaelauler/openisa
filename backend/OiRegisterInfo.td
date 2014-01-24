@@ -111,6 +111,42 @@ let Namespace = "Oi" in {
   def SP   : OiGPRReg< 29, "sp">,  DwarfRegNum<[29]>;
   def FP   : OiGPRReg< 30, "fp">,  DwarfRegNum<[30]>;
   def RA   : OiGPRReg< 31, "ra">,  DwarfRegNum<[31]>;
+  def R32  : OiGPRReg< 32, "32">,  DwarfRegNum<[32]>;
+  def R33  : OiGPRReg< 33, "33">,  DwarfRegNum<[33]>;
+  def R34  : OiGPRReg< 34, "34">,  DwarfRegNum<[34]>;
+  def R35  : OiGPRReg< 35, "35">,  DwarfRegNum<[35]>;
+  def R36  : OiGPRReg< 36, "36">,  DwarfRegNum<[36]>;
+  def R37  : OiGPRReg< 37, "37">,  DwarfRegNum<[37]>;
+  def R38  : OiGPRReg< 38, "38">,  DwarfRegNum<[38]>;
+  def R39  : OiGPRReg< 39, "39">,  DwarfRegNum<[39]>;
+  def R40  : OiGPRReg< 40, "40">,  DwarfRegNum<[40]>;
+  def R41  : OiGPRReg< 41, "41">,  DwarfRegNum<[41]>;
+  def R42  : OiGPRReg< 42, "42">,  DwarfRegNum<[42]>;
+  def R43  : OiGPRReg< 43, "43">,  DwarfRegNum<[43]>;
+  def R44  : OiGPRReg< 44, "44">,  DwarfRegNum<[44]>;
+  def R45  : OiGPRReg< 45, "45">,  DwarfRegNum<[45]>;
+  def R46  : OiGPRReg< 46, "46">,  DwarfRegNum<[46]>;
+  def R47  : OiGPRReg< 47, "47">,  DwarfRegNum<[47]>;
+  def R48  : OiGPRReg< 48, "48">,  DwarfRegNum<[48]>;
+  def R49  : OiGPRReg< 49, "49">,  DwarfRegNum<[49]>;
+  def R50  : OiGPRReg< 50, "50">,  DwarfRegNum<[50]>;
+  def R51  : OiGPRReg< 51, "51">,  DwarfRegNum<[51]>;
+  def R52  : OiGPRReg< 52, "52">,  DwarfRegNum<[52]>;
+  def R53  : OiGPRReg< 53, "53">,  DwarfRegNum<[53]>;
+  def R54  : OiGPRReg< 54, "54">,  DwarfRegNum<[54]>;
+  def R55  : OiGPRReg< 55, "55">,  DwarfRegNum<[55]>;
+  def R56  : OiGPRReg< 56, "56">,  DwarfRegNum<[56]>;
+  def R57  : OiGPRReg< 57, "57">,  DwarfRegNum<[57]>;
+  def R58  : OiGPRReg< 58, "58">,  DwarfRegNum<[58]>;
+  def R59  : OiGPRReg< 59, "59">,  DwarfRegNum<[59]>;
+  def R60  : OiGPRReg< 60, "60">,  DwarfRegNum<[60]>;
+  def R61  : OiGPRReg< 61, "61">,  DwarfRegNum<[61]>;
+  def R62  : OiGPRReg< 62, "62">,  DwarfRegNum<[62]>;
+  def R63  : OiGPRReg< 63, "63">,  DwarfRegNum<[63]>;
+  def R64  : OiGPRReg< 64, "64">,  DwarfRegNum<[64]>;
+  def R65  : OiGPRReg< 65, "65">,  DwarfRegNum<[65]>;
+
+
 
   // General Purpose 64-bit Registers
   def ZERO_64 : Oi64GPRReg< 0, "zero", [ZERO]>, DwarfRegNum<[0]>;
@@ -305,7 +341,12 @@ class CPURegsClass<list<ValueType> regTypes> :
   // Not preserved across procedure calls
   T8, T9,
   // Reserved
-  K0, K1, GP, SP, FP, RA)>;
+  K0, K1, GP, SP, FP, RA,
+  // Extra
+  R32,
+  R33, R34, R35, R36, R37, R38, R39, R40, R41, R42, R43, R44, R45, R46, R47,
+  R48, R49, R50, R51, R52, R53, R54, R55, R56, R57, R58, R59, R60, R61, R62,
+  R63, R64, R65)>;
 
 def CPURegs : CPURegsClass<[i32]>;
 def DSPRegs : CPURegsClass<[v4i8, v2i16]>;
