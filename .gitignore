@@ -1,0 +1,13 @@
+*.bc
+*-nat
+*-nat-arm
+*-oi-x86
+*-oi-arm
+*.s
+*~
+*.ll
+*runme_small.sh
+*runme_large.sh
+cross
+cross2
+*#
