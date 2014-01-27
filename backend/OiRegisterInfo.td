@@ -215,6 +215,39 @@ let Namespace = "Oi" in {
   def F29 : FPR<29, "f29">, DwarfRegNum<[61]>;
   def F30 : FPR<30, "f30">, DwarfRegNum<[62]>;
   def F31 : FPR<31, "f31">, DwarfRegNum<[63]>;
+  def F32 : FPR<32, "f32">, DwarfRegNum<[63]>;
+  def F33 : FPR<33, "f33">, DwarfRegNum<[63]>;
+  def F34 : FPR<34, "f34">, DwarfRegNum<[63]>;
+  def F35 : FPR<35, "f35">, DwarfRegNum<[63]>;
+  def F36 : FPR<36, "f36">, DwarfRegNum<[63]>;
+  def F37 : FPR<37, "f37">, DwarfRegNum<[63]>;
+  def F38 : FPR<38, "f38">, DwarfRegNum<[63]>;
+  def F39 : FPR<39, "f39">, DwarfRegNum<[63]>;
+  def F40 : FPR<40, "f40">, DwarfRegNum<[63]>;
+  def F41 : FPR<41, "f41">, DwarfRegNum<[63]>;
+  def F42 : FPR<42, "f42">, DwarfRegNum<[63]>;
+  def F43 : FPR<43, "f43">, DwarfRegNum<[63]>;
+  def F44 : FPR<44, "f44">, DwarfRegNum<[63]>;
+  def F45 : FPR<45, "f45">, DwarfRegNum<[63]>;
+  def F46 : FPR<46, "f46">, DwarfRegNum<[63]>;
+  def F47 : FPR<47, "f47">, DwarfRegNum<[63]>;
+  def F48 : FPR<48, "f48">, DwarfRegNum<[63]>;
+  def F49 : FPR<49, "f49">, DwarfRegNum<[63]>;
+  def F50 : FPR<50, "f50">, DwarfRegNum<[63]>;
+  def F51 : FPR<51, "f51">, DwarfRegNum<[63]>;
+  def F52 : FPR<52, "f52">, DwarfRegNum<[63]>;
+  def F53 : FPR<53, "f53">, DwarfRegNum<[63]>;
+  def F54 : FPR<54, "f54">, DwarfRegNum<[63]>;
+  def F55 : FPR<55, "f55">, DwarfRegNum<[63]>;
+  def F56 : FPR<56, "f56">, DwarfRegNum<[63]>;
+  def F57 : FPR<57, "f57">, DwarfRegNum<[63]>;
+  def F58 : FPR<58, "f58">, DwarfRegNum<[63]>;
+  def F59 : FPR<59, "f59">, DwarfRegNum<[63]>;
+  def F60 : FPR<60, "f60">, DwarfRegNum<[63]>;
+  def F61 : FPR<61, "f61">, DwarfRegNum<[63]>;
+  def F62 : FPR<62, "f62">, DwarfRegNum<[63]>;
+  def F63 : FPR<63, "f63">, DwarfRegNum<[63]>;
+
 
   /// Oi Double point precision FPU Registers (aliased
   /// with the single precision to hold 64 bit values)
@@ -234,6 +267,22 @@ let Namespace = "Oi" in {
   def D13 : AFPR<26, "f26", [F26, F27]>;
   def D14 : AFPR<28, "f28", [F28, F29]>;
   def D15 : AFPR<30, "f30", [F30, F31]>;
+  def D16 : AFPR<32, "f32", [F32, F33]>;
+  def D17 : AFPR<34, "f34", [F34, F35]>;
+  def D18 : AFPR<36, "f36", [F36, F37]>;
+  def D19 : AFPR<38, "f38", [F38, F39]>;
+  def D20 : AFPR<40, "f40", [F40, F41]>;
+  def D21 : AFPR<42, "f42", [F42, F43]>;
+  def D22 : AFPR<44, "f44", [F44, F45]>;
+  def D23 : AFPR<46, "f46", [F46, F47]>;
+  def D24 : AFPR<48, "f48", [F48, F49]>;
+  def D25 : AFPR<50, "f50", [F50, F51]>;
+  def D26 : AFPR<52, "f52", [F52, F53]>;
+  def D27 : AFPR<54, "f54", [F54, F55]>;
+  def D28 : AFPR<56, "f56", [F56, F57]>;
+  def D29 : AFPR<58, "f58", [F58, F59]>;
+  def D30 : AFPR<60, "f60", [F60, F61]>;
+  def D31 : AFPR<62, "f62", [F62, F63]>;
 
   /// Oi Double point precision FPU Registers in MFP64 mode.
   def D0_64  : AFPR64<0, "f0", [F0]>, DwarfRegNum<[32]>;

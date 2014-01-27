@@ -64,9 +64,9 @@ OiRegisterInfo::getRegPressureLimit(const TargetRegisterClass *RC,
     return 28 - TFI->hasFP(MF);
   }
   case Oi::FGR32RegClassID:
-    return 32;
+    return 64;
   case Oi::AFGR64RegClassID:
-    return 16;
+    return 32;
   case Oi::FGR64RegClassID:
     return 32;
   }
