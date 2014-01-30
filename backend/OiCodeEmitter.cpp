@@ -99,7 +99,7 @@ private:
 
   /// getMachineOpValue - Return binary encoding of operand. If the machine
   /// operand requires relocation, record the relocation and return zero.
-  unsigned getMachineOpValue(const MachineInstr &MI,
+  uint64_t getMachineOpValue(const MachineInstr &MI,
                              const MachineOperand &MO) const;
 
   unsigned getRelocation(const MachineInstr &MI,
@@ -108,7 +108,7 @@ private:
   unsigned getJumpTargetOpValue(const MachineInstr &MI, unsigned OpNo) const;
 
   unsigned getBranchTargetOpValue(const MachineInstr &MI, unsigned OpNo) const;
-  unsigned getMemEncoding(const MachineInstr &MI, unsigned OpNo) const;
+  uint64_t getMemEncoding(const MachineInstr &MI, unsigned OpNo) const;
   unsigned getSizeExtEncoding(const MachineInstr &MI, unsigned OpNo) const;
   unsigned getSizeInsEncoding(const MachineInstr &MI, unsigned OpNo) const;
 
@@ -194,12 +194,12 @@ unsigned OiCodeEmitter::getBranchTargetOpValue(const MachineInstr &MI,
   return 0;
 }
 
-unsigned OiCodeEmitter::getMemEncoding(const MachineInstr &MI,
+uint64_t OiCodeEmitter::getMemEncoding(const MachineInstr &MI,
                                          unsigned OpNo) const {
-  // Base register is encoded in bits 26-20, offset is encoded in bits 15-0.
+  // Base register is encoded in bits 38-32, offset is encoded in bits 31-0.
   assert(MI.getOperand(OpNo).isReg());
-  unsigned RegBits = getMachineOpValue(MI, MI.getOperand(OpNo)) << 20;
-  return (getMachineOpValue(MI, MI.getOperand(OpNo+1)) & 0xFFFF) | RegBits;
+  uint64_t RegBits = getMachineOpValue(MI, MI.getOperand(OpNo)) << (uint64_t)32ULL;
+  return (getMachineOpValue(MI, MI.getOperand(OpNo+1)) & 0xFFFFFFFFULL) | RegBits;
 }
 
 unsigned OiCodeEmitter::getSizeExtEncoding(const MachineInstr &MI,
@@ -217,12 +217,12 @@ unsigned OiCodeEmitter::getSizeInsEncoding(const MachineInstr &MI,
 
 /// getMachineOpValue - Return binary encoding of operand. If the machine
 /// operand requires relocation, record the relocation and return zero.
-unsigned OiCodeEmitter::getMachineOpValue(const MachineInstr &MI,
-                                            const MachineOperand &MO) const {
+uint64_t OiCodeEmitter::getMachineOpValue(const MachineInstr &MI,
+                                          const MachineOperand &MO) const {
   if (MO.isReg())
     return TM.getRegisterInfo()->getEncodingValue(MO.getReg());
   else if (MO.isImm())
-    return static_cast<unsigned>(MO.getImm());
+    return static_cast<uint64_t>(MO.getImm());
   else if (MO.isGlobal())
     emitGlobalAddress(MO.getGlobal(), getRelocation(MI, MO), true);
   else if (MO.isSymbol())

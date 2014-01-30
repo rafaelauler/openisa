@@ -68,7 +68,7 @@ class OiInst<dag outs, dag ins, string asmstr, list<dag> pattern,
   bits<6> Opcode = 0;
 
   // Top 6 bits are the 'opcode' field
-  let Inst{39-34} = Opcode;
+  let Inst{63-58} = Opcode;
 
   let OutOperandList = outs;
   let InOperandList  = ins;
@@ -227,14 +227,13 @@ class FI<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern,
   bits<7>  rt;
   bits<7>  rs;
   bits<4> funct2;
-  bits<16> imm16;
+  bits<32> imm32;
 
   let Opcode = op;
 
-  let Inst{33-27} = rs;
-  let Inst{26-20} = rt;
-  let Inst{19-16} = funct2;
-  let Inst{15-0}  = imm16;
+  let Inst{57-51} = rs;
+  let Inst{50-44} = rt;
+  let Inst{31-0}  = imm32;
 }
 
 //class FIWide<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern,
@@ -320,14 +319,14 @@ class ADD_FM<bits<6> op, bits<8> funct> : StdArch {
 class ADDI_FM<bits<6> op> : StdArch {
   bits<7>  rs;
   bits<7>  rt;
-  bits<16> imm16;
+  bits<32> imm32;
 
   bits<64> Inst;
 
-  let Inst{39-34} = op;
-  let Inst{33-27} = rs;
-  let Inst{26-20} = rt;
-  let Inst{15-0}  = imm16;
+  let Inst{63-58} = op;
+  let Inst{57-51} = rs;
+  let Inst{50-44} = rt;
+  let Inst{31-0}  = imm32;
 }
 
 class SRA_FM<bits<8> funct, bit rotate> : StdArch {
@@ -401,14 +400,14 @@ class B_FM {
 class SLTI_FM<bits<6> op> : StdArch {
   bits<7> rt;
   bits<7> rs;
-  bits<16> imm16;
+  bits<32> imm32;
 
   bits<64> Inst;
 
-  let Inst{39-34} = op;
-  let Inst{33-27} = rs;
-  let Inst{26-20} = rt;
-  let Inst{15-0}  = imm16;
+  let Inst{63-58} = op;
+  let Inst{57-51} = rs;
+  let Inst{50-44} = rt;
+  let Inst{31-0}  = imm32;
 }
 
 class MFLO_FM<bits<8> funct> {
@@ -588,13 +587,13 @@ class FFI<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>:
 {
   bits<7>  ft;
   bits<7>  base;
-  bits<16> imm16;
+  bits<32> imm32;
 
   let Opcode = op;
 
-  let Inst{33-27} = base;
-  let Inst{26-20} = ft;
-  let Inst{15-0}  = imm16;
+  let Inst{57-51} = base;
+  let Inst{50-44} = ft;
+  let Inst{31-0}  = imm32;
 }
 
 class ADDS_FM<bits<6> funct, bits<7> fmt> {
@@ -641,14 +640,14 @@ class MFC1_FM<bits<7> funct> {
 
 class LW_FM<bits<6> op> : StdArch {
   bits<7> rt;
-  bits<23> addr;
+  bits<39> addr;
 
   bits<64> Inst;
 
-  let Inst{39-34} = op;
-  let Inst{33-27} = addr{22-16};
-  let Inst{26-20} = rt;
-  let Inst{15-0}  = addr{15-0};
+  let Inst{63-58} = op;
+  let Inst{57-51} = addr{38-32};
+  let Inst{50-44} = rt;
+  let Inst{31-0}  = addr{31-0};
 }
 
 class MADDS_FM<bits<3> funct, bits<3> fmt> {

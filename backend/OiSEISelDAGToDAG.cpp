@@ -262,7 +262,7 @@ bool OiSEDAGToDAGISel::selectAddrRegImm(SDValue Addr, SDValue &Base,
   // Addresses of the form FI+const or FI|const
   if (CurDAG->isBaseWithConstantOffset(Addr)) {
     ConstantSDNode *CN = dyn_cast<ConstantSDNode>(Addr.getOperand(1));
-    if (isInt<16>(CN->getSExtValue())) {
+    if (isInt<32>(CN->getSExtValue())) {
 
       // If the first operand is a FI, get the TargetFI Node
       if (FrameIndexSDNode *FIN = dyn_cast<FrameIndexSDNode>
@@ -291,7 +291,7 @@ bool OiSEDAGToDAGISel::selectAddrRegImm(SDValue Addr, SDValue &Base,
       SDValue Opnd0 = Addr.getOperand(1).getOperand(0);
       if (isa<ConstantPoolSDNode>(Opnd0) || isa<GlobalAddressSDNode>(Opnd0) ||
           isa<JumpTableSDNode>(Opnd0)) {
-        Base = Addr.getOperand(0);
+        Base = CurDAG->getRegister(Oi::ZERO, ValTy);//Addr.getOperand(0);
         Offset = Opnd0;
         return true;
       }

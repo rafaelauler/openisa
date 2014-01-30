@@ -81,13 +81,9 @@ bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V, Value *
           Value *shadow = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
                                                  Type::getInt32Ty(getGlobalContext()));
           fixedV0 = Builder.CreateAdd(V0, shadow);
-          V1 = Builder.CreateAnd(fixedV0, ConstantInt::get
-                                 (Type::getInt32Ty(getGlobalContext()), 
-                                  0xFFFF));
+          V1 = fixedV0;
         } else {
-          V1 = Builder.CreateAnd(V0, ConstantInt::get
-                                 (Type::getInt32Ty(getGlobalContext()), 
-                                  0xFFFF));
+          V1 = V0;
         }
         if (!First != 0)
           *First = GetFirstInstruction(*First, fixedV0, V1);
@@ -168,19 +164,19 @@ bool OiInstTranslate::HandleDoubleMemOperand(const MCOperand &o, const MCOperand
           Value *shadow = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
                                                  Type::getInt32Ty(getGlobalContext()));
           fixedV0 = Builder.CreateAdd(V0, shadow);
-          V1 = Builder.CreateAnd(fixedV0, ConstantInt::get
-                                 (Type::getInt32Ty(getGlobalContext()), 
-                                  0xFFFF));
+          V1 = fixedV0;
         } else {
-          V1 = Builder.CreateAnd(V0, ConstantInt::get
-                                        (Type::getInt32Ty(getGlobalContext()), 
-                                         0xFFFF));
+          V1 = V0;
         }
         idx = V1;
         //Assume little endian doubles
         unsigned reg = ConvToDirective(conv32(o.getReg()));
-        base = Builder.CreateLoad(IREmitter.Regs[reg]);
-        ReadMap[reg] = true;
+        if (reg == 0) {
+          base = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0);
+        } else {
+          base = Builder.CreateLoad(IREmitter.Regs[reg]);
+          ReadMap[reg] = true;
+        }
         addr = Builder.CreateAdd(base, idx);
         if (First != 0) {
           *First = GetFirstInstruction(*First, fixedV0, V1, base, addr);
@@ -193,16 +189,17 @@ bool OiInstTranslate::HandleDoubleMemOperand(const MCOperand &o, const MCOperand
                              myimm);
       //Assume little endian doubles
       unsigned reg = ConvToDirective(conv32(o.getReg()));
-      base = Builder.CreateLoad(IREmitter.Regs[reg]);
-      ReadMap[reg] = true;
+      if (reg == 0) {
+        base = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0);
+      } else {
+        base = Builder.CreateLoad(IREmitter.Regs[reg]);
+        ReadMap[reg] = true;
+      }
       addr = Builder.CreateAdd(base, idx);
       if (First != 0)
         *First = GetFirstInstruction(*First, base, addr);
     }
-    Low = IREmitter.AccessShadowMemory(addr, IsLoad, 64);
-    if (First != 0) {
-      *First = GetFirstInstruction(*First, Low);
-    }
+    Low = IREmitter.AccessShadowMemory(addr, IsLoad, 64, false, First);
     return true;
   } 
 
@@ -224,19 +221,19 @@ bool OiInstTranslate::HandleFloatMemOperand(const MCOperand &o, const MCOperand 
           Value *shadow = Builder.CreatePtrToInt(IREmitter.ShadowImageValue,
                                                  Type::getInt32Ty(getGlobalContext()));
           fixedV0 = Builder.CreateAdd(V0, shadow);
-          V1 = Builder.CreateAnd(fixedV0, ConstantInt::get
-                                 (Type::getInt32Ty(getGlobalContext()), 
-                                  0xFFFF));
+          V1 = fixedV0;
         } else {
-          V1 = Builder.CreateAnd(V0, ConstantInt::get
-                                 (Type::getInt32Ty(getGlobalContext()), 
-                                  0xFFFF));
+          V1 = V0;
         }
         idx = V1;
         //Assume little endian doubles
         unsigned reg = ConvToDirective(conv32(o.getReg()));
-        base = Builder.CreateLoad(IREmitter.Regs[reg]);
-        ReadMap[reg] = true;
+        if (reg == 0) {
+          base = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0);
+        } else {
+          base = Builder.CreateLoad(IREmitter.Regs[reg]);
+          ReadMap[reg] = true;
+        }
         addr = Builder.CreateAdd(base, idx);
         if (First != 0) {
           *First = GetFirstInstruction(*First, fixedV0, V1, base, addr);
@@ -248,16 +245,17 @@ bool OiInstTranslate::HandleFloatMemOperand(const MCOperand &o, const MCOperand 
       idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                              myimm);
       unsigned reg = ConvToDirective(conv32(o.getReg()));
-      base = Builder.CreateLoad(IREmitter.Regs[reg]);
-      ReadMap[reg] = true;
+      if (reg == 0) {
+        base = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0);
+      } else {
+        base = Builder.CreateLoad(IREmitter.Regs[reg]);
+        ReadMap[reg] = true;
+      }
       addr = Builder.CreateAdd(base, idx);
       if (First != 0)
         *First = GetFirstInstruction(*First, base, addr);
     }
-    V = IREmitter.AccessShadowMemory(addr, IsLoad, 32, true);
-    if (First != 0) {
-      *First = GetFirstInstruction(*First, V);
-    }
+    V = IREmitter.AccessShadowMemory(addr, IsLoad, 32, true, First);
     return true;
   } 
 
@@ -363,7 +361,7 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
                                        int width) {
   if (o.isReg() && o2.isImm()) {
     uint32_t r = ConvToDirective(conv32(o.getReg()));
-    if (!NoLocals && OptimizeStack && (r == 29 || r == 30) && width == 32)
+    if (!NoLocals && AggrOptimizeStack && (r == 29 || r == 30) && width == 32)
       return HandleSpilledOperand(o, o2, V, First, IsLoad);
     uint64_t myimm = o2.getImm();
     uint64_t reltype = 0;
@@ -379,15 +377,18 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
           Value *fixedV0 = Builder.CreateAdd(V0, shadow);
           V0 = fixedV0;
         }
-        V1 = Builder.CreateAnd(V0, ConstantInt::get
-                               (Type::getInt32Ty(getGlobalContext()), 
-                                0xFFFF));
+        V1 = V0;
         if (First != 0)
           *First = GetFirstInstruction(*First, V0, V1);
         idx = V1;
         unsigned reg = ConvToDirective(conv32(o.getReg()));
-        Value *base = Builder.CreateLoad(IREmitter.Regs[reg]);
-        ReadMap[reg] = true;
+        Value *base;
+        if (reg == 0) {
+          base = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0);
+        } else {
+          base = Builder.CreateLoad(IREmitter.Regs[reg]);
+          ReadMap[reg] = true;
+        }
         if (!isa<Instruction>(*First)) {
           *First = base;
         }
@@ -402,13 +403,18 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
       idx = ConstantInt::get(Type::getInt32Ty(getGlobalContext()),
                              myimm);
       unsigned reg = ConvToDirective(conv32(o.getReg()));
-      Value *base = Builder.CreateLoad(IREmitter.Regs[reg]);
-      ReadMap[reg] = true;
+      Value *base;
+      if (reg == 0) {
+        base = ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0);
+      } else {
+        base = Builder.CreateLoad(IREmitter.Regs[reg]);
+        ReadMap[reg] = true;
+      }
       addr = Builder.CreateAdd(base, idx);
       if (First != 0)
-        *First = GetFirstInstruction(*First, base);
+        *First = GetFirstInstruction(*First, base, addr);
     }
-    V = IREmitter.AccessShadowMemory(addr, IsLoad, width);
+    V = IREmitter.AccessShadowMemory(addr, IsLoad, width, false, First);
     return true;
   } 
   llvm_unreachable("Invalid Src operand");
@@ -416,7 +422,7 @@ bool OiInstTranslate::HandleMemOperand(const MCOperand &o, const MCOperand &o2,
 
 bool OiInstTranslate::HandleSpilledOperand(const MCOperand &o, const MCOperand &o2,
                                            Value *&V, Value **First, bool IsLoad) {
-  if (NoLocals || !OptimizeStack)
+  if (NoLocals || !(OptimizeStack || AggrOptimizeStack))
     return HandleMemOperand(o, o2, V, First, IsLoad);
   assert(o.isReg() && o2.isImm() && "Invalid spilled operand.");
   unsigned reg = ConvToDirective(conv32(o.getReg()));
@@ -424,7 +430,7 @@ bool OiInstTranslate::HandleSpilledOperand(const MCOperand &o, const MCOperand &
          && "Invalid spilled operand, reg should be SP or FP.");
   uint64_t Idx = o2.getImm();
   if (reg == 30)
-    Idx += 100000;
+    Idx += 1000000;
   uint64_t reltype = 0;
   assert(!RelocReader.ResolveRelocation(Idx, &reltype) && 
          "Invalid spilled operand");
@@ -437,7 +443,7 @@ bool OiInstTranslate::HandleSpilledOperand(const MCOperand &o, const MCOperand &
 bool OiInstTranslate::HandleGetSpilledAddress(const MCOperand &o, const MCOperand &o2,
                                         const MCOperand &dst, Value *&V,
                                         Value **First) {
-  if (!OptimizeStack)
+  if (!(OptimizeStack || AggrOptimizeStack))
     return false;
   if (!o.isReg() || !o2.isImm() || !dst.isReg())
     return false;
@@ -469,6 +475,7 @@ bool OiInstTranslate::HandleGetSpilledAddress(const MCOperand &o, const MCOperan
 bool OiInstTranslate::HandleAluDstOperand(const MCOperand &o, Value *&V) {
   if (o.isReg()) {
     unsigned reg = ConvToDirective(conv32(o.getReg()));
+    assert (reg != 0 && "Cannot write to register 0");
     V = IREmitter.Regs[reg];
     WriteMap[reg] = true;
     return true;
@@ -1325,8 +1332,19 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::SLL:
   case Oi::SLLV:
     {
-      DebugOut << "Handling SLL SLLV\n";
+      DebugOut << "Handling SLL SLLV";
       Value *o0, *o1, *o2, *first = 0;
+      if (MI->getOperand(1).isReg() &&
+          ConvToDirective(conv32(MI->getOperand(1).getReg())) == 0 &&
+          MI->getOperand(2).isImm() &&
+          MI->getOperand(2).getImm() == 0 &&
+          MI->getOperand(0).isReg() &&
+          ConvToDirective(conv32(MI->getOperand(0).getReg())) == 0) {
+        //NOP
+        DebugOut << "... NOP!\n";
+        break;
+      }
+      DebugOut << "\n";
       if (HandleAluSrcOperand(MI->getOperand(1), o1, &first) &&
           HandleAluSrcOperand(MI->getOperand(2), o2, &first) &&
           HandleAluDstOperand(MI->getOperand(0), o0)) {      
@@ -1607,7 +1625,7 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
     if (HandleAluSrcOperand(MI->getOperand(0),src, &first1) &&
         HandleMemOperand(MI->getOperand(1), MI->getOperand(2), dst, &first2, false)) {
       Value *v = Builder.CreateStore(src, dst);
-      first = GetFirstInstruction(first1, src, first2);
+      first = GetFirstInstruction(first1, src, first2, v);
       assert(isa<Instruction>(first) && "Need to rework map logic");
       IREmitter.InsMap[IREmitter.CurAddr] = dyn_cast<Instruction>(first);
     }

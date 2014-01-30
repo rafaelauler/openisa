@@ -421,9 +421,9 @@ static DecodeStatus DecodeMem(MCInst &Inst,
                               uint64_t Insn,
                               uint64_t Address,
                               const void *Decoder) {
-  int Offset = SignExtend32<16>(Insn & 0xffff);
-  unsigned Reg = fieldFromInstruction(Insn, 20, 7);
-  unsigned Base = fieldFromInstruction(Insn, 27, 7);
+  int Offset = SignExtend32<32>(Insn & 0xffffffff);
+  unsigned Reg = fieldFromInstruction(Insn, 44, 7);
+  unsigned Base = fieldFromInstruction(Insn, 51, 7);
 
   Reg = getReg(Decoder, Oi::CPURegsRegClassID, Reg);
   Base = getReg(Decoder, Oi::CPURegsRegClassID, Base);
@@ -443,9 +443,9 @@ static DecodeStatus DecodeFMem(MCInst &Inst,
                                uint64_t Insn,
                                uint64_t Address,
                                const void *Decoder) {
-  int Offset = SignExtend32<16>(Insn & 0xffff);
-  unsigned Reg = fieldFromInstruction(Insn, 20, 7);
-  unsigned Base = fieldFromInstruction(Insn, 27, 7);
+  int Offset = SignExtend32<32>(Insn & 0xffffffff);
+  unsigned Reg = fieldFromInstruction(Insn, 44, 7);
+  unsigned Base = fieldFromInstruction(Insn, 51, 7);
 
   Reg = getReg(Decoder, Oi::FGR64RegClassID, Reg);
   Base = getReg(Decoder, Oi::CPURegsRegClassID, Base);

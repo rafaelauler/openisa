@@ -245,6 +245,9 @@ def simm16      : Operand<i32> {
   let DecoderMethod= "DecodeSimm16";
 }
 
+def simm32      : Operand<i32> {
+}
+
 def simm20      : Operand<i32> {
 }
 
@@ -256,6 +259,10 @@ def uimm16      : Operand<i32> {
   let PrintMethod = "printUnsignedImm";
 }
 
+def uimm32      : Operand<i32> {
+}
+
+
 def OiMemAsmOperand : AsmOperandClass {
   let Name = "Mem";
   let ParserMethod = "parseMemOperand";
@@ -264,7 +271,7 @@ def OiMemAsmOperand : AsmOperandClass {
 // Address operand
 def mem : Operand<i32> {
   let PrintMethod = "printMemOperand";
-  let MIOperandInfo = (ops CPURegs, simm16);
+  let MIOperandInfo = (ops CPURegs, simm32);
   let EncoderMethod = "getMemEncoding";
   let ParserMatchClass = OiMemAsmOperand;
   let OperandType = "OPERAND_MEMORY";
@@ -280,7 +287,7 @@ def mem64 : Operand<i64> {
 
 def mem_ea : Operand<i32> {
   let PrintMethod = "printMemOperandEA";
-  let MIOperandInfo = (ops CPURegs, simm16);
+  let MIOperandInfo = (ops CPURegs, simm32);
   let EncoderMethod = "getMemEncoding";
   let OperandType = "OPERAND_MEMORY";
 }
@@ -325,6 +332,9 @@ def immSExt8  : PatLeaf<(imm), [{ return isInt<8>(N->getSExtValue()); }]>;
 // e.g. addi, andi
 def immSExt16  : PatLeaf<(imm), [{ return isInt<16>(N->getSExtValue()); }]>;
 
+def immSExt32  : PatLeaf<(imm), [{ return isInt<32>(N->getSExtValue()); }]>;
+
+
 // Node immediate fits as 15-bit sign extended on target immediate.
 // e.g. addi, andi
 def immSExt15  : PatLeaf<(imm), [{ return isInt<15>(N->getSExtValue()); }]>;
@@ -339,6 +349,13 @@ def immZExt16  : PatLeaf<(imm), [{
   else
     return (uint64_t)N->getZExtValue() == (unsigned short)N->getZExtValue();
 }], LO16>;
+
+def immZExt32  : PatLeaf<(imm), [{
+  if (N->getValueType(0) == MVT::i32)
+    return (uint32_t)N->getZExtValue() == (unsigned)N->getZExtValue();
+  else
+    return (uint64_t)N->getZExtValue() == (unsigned)N->getZExtValue();
+}]>;
 
 // Immediate can be loaded with LUi (32-bit int with lower 16-bit cleared).
 def immLow16Zero : PatLeaf<(imm), [{
@@ -384,9 +401,9 @@ class ArithLogicR<string opstr, RegisterOperand RO, bit isComm = 0,
 class ArithLogicI<string opstr, Operand Od, RegisterOperand RO,
                   SDPatternOperator imm_type = null_frag,
                   SDPatternOperator OpNode = null_frag> :
-  InstSE<(outs RO:$rt), (ins RO:$rs, Od:$imm16),
-         !strconcat(opstr, "\t$rt, $rs, $imm16"),
-         [(set RO:$rt, (OpNode RO:$rs, imm_type:$imm16))],
+  InstSE<(outs RO:$rt), (ins RO:$rs, Od:$imm32),
+         !strconcat(opstr, "\t$rt, $rs, $imm32"),
+         [(set RO:$rt, (OpNode RO:$rs, imm_type:$imm32))],
          IIAlu, FrmI, opstr> {
   let isReMaterializable = 1;
 }
@@ -432,9 +449,9 @@ class LoadUpper<string opstr, RegisterClass RC, Operand Imm>:
 
 class FMem<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern,
           InstrItinClass itin>: FFI<op, outs, ins, asmstr, pattern> {
-  bits<23> addr;
-  let Inst{33-27} = addr{22-16};
-  let Inst{15-0}  = addr{15-0};
+  bits<39> addr;
+  let Inst{57-51} = addr{38-32};
+  let Inst{31-0}  = addr{31-0};
   let DecoderMethod = "DecodeMem";
 }
 
@@ -551,9 +568,9 @@ class SetCC_R<string opstr, PatFrag cond_op, RegisterClass RC> :
 
 class SetCC_I<string opstr, PatFrag cond_op, Operand Od, PatLeaf imm_type,
               RegisterClass RC>:
-  InstSE<(outs CPURegsOpnd:$rt), (ins RC:$rs, Od:$imm16),
-         !strconcat(opstr, "\t$rt, $rs, $imm16"),
-         [(set CPURegsOpnd:$rt, (cond_op RC:$rs, imm_type:$imm16))],
+  InstSE<(outs CPURegsOpnd:$rt), (ins RC:$rs, Od:$imm32),
+         !strconcat(opstr, "\t$rt, $rs, $imm32"),
+         [(set CPURegsOpnd:$rt, (cond_op RC:$rs, imm_type:$imm32))],
          IIAlu, FrmI, opstr>;
 
 // Jump
@@ -732,7 +749,7 @@ class ReadHardware<RegisterClass CPURegClass, RegisterOperand RO> :
 
 // Ext and Ins
 class ExtBase<string opstr, RegisterOperand RO>:
-  InstSE<(outs RO:$rt), (ins RO:$rs, uimm16:$pos, size_ext:$size),
+  InstSE<(outs RO:$rt), (ins RO:$rs, uimm32:$pos, size_ext:$size),
          !strconcat(opstr, " $rt, $rs, $pos, $size"),
          [(set RO:$rt, (OiExt RO:$rs, imm:$pos, imm:$size))], NoItinerary,
          FrmR> {
@@ -740,7 +757,7 @@ class ExtBase<string opstr, RegisterOperand RO>:
 }
 
 class InsBase<string opstr, RegisterOperand RO>:
-  InstSE<(outs RO:$rt), (ins RO:$rs, uimm16:$pos, size_ins:$size, RO:$src),
+  InstSE<(outs RO:$rt), (ins RO:$rs, uimm32:$pos, size_ins:$size, RO:$src),
          !strconcat(opstr, " $rt, $rs, $pos, $size"),
          [(set RO:$rt, (OiIns RO:$rs, imm:$pos, imm:$size, RO:$src))],
          NoItinerary, FrmR> {
@@ -851,20 +868,20 @@ let isPseudo = 1 in {
 //===----------------------------------------------------------------------===//
 
 /// Arithmetic Instructions (ALU Immediate)
-def ADDiu : MMRel, ArithLogicI<"addiu", simm16, CPURegsOpnd, immSExt16, add>,
+def ADDiu : MMRel, ArithLogicI<"addiu", simm32, CPURegsOpnd, immSExt32, add>,
             ADDI_FM<0x9>, IsAsCheapAsAMove;
-def ADDi  : MMRel, ArithLogicI<"addi", simm16, CPURegsOpnd>, ADDI_FM<0x8>;
-def SLTi  : MMRel, SetCC_I<"slti", setlt, simm16, immSExt16, CPURegs>,
+def ADDi  : MMRel, ArithLogicI<"addi", simm32, CPURegsOpnd>, ADDI_FM<0x8>;
+def SLTi  : MMRel, SetCC_I<"slti", setlt, simm32, immSExt32, CPURegs>,
             SLTI_FM<0xa>;
-def SLTiu : MMRel, SetCC_I<"sltiu", setult, simm16, immSExt16, CPURegs>,
+def SLTiu : MMRel, SetCC_I<"sltiu", setult, simm32, immSExt32, CPURegs>,
             SLTI_FM<0xb>;
-def ANDi  : MMRel, ArithLogicI<"andi", uimm16, CPURegsOpnd, immZExt16, and>,
+def ANDi  : MMRel, ArithLogicI<"andi", uimm32, CPURegsOpnd, immZExt32, and>,
             ADDI_FM<0xc>;
-def ORi   : MMRel, ArithLogicI<"ori", uimm16, CPURegsOpnd, immZExt16, or>,
+def ORi   : MMRel, ArithLogicI<"ori", uimm32, CPURegsOpnd, immZExt32, or>,
             ADDI_FM<0xd>;
-def XORi  : MMRel, ArithLogicI<"xori", uimm16, CPURegsOpnd, immZExt16, xor>,
+def XORi  : MMRel, ArithLogicI<"xori", uimm32, CPURegsOpnd, immZExt32, xor>,
             ADDI_FM<0xe>;
-def LUi   : MMRel, LoadUpper<"lui", CPURegs, uimm16>, LUI_FM;
+def LUi   : MMRel, LoadUpper<"lui", CPURegs, uimm32>, LUI_FM;
 
 /// Arithmetic Instructions (3-Operand, R-Type)
 def ADDu  : MMRel, ArithLogicR<"addu", CPURegsOpnd, 1, IIAlu, add>,
@@ -1050,18 +1067,18 @@ def INS : InsBase<"ins", CPURegsOpnd>, EXT_FM<4>;
 
 /// Move Control Registers From/To CPU Registers
 def MFC0_3OP : MFC3OP<(outs CPURegsOpnd:$rt),
-                      (ins CPURegsOpnd:$rd, uimm16:$sel),
+                      (ins CPURegsOpnd:$rd, uimm32:$sel),
                       "mfc0\t$rt, $rd, $sel">, MFC3OP_FM<0x10, 0>;
 
-def MTC0_3OP : MFC3OP<(outs CPURegsOpnd:$rd, uimm16:$sel),
+def MTC0_3OP : MFC3OP<(outs CPURegsOpnd:$rd, uimm32:$sel),
                       (ins CPURegsOpnd:$rt),
                       "mtc0\t$rt, $rd, $sel">, MFC3OP_FM<0x10, 4>;
 
 def MFC2_3OP : MFC3OP<(outs CPURegsOpnd:$rt),
-                      (ins CPURegsOpnd:$rd, uimm16:$sel),
+                      (ins CPURegsOpnd:$rd, uimm32:$sel),
                       "mfc2\t$rt, $rd, $sel">, MFC3OP_FM<0x12, 0>;
 
-def MTC2_3OP : MFC3OP<(outs CPURegsOpnd:$rd, uimm16:$sel),
+def MTC2_3OP : MFC3OP<(outs CPURegsOpnd:$rd, uimm32:$sel),
                       (ins CPURegsOpnd:$rt),
                       "mtc2\t$rt, $rd, $sel">, MFC3OP_FM<0x12, 4>;
 
@@ -1076,11 +1093,11 @@ def MTC2_3OP : MFC3OP<(outs CPURegsOpnd:$rd, uimm16:$sel),
 //      Requires<[NotOi64]>;
 def : InstAlias<"bal $offset", (BGEZAL RA, brtarget:$offset), 1>;
 def : InstAlias<"addu $rs, $rt, $imm",
-                (ADDiu CPURegsOpnd:$rs, CPURegsOpnd:$rt, simm16:$imm), 0>;
+                (ADDiu CPURegsOpnd:$rs, CPURegsOpnd:$rt, simm32:$imm), 0>;
 def : InstAlias<"add $rs, $rt, $imm",
-                (ADDi CPURegsOpnd:$rs, CPURegsOpnd:$rt, simm16:$imm), 0>;
+                (ADDi CPURegsOpnd:$rs, CPURegsOpnd:$rt, simm32:$imm), 0>;
 def : InstAlias<"and $rs, $rt, $imm",
-                (ANDi CPURegsOpnd:$rs, CPURegsOpnd:$rt, simm16:$imm), 0>;
+                (ANDi CPURegsOpnd:$rs, CPURegsOpnd:$rt, simm32:$imm), 0>;
 def : InstAlias<"j $rs", (JR CPURegs:$rs), 0>,
       Requires<[NotOi64]>;
 def : InstAlias<"jalr $rs", (JALR RA, CPURegs:$rs)>, Requires<[NotOi64]>;
@@ -1094,12 +1111,12 @@ def : InstAlias<"neg $rt, $rs",
 def : InstAlias<"negu $rt, $rs",
                 (SUBu CPURegsOpnd:$rt, ZERO, CPURegsOpnd:$rs), 1>;
 def : InstAlias<"slt $rs, $rt, $imm",
-                (SLTi CPURegsOpnd:$rs, CPURegs:$rt, simm16:$imm), 0>;
+                (SLTi CPURegsOpnd:$rs, CPURegs:$rt, simm32:$imm), 0>;
 def : InstAlias<"xor $rs, $rt, $imm",
-                (XORi CPURegsOpnd:$rs, CPURegsOpnd:$rt, uimm16:$imm), 1>,
+                (XORi CPURegsOpnd:$rs, CPURegsOpnd:$rt, uimm32:$imm), 1>,
       Requires<[NotOi64]>;
 def : InstAlias<"or $rs, $rt, $imm",
-                (ORi CPURegsOpnd:$rs, CPURegsOpnd:$rt, uimm16:$imm), 1>,
+                (ORi CPURegsOpnd:$rs, CPURegsOpnd:$rt, uimm32:$imm), 1>,
                  Requires<[NotOi64]>;
 def : InstAlias<"nop", (SLL ZERO, ZERO, 0), 1>;
 def : InstAlias<"mfc0 $rt, $rd",
@@ -1144,16 +1161,16 @@ class StoreRegImmPat<Instruction StoreInst, ValueType ValTy> :
   OiPat<(store ValTy:$v, addrRegImm:$a), (StoreInst ValTy:$v, addrRegImm:$a)>;
 
 // Small immediates
-def : OiPat<(i32 immSExt16:$in),
+def : OiPat<(i32 immSExt32:$in),
               (ADDiu ZERO, imm:$in)>;
-def : OiPat<(i32 immZExt16:$in),
+def : OiPat<(i32 immZExt32:$in),
               (ORi ZERO, imm:$in)>;
 def : OiPat<(i32 immLow16Zero:$in),
               (LUi (HI16 imm:$in))>;
 
 // Arbitrary immediates
-def : OiPat<(i32 imm:$imm),
-          (ORi (LUi (HI16 imm:$imm)), (LO16 imm:$imm))>;
+//def : OiPat<(i32 imm:$imm),
+//          (ORi (LUi (HI16 imm:$imm)), (LO16 imm:$imm))>;
 
 // Carry OiPatterns
 def : OiPat<(subc CPURegs:$lhs, CPURegs:$rhs),
@@ -1161,7 +1178,7 @@ def : OiPat<(subc CPURegs:$lhs, CPURegs:$rhs),
 let Predicates = [HasStdEnc, NotDSP] in {
   def : OiPat<(addc CPURegs:$lhs, CPURegs:$rhs),
                 (ADDu CPURegs:$lhs, CPURegs:$rhs)>;
-  def : OiPat<(addc  CPURegs:$src, immSExt16:$imm),
+  def : OiPat<(addc  CPURegs:$src, immSExt32:$imm),
                 (ADDiu CPURegs:$src, imm:$imm)>;
 }
 
@@ -1185,6 +1202,9 @@ def : OiPat<(OiHi tjumptable:$in), (LUi tjumptable:$in)>;
 def : OiPat<(OiHi tconstpool:$in), (LUi tconstpool:$in)>;
 def : OiPat<(OiHi tglobaltlsaddr:$in), (LUi tglobaltlsaddr:$in)>;
 def : OiPat<(OiHi texternalsym:$in), (LUi texternalsym:$in)>;
+
+def : OiPat<(OiHi CPURegs:$in), (ADDu ZERO, CPURegs:$in)>;
+
 
 def : OiPat<(OiLo tglobaladdr:$in), (ADDiu ZERO, tglobaladdr:$in)>;
 def : OiPat<(OiLo tblockaddress:$in), (ADDiu ZERO, tblockaddress:$in)>;
@@ -1307,10 +1327,10 @@ multiclass SetgePats<RegisterClass RC, Instruction SLTOp, Instruction SLTuOp> {
 
 multiclass SetgeImmPats<RegisterClass RC, Instruction SLTiOp,
                         Instruction SLTiuOp> {
-  def : OiPat<(setge RC:$lhs, immSExt16:$rhs),
-                (XORi (SLTiOp RC:$lhs, immSExt16:$rhs), 1)>;
-  def : OiPat<(setuge RC:$lhs, immSExt16:$rhs),
-                (XORi (SLTiuOp RC:$lhs, immSExt16:$rhs), 1)>;
+  def : OiPat<(setge RC:$lhs, immSExt32:$rhs),
+                (XORi (SLTiOp RC:$lhs, immSExt32:$rhs), 1)>;
+  def : OiPat<(setuge RC:$lhs, immSExt32:$rhs),
+                (XORi (SLTiuOp RC:$lhs, immSExt32:$rhs), 1)>;
 }
 
 defm : SeteqPats<CPURegs, SLTiu, XOR, SLTu, ZERO>;

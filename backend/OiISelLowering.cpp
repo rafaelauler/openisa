@@ -97,10 +97,15 @@ static SDValue getTargetNode(SDValue Op, SelectionDAG &DAG, unsigned Flag) {
 static SDValue getAddrNonPIC(SDValue Op, SelectionDAG &DAG) {
   DebugLoc DL = Op.getDebugLoc();
   EVT Ty = Op.getValueType();
-  SDValue Hi = getTargetNode(Op, DAG, OiII::MO_ABS_HI);
   SDValue Lo = getTargetNode(Op, DAG, OiII::MO_ABS_LO);
-  return DAG.getNode(ISD::ADD, DL, Ty,
-                     DAG.getNode(OiISD::Hi, DL, Ty, Hi),
+  //  SDValue Hi = getTargetNode(Op, DAG, OiII::MO_ABS_HI);
+  SDValue ZeroReg = DAG.getRegister(Oi::ZERO, Ty);
+  //  return DAG.getNode(ISD::ADD, DL, Ty,
+  //                     DAG.getNode(OiISD::Lo, DL, Ty, Hi),
+  //                     DAG.getNode(OiISD::Lo, DL, Ty, Lo));
+  //  return DAG.getNode(OiISD::Lo, DL, Ty, Lo);
+  //  return getTargetNode(Op, DAG, 0);
+  return DAG.getNode(ISD::ADD, DL, Ty, DAG.getNode(OiISD::Hi, DL, Ty, ZeroReg),
                      DAG.getNode(OiISD::Lo, DL, Ty, Lo));
 }
 

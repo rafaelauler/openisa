@@ -112,9 +112,9 @@ void OiSERegisterInfo::eliminateFI(MachineBasicBlock::iterator II,
 
   DEBUG(errs() << "Offset     : " << Offset << "\n" << "<--------->\n");
 
-  // If MI is not a debug value, make sure Offset fits in the 16-bit immediate
+  // If MI is not a debug value, make sure Offset fits in the 32-bit immediate
   // field.
-  if (!MI.isDebugValue() && !isInt<16>(Offset)) {
+  if (!MI.isDebugValue() && !isInt<32>(Offset)) {
     MachineBasicBlock &MBB = *MI.getParent();
     DebugLoc DL = II->getDebugLoc();
     unsigned ADDu = Subtarget.isABI_N64() ? Oi::DADDu : Oi::ADDu;

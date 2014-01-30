@@ -82,17 +82,17 @@ public:
 
    // getMachineOpValue - Return binary encoding of operand. If the machin
    // operand requires relocation, record the relocation and return zero.
-  unsigned getMachineOpValue(const MCInst &MI,const MCOperand &MO,
+  uint64_t getMachineOpValue(const MCInst &MI,const MCOperand &MO,
                              SmallVectorImpl<MCFixup> &Fixups) const;
 
-  unsigned getMemEncoding(const MCInst &MI, unsigned OpNo,
+  uint64_t getMemEncoding(const MCInst &MI, unsigned OpNo,
                           SmallVectorImpl<MCFixup> &Fixups) const;
   unsigned getSizeExtEncoding(const MCInst &MI, unsigned OpNo,
                               SmallVectorImpl<MCFixup> &Fixups) const;
   unsigned getSizeInsEncoding(const MCInst &MI, unsigned OpNo,
                               SmallVectorImpl<MCFixup> &Fixups) const;
 
-  unsigned
+  uint64_t
   getExprOpValue(const MCExpr *Expr,SmallVectorImpl<MCFixup> &Fixups) const;
 
 }; // class OiMCCodeEmitter
@@ -208,7 +208,7 @@ getJumpTargetOpValue(const MCInst &MI, unsigned OpNo,
   return 0;
 }
 
-unsigned OiMCCodeEmitter::
+uint64_t OiMCCodeEmitter::
 getExprOpValue(const MCExpr *Expr,SmallVectorImpl<MCFixup> &Fixups) const {
   int64_t Res;
 
@@ -221,7 +221,7 @@ getExprOpValue(const MCExpr *Expr,SmallVectorImpl<MCFixup> &Fixups) const {
   }
 
   if (Kind == MCExpr::Binary) {
-    unsigned Res = getExprOpValue(cast<MCBinaryExpr>(Expr)->getLHS(), Fixups);
+    uint64_t Res = getExprOpValue(cast<MCBinaryExpr>(Expr)->getLHS(), Fixups);
     Res += getExprOpValue(cast<MCBinaryExpr>(Expr)->getRHS(), Fixups);
     return Res;
   }
@@ -313,7 +313,7 @@ getExprOpValue(const MCExpr *Expr,SmallVectorImpl<MCFixup> &Fixups) const {
 
 /// getMachineOpValue - Return binary encoding of operand. If the machine
 /// operand requires relocation, record the relocation and return zero.
-unsigned OiMCCodeEmitter::
+uint64_t OiMCCodeEmitter::
 getMachineOpValue(const MCInst &MI, const MCOperand &MO,
                   SmallVectorImpl<MCFixup> &Fixups) const {
   if (MO.isReg()) {
@@ -321,9 +321,9 @@ getMachineOpValue(const MCInst &MI, const MCOperand &MO,
     unsigned RegNo = Ctx.getRegisterInfo().getEncodingValue(Reg);
     return RegNo;
   } else if (MO.isImm()) {
-    return static_cast<unsigned>(MO.getImm());
+    return static_cast<uint64_t>(MO.getImm());
   } else if (MO.isFPImm()) {
-    return static_cast<unsigned>(APFloat(MO.getFPImm())
+    return static_cast<uint64_t>(APFloat(MO.getFPImm())
         .bitcastToAPInt().getHiBits(32).getLimitedValue());
   }
   // MO must be an Expr.
@@ -333,15 +333,15 @@ getMachineOpValue(const MCInst &MI, const MCOperand &MO,
 
 /// getMemEncoding - Return binary encoding of memory related operand.
 /// If the offset operand requires relocation, record the relocation.
-unsigned
+uint64_t
 OiMCCodeEmitter::getMemEncoding(const MCInst &MI, unsigned OpNo,
                                   SmallVectorImpl<MCFixup> &Fixups) const {
-  // Base register is encoded in bits 20-16, offset is encoded in bits 15-0.
+  // Base register is encoded in bits 38-32, offset is encoded in bits 31-0.
   assert(MI.getOperand(OpNo).isReg());
-  unsigned RegBits = getMachineOpValue(MI, MI.getOperand(OpNo),Fixups) << 16;
-  unsigned OffBits = getMachineOpValue(MI, MI.getOperand(OpNo+1), Fixups);
+  uint64_t RegBits = getMachineOpValue(MI, MI.getOperand(OpNo),Fixups) << 32;
+  uint64_t OffBits = getMachineOpValue(MI, MI.getOperand(OpNo+1), Fixups);
 
-  return (OffBits & 0xFFFF) | RegBits;
+  return (OffBits & 0xFFFFFFFFULL) | RegBits;
 }
 
 unsigned

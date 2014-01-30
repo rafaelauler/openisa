@@ -29,7 +29,10 @@ cl::opt<bool>
 OneRegion("oneregion", cl::desc("Consider the whole program to be one big function"));
 
 cl::opt<bool>
-OptimizeStack("optstack", cl::desc("Optimize stack vars by considering them as locals [experimental]"));
+OptimizeStack("optstack", cl::desc("Optimize stack vars by considering some accesses as locals [experimental]"));
+
+cl::opt<bool>
+AggrOptimizeStack("aoptstack", cl::desc("Aggressively optimize stack vars by considering all accesses as locals [experimental]"));
 
 cl::opt<bool>
 NoShadow("noshadow", cl::desc("Avoid adding shadowimage offset to every memory access"));
@@ -201,7 +204,10 @@ void OiIREmitter::BuildRegisterFile() {
   // LO 256
   // HI 257
   // FPCondCode 258
-  for (int I = 0; I < 259; ++I) {
+  for (int I = 1; I < 259; ++I) {
+    Twine T("reg");
+    T = T.concat(Twine(I));
+    std::string RegName = T.str();
     Constant *ci;
     Type *myty;
     if (I < 128 || I > 255) {
@@ -213,7 +219,7 @@ void OiIREmitter::BuildRegisterFile() {
     }
     GlobalVariable *gv = new GlobalVariable(*TheModule, myty, false, 
                                             GlobalValue::ExternalLinkage,
-                                            ci, "reg");
+                                            ci, RegName);
     GlobalRegs[I] = gv;
   }
   for (int I = 0; I < 64; ++I) {
@@ -235,21 +241,24 @@ void OiIREmitter::BuildLocalRegisterFile() {
   // HI 257
   // FPCondCode 258
   if (NoLocals) {
-    for (int I = 0; I < 259; ++I) {
+    for (int I = 1; I < 259; ++I) {
       Regs[I] = GlobalRegs[I];
     }    
     for (int I = 0; I < 64; ++I) {
       DblRegs[I] = DblGlobalRegs[I];
     }    
   } else {
-    for (int I = 0; I < 259; ++I) {
+    for (int I = 1; I < 259; ++I) {
+      Twine T("lreg");
+      T = T.concat(Twine(I));
+      std::string RegName = T.str();
       Type *myty;
       if (I < 128 || I > 255) {
         myty = ty;
       } else {
         myty = fltTy;
       }
-      AllocaInst *inst = Builder.CreateAlloca(myty, 0, "lreg");
+      AllocaInst *inst = Builder.CreateAlloca(myty, 0, RegName);
       Regs[I] = inst;
       Builder.CreateStore(Builder.CreateLoad(GlobalRegs[I]), inst);
       WriteMap[I] = false;
@@ -395,7 +404,7 @@ void OiIREmitter::HandleFunctionEntryPoint(Value **First) {
   bool WroteFirst = false;
   if (NoLocals)
     return;
-  for (int I = 0; I < 67; ++I) {
+  for (int I = 1; I < 259; ++I) {
     Value *st = Builder.CreateStore(Builder.CreateLoad(GlobalRegs[I]), Regs[I]);
     if (!WroteFirst) {
       WroteFirst = true;
@@ -403,7 +412,7 @@ void OiIREmitter::HandleFunctionEntryPoint(Value **First) {
         *First = GetFirstInstruction(*First, st); 
     }
   }
-  for (int I = 0; I < 16; ++I) {
+  for (int I = 0; I < 64; ++I) {
     Value *st = Builder.CreateStore(Builder.CreateLoad(DblGlobalRegs[I]), DblRegs[I]);
   }
 }
@@ -412,7 +421,7 @@ void OiIREmitter::HandleFunctionExitPoint(Value **First) {
   bool WroteFirst = false;
   if (NoLocals)
     return;
-  for (int I = 0; I < 67; ++I) {
+  for (int I = 1; I < 259; ++I) {
     Value *st = Builder.CreateStore(Builder.CreateLoad(Regs[I]), GlobalRegs[I]);
     if (!WroteFirst) {
       WroteFirst = true;
@@ -420,7 +429,7 @@ void OiIREmitter::HandleFunctionExitPoint(Value **First) {
         *First = GetFirstInstruction(*First,st); 
     }    
   }
-  for (int I = 0; I < 16; ++I) {
+  for (int I = 0; I < 64; ++I) {
     Value *st = Builder.CreateStore(Builder.CreateLoad(DblRegs[I]), DblGlobalRegs[I]);
   }
 }
@@ -455,7 +464,7 @@ void OiIREmitter::FixBBTerminators() {
 // Note: CleanRegs() leaves a few remaining "Load GlobalRegXX" after the
 // cleanup, but a simple SSA dead code elimination should handle them.
 void OiIREmitter::CleanRegs() {
-  for (int I = 0; I < 67; ++I) {
+  for (int I = 1; I < 259; ++I) {
     if (!(WriteMap[I] || ReadMap[I])) {
       Instruction *inst = dyn_cast<Instruction>(Regs[I]);
       if (inst) {
@@ -482,7 +491,7 @@ void OiIREmitter::CleanRegs() {
       }
     }
   }
-  for (int I = 0; I < 16; ++I) {
+  for (int I = 0; I < 64; ++I) {
     if (!(DblWriteMap[I] || DblReadMap[I])) {
       Instruction *inst = dyn_cast<Instruction>(DblRegs[I]);
       if (inst) {
@@ -697,7 +706,8 @@ Value *OiIREmitter::AccessSpillMemory(unsigned Idx, bool IsLoad) {
   return ptr;
 }
 
-Value *OiIREmitter::AccessShadowMemory(Value *Idx, bool IsLoad, int width, bool isFloat) {
+Value *OiIREmitter::AccessShadowMemory(Value *Idx, bool IsLoad, int width, bool isFloat,
+                                       Value **First) {
   Type *targetType = 0;
   switch (width) {
   case 8:
@@ -720,17 +730,25 @@ Value *OiIREmitter::AccessShadowMemory(Value *Idx, bool IsLoad, int width, bool 
     llvm_unreachable("Invalid memory access width");
   }
   Value *ptr = 0;
-  if (NoShadow) 
+  if (NoShadow) {
     ptr = Builder.CreateIntToPtr(Idx, targetType);
-  else {
+    if (First)
+      *First = GetFirstInstruction(*First, ptr);
+  } else {
     SmallVector<Value*,4> Idxs;
     Idxs.push_back(ConstantInt::get(Type::getInt32Ty(getGlobalContext()), 0U));
     Idxs.push_back(Idx);
     Value *gep = Builder.CreateGEP(ShadowImageValue, Idxs);
     ptr = Builder.CreateBitCast(gep, targetType);
+    if (First)
+      *First = GetFirstInstruction(*First, gep, ptr);
   }
-  if (IsLoad)
-    return Builder.CreateLoad(ptr);
+  if (IsLoad) {
+    Value *load = Builder.CreateLoad(ptr);
+    if (First)
+      *First = GetFirstInstruction(*First, load);
+    return load;
+  }
   return ptr;
 }
 

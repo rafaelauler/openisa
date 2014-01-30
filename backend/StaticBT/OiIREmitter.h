@@ -28,6 +28,7 @@ namespace llvm {
 extern cl::opt<bool> NoLocals;
 extern cl::opt<bool> OneRegion;
 extern cl::opt<bool> OptimizeStack;
+extern cl::opt<bool> AggrOptimizeStack;
 extern cl::opt<bool> NoShadow;
 
 namespace object{
@@ -96,7 +97,8 @@ public:
   bool BuildReturnTablesOneRegion();
   bool HandleLocalCall(uint64_t Addr, Value *&V, Value **First = 0);
   Value *AccessSpillMemory(unsigned Idx, bool IsLoad);
-  Value *AccessShadowMemory(Value *Idx, bool IsLoad, int width = 32, bool isFloat = false);
+  Value *AccessShadowMemory(Value *Idx, bool IsLoad, int width = 32, bool isFloat = false,
+                            Value **First = 0);
   Value *AccessJumpTable(Value *Idx, Value **First = 0);
   void InsertStartupCode(Function *F);
   BasicBlock* CreateBB(uint64_t Addr = 0, Function *F = 0);
