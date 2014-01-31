@@ -442,12 +442,7 @@ void OiIREmitter::FixBBTerminators() {
     if (!I->getTerminator()) {
       if (!I->empty()) {
         Builder.SetInsertPoint(&*I);
-        Instruction *Inst = &I->back();
-        if (isa<CallInst>(Inst)) {
-          CallInst *CInst = dyn_cast<CallInst>(Inst);
-          if (CInst->getCalledFunction()->getName() == "exit")
-            Builder.CreateRetVoid();
-        }
+        Builder.CreateUnreachable();
       } else {
         // Empty basic block
         BBMap[I->getName()] = 0;
