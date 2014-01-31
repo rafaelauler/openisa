@@ -662,6 +662,10 @@ bool OiInstTranslate::HandleCallTarget(const MCOperand &o, Value *&V, Value **Fi
           bool PtrTypes[] = {false, false};
           return Syscalls.HandleGenericInt(V, "tolower", 1, 1, PtrTypes, First);
         }
+        if (val == "putchar") {
+          bool PtrTypes[] = {false, false};
+          return Syscalls.HandleGenericInt(V, "putchar", 1, 1, PtrTypes, First);
+        }
 
       }
       uint64_t targetaddr;
