@@ -404,6 +404,8 @@ static void DisassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
 #endif
         } else {
           errs() << ToolName << ": warning: invalid instruction encoding\n";
+          DumpBytes(StringRef(Bytes.data() + Index, Size));
+          exit(1);
           if (Size == 0)
             Size = 1; // skip illegible bytes
         }
