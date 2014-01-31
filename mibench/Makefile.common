@@ -48,13 +48,16 @@ $(BENCHNAME)-oi-x86: $(BENCHNAME)-oi.bc
 
 $(BENCHNAME)-oi.bc: ${FILE1_bcs}
 	$(LLVMLINK) ${FILE1_bcs} -o $(BENCHNAME).bc 
+	$(OPT) $(BENCHNAME).bc -o $(BENCHNAME).bc
 	$(LLVMLLC) -load=../../../backend/OIBackend.so -march=oiel $(BENCHNAME).bc -o $(BENCHNAME).s
 	../../../backend/oife -assemble -filetype=obj -o=$(BENCHNAME)-oi.o $(BENCHNAME).s
 	../../../backend/oisbt $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME)-oi.o -o=$(BENCHNAME)-oi.bc
 	$(OPT) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi.bc
 
+
 $(BENCHNAME2)-oi.bc: ${FILE2_bcs}
 	$(LLVMLINK) ${FILE2_bcs} -o $(BENCHNAME2).bc 
+	$(OPT) $(BENCHNAME2).bc -o $(BENCHNAME2).bc
 	$(LLVMLLC) -load=../../../backend/OIBackend.so -march=oiel $(BENCHNAME2).bc -o $(BENCHNAME2).s
 	../../../backend/oife -assemble -filetype=obj -o=$(BENCHNAME2)-oi.o $(BENCHNAME2).s
 	../../../backend/oisbt $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME2)-oi.o -o=$(BENCHNAME2)-oi.bc

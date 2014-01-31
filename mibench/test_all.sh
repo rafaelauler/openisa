@@ -4,7 +4,7 @@ GSED=sed
 GNUTIME=/usr/bin/time
 LOGFILE=$(pwd)/log.txt
 # Number of times each binary execution is measured
-NUMTESTS=1
+NUMTESTS=3
 VERBOSE=false
 
 echo Tests started. Today is $(date). | tee -a $LOGFILE
@@ -100,16 +100,21 @@ for index in ${!DIRS[*]}; do
     fi
     cd $dir
     for opts in "-oneregion" "-nolocals" "-debug-ir"; do
-        if [ $opts == "-debug-ir" ]; then
-            if [ $dir == "automotive/susan" ]; then
-                echo Skipping $opts for $dir
-                continue
-            fi
-            if [ $dir == "security/rijndael" ]; then
+        if [ "$opts" == "-debug-ir" ]; then
+            if [ $dir == "automotive/susan" ] ||
+                [ $dir == "security/rijndael" ] ||
+                [ $dir == "automotive/basicmath" ]; then
                 echo Skipping $opts for $dir
                 continue
             fi
         fi
+#        if [ "$opts" == "-optstack" ]; then
+#            if [ $dir == "automotive/susan" ] ||
+#                [ $dir == "automotive/basicmath" ]; then
+#                echo Skipping $opts for $dir
+#                continue
+#            fi            
+#        fi
         myopts=$opts" -optimize"
         make clean &> /dev/null
         echo Building $dir with mode $myopts ...
@@ -124,6 +129,7 @@ for index in ${!DIRS[*]}; do
             echo Build failed. Program: $dir Options: $myopts | tee -a $LOGFILE
             if [ x"$VERBOSE" == x"false" ]; then
                 echo Running make verbose:
+                make clean &> /dev/null
                 SBTOPT="$myopts" make       
             fi
             cd $ROOT
