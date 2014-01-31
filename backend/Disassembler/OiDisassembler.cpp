@@ -371,7 +371,7 @@ static DecodeStatus DecodeCPURegsRegisterClass(MCInst &Inst,
                                                unsigned RegNo,
                                                uint64_t Address,
                                                const void *Decoder) {
-  if (RegNo > 31)
+  if (RegNo > 127)
     return MCDisassembler::Fail;
   unsigned Reg = getReg(Decoder, Oi::CPURegsRegClassID, RegNo);
   Inst.addOperand(MCOperand::CreateReg(Reg));
@@ -401,7 +401,7 @@ static DecodeStatus DecodeFGR32RegisterClass(MCInst &Inst,
                                              unsigned RegNo,
                                              uint64_t Address,
                                              const void *Decoder) {
-  if (RegNo > 31)
+  if (RegNo > 127)
     return MCDisassembler::Fail;
 
   unsigned Reg = getReg(Decoder, Oi::FGR32RegClassID, RegNo);

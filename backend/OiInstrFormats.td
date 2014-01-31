@@ -277,7 +277,7 @@ class FJ<bits<6> op>
 
   bits<64> Inst;
 
-  let Inst{39-34} = op;
+  let Inst{63-58} = op;
   let Inst{33-0}  = target;
 }
 
@@ -292,7 +292,7 @@ class MFC3OP_FM<bits<6> op, bits<5> mfmt>
 
   bits<64> Inst;
 
-  let Inst{39-34} = op;
+  let Inst{63-58} = op;
   let Inst{33-32} = 0;
   let Inst{31-27} = mfmt;
   let Inst{26-20} = rt;
@@ -308,7 +308,7 @@ class ADD_FM<bits<6> op, bits<8> funct> : StdArch {
 
   bits<64> Inst;
 
-  let Inst{39-34} = op;
+  let Inst{63-58} = op;
   let Inst{33-27} = rs;
   let Inst{26-20} = rt;
   let Inst{19-13} = rd;
@@ -336,7 +336,7 @@ class SRA_FM<bits<8> funct, bit rotate> : StdArch {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0;
+  let Inst{63-58} = 0;
   let Inst{33-28} = 0;
   let Inst{27}    = rotate;
   let Inst{26-20} = rt;
@@ -352,7 +352,7 @@ class SRLV_FM<bits<8> funct, bit rotate> : StdArch {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0;
+  let Inst{63-58} = 0;
   let Inst{33-27} = rs;
   let Inst{26-20} = rt;
   let Inst{19-13} = rd;
@@ -368,7 +368,7 @@ class BEQ_FM<bits<6> op> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = op;
+  let Inst{63-58} = op;
   let Inst{33-27} = rs;
   let Inst{26-20} = rt;
   let Inst{15-0}  = offset;
@@ -380,7 +380,7 @@ class BGEZ_FM<bits<6> op, bits<5> funct> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = op;
+  let Inst{63-58} = op;
   let Inst{33-27} = rs;
   let Inst{20-16} = funct;
   let Inst{15-0}  = offset;
@@ -391,7 +391,7 @@ class B_FM {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 4;
+  let Inst{63-58} = 4;
   let Inst{33-27} = 0;
   let Inst{26-20} = 0;
   let Inst{15-0}  = offset;
@@ -415,7 +415,7 @@ class MFLO_FM<bits<8> funct> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0;
+  let Inst{63-58} = 0;
   let Inst{33-20} = 0;
   let Inst{19-13} = rd;
   let Inst{12-8}  = 0;
@@ -427,7 +427,7 @@ class MTLO_FM<bits<8> funct> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0;
+  let Inst{63-58} = 0;
   let Inst{33-27} = rs;
   let Inst{26-8}  = 0;
   let Inst{7-0}   = funct;
@@ -439,7 +439,7 @@ class SEB_FM<bits<5> funct, bits<8> funct2> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0x1f;
+  let Inst{63-58} = 0x1f;
   let Inst{33-27} = 0;
   let Inst{26-20} = rt;
   let Inst{19-13} = rd;
@@ -454,7 +454,7 @@ class CLO_FM<bits<8> funct> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0x1c;
+  let Inst{63-58} = 0x1c;
   let Inst{33-27} = rs;
   let Inst{26-20} = rt;
   let Inst{19-13} = rd;
@@ -469,7 +469,7 @@ class LUI_FM {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0xf;
+  let Inst{63-58} = 0xf;
   let Inst{33-27} = 0;
   let Inst{26-20} = rt;
   let Inst{15-0}  = imm16;
@@ -481,7 +481,7 @@ class JALR_FM {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0;
+  let Inst{63-58} = 0;
   let Inst{33-27} = rs;
   let Inst{26-20} = 0;
   let Inst{19-13} = rd;
@@ -494,7 +494,7 @@ class BAL_FM {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 1;
+  let Inst{63-58} = 1;
   let Inst{33-27} = 0;
   let Inst{26-20} = 0x11;
   let Inst{15-0}  = offset;
@@ -506,7 +506,7 @@ class BGEZAL_FM<bits<8> funct> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 1;
+  let Inst{63-58} = 1;
   let Inst{33-27} = rs;
   let Inst{26-19} = funct;
   let Inst{15-0}  = offset;
@@ -517,7 +517,7 @@ class SYNC_FM {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0;
+  let Inst{63-58} = 0;
   let Inst{12-8}  = stype;
   let Inst{7-0}   = 0xf;
 }
@@ -528,7 +528,7 @@ class MULT_FM<bits<6> op, bits<8> funct> : StdArch {
 
   bits<64> Inst;
 
-  let Inst{39-34} = op;
+  let Inst{63-58} = op;
   let Inst{33-27} = rs;
   let Inst{26-20} = rt;
   let Inst{19-8}  = 0;
@@ -543,7 +543,7 @@ class EXT_FM<bits<8> funct> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0x1f;
+  let Inst{63-58} = 0x1f;
   let Inst{33-27} = rs;
   let Inst{26-20} = rt;
   let Inst{19-13} = size;
@@ -557,7 +557,7 @@ class RDHWR_FM {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0x1f;
+  let Inst{63-58} = 0x1f;
   let Inst{33-27} = 0;
   let Inst{26-20} = rt;
   let Inst{19-13} = rd;
@@ -603,7 +603,7 @@ class ADDS_FM<bits<6> funct, bits<7> fmt> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0x11;
+  let Inst{63-58} = 0x11;
   let Inst{33-27} = fmt;
   let Inst{26-20} = ft;
   let Inst{19-13} = fs;
@@ -617,7 +617,7 @@ class ABSS_FM<bits<6> funct, bits<7> fmt> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0x11;
+  let Inst{63-58} = 0x11;
   let Inst{33-27} = fmt;
   let Inst{26-20} = 0;
   let Inst{19-13} = fs;
@@ -631,7 +631,7 @@ class MFC1_FM<bits<7> funct> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0x11;
+  let Inst{63-58} = 0x11;
   let Inst{33-27} = funct;
   let Inst{26-20} = rt;
   let Inst{19-13} = fs;
@@ -658,7 +658,7 @@ class MADDS_FM<bits<3> funct, bits<3> fmt> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0x13;
+  let Inst{63-58} = 0x13;
   let Inst{33-27} = fr;
   let Inst{26-20} = ft;
   let Inst{19-13} = fs;
@@ -674,7 +674,7 @@ class LWXC1_FM<bits<6> funct> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0x13;
+  let Inst{63-58} = 0x13;
   let Inst{33-27} = base;
   let Inst{26-20} = index;
   let Inst{19-13} = 0;
@@ -689,7 +689,7 @@ class SWXC1_FM<bits<6> funct> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0x13;
+  let Inst{63-58} = 0x13;
   let Inst{33-27} = base;
   let Inst{26-20} = index;
   let Inst{19-13} = fs;
@@ -702,7 +702,7 @@ class BC1F_FM<bit nd, bit tf> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0x11;
+  let Inst{63-58} = 0x11;
   let Inst{33-27} = 0x8;
   let Inst{26-24} = 0; // cc
   let Inst{23} = nd;
@@ -717,7 +717,7 @@ class CEQS_FM<bits<7> fmt> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0x11;
+  let Inst{63-58} = 0x11;
   let Inst{33-27} = fmt;
   let Inst{26-20} = ft;
   let Inst{19-13} = fs;
@@ -733,7 +733,7 @@ class CMov_I_F_FM<bits<6> funct, bits<7> fmt> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0x11;
+  let Inst{63-58} = 0x11;
   let Inst{33-27} = fmt;
   let Inst{26-20} = rt;
   let Inst{19-13} = fs;
@@ -747,7 +747,7 @@ class CMov_F_I_FM<bit tf> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0;
+  let Inst{63-58} = 0;
   let Inst{33-27} = rs;
   let Inst{26-24} = 0; // cc
   let Inst{23} = 0;
@@ -764,7 +764,7 @@ class CMov_F_F_FM<bits<7> fmt, bit tf> {
 
   bits<64> Inst;
 
-  let Inst{39-34} = 0x11;
+  let Inst{63-58} = 0x11;
   let Inst{33-27} = fmt;
   let Inst{26-24} = 0; // cc
   let Inst{23} = 0;
