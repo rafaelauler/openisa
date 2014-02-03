@@ -13,17 +13,21 @@ MATTR?=
 
 FILE1_basenames := $(sort $(basename $(FILE1)))
 FILE1_bcs := $(FILE1_basenames:%=%.bc)
+FILE1_bc2s := $(FILE1_basenames:%=%.bc2)
 FILE2_basenames := $(sort $(basename $(FILE2)))
 FILE2_bcs := $(FILE2_basenames:%=%.bc)
+FILE2_bc2s := $(FILE2_basenames:%=%.bc2)
 
 TODO := $(TARGETS:%=%-oi-$(ARCH)) $(TARGETS:%=%-nat-$(ARCH))
 
 all: $(TODO)
 
-$(BENCHNAME)-nat-x86: ${FILE1} Makefile
-	$(CLANG) -std=c99 -O3 -static ${FILE1} -o $(BENCHNAME)-nat -lm
-$(BENCHNAME2)-nat-x86: ${FILE2} Makefile
-	$(CLANG) -std=c99 -O3 -static ${FILE2} -o $(BENCHNAME2)-nat -lm
+$(BENCHNAME)-nat-x86: ${BENCHNAME}-nat.bc Makefile
+	$(LLVMLLC) -march=x86 $(MATTR) ${BENCHNAME}-nat.bc -o $(BENCHNAME)-nat-x86.s
+	$(CLANG) -g ${BENCHNAME}-nat-x86.s -o $(BENCHNAME)-nat-x86 -lm
+$(BENCHNAME2)-nat-x86: ${BENCHNAME2}-nat.bc Makefile
+	$(LLVMLLC) -march=x86 $(MATTR) ${BENCHNAME2}-nat.bc -o $(BENCHNAME2)-nat-x86.s
+	$(CLANG) -g ${BENCHNAME2}-nat-x86.s -o $(BENCHNAME2)-nat-x86 -lm
 
 $(BENCHNAME)-nat-arm: ${FILE1} Makefile
 	$(CLANGARM) -std=c99 -O3 -static ${FILE1} -o $(BENCHNAME)-nat -lm
@@ -35,6 +39,9 @@ $(BENCHNAME2)-nat-arm: ${FILE2} Makefile
 #
 %.bc : %.c
 	$(CLANG) $(EMITLLVM) $< -o $@
+
+%.bc2 : %.c
+	$(CLANG) -emit-llvm -c $< -o $@
 
 $(BENCHNAME)-oi-arm: $(BENCHNAME)-oi.bc
 	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi-$(ARCH).s
@@ -63,6 +70,17 @@ $(BENCHNAME2)-oi.bc: ${FILE2_bcs}
 	../../../backend/oisbt $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME2)-oi.o -o=$(BENCHNAME2)-oi.bc
 	$(OPT) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi.bc
 
+$(BENCHNAME)-nat.bc: ${FILE1_bc2s}
+	$(LLVMLINK) ${FILE1_bc2s} -o $(BENCHNAME)-nat.bc
+	$(OPT) $(BENCHNAME)-nat.bc -o $(BENCHNAME)-nat.bc
+	$(OPT) $(BENCHNAME)-nat.bc -o $(BENCHNAME)-nat.bc
+
+
+$(BENCHNAME2)-nat.bc: ${FILE2_bc2s}
+	$(LLVMLINK) ${FILE2_bc2s} -o $(BENCHNAME2)-nat.bc
+	$(OPT) $(BENCHNAME2)-nat.bc -o $(BENCHNAME2)-nat.bc
+	$(OPT) $(BENCHNAME2)-nat.bc -o $(BENCHNAME2)-nat.bc
+
 $(BENCHNAME2)-oi-arm: $(BENCHNAME2)-oi.bc
 	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi-$(ARCH).s
 	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
@@ -74,4 +92,4 @@ $(BENCHNAME2)-oi-x86: $(BENCHNAME2)-oi.bc
 	$(CLANG) -g $(BENCHNAME2)-oi-$(ARCH).s -o $(BENCHNAME2)-oi-$(ARCH) -lm
 
 clean:
-	rm -rf output* *.bc *.o *.s $(TODO)
+	rm -rf output* *.bc *.bc2 *.o *.s $(TODO)

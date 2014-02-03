@@ -85,13 +85,13 @@ ROOT=$(pwd)
 for index in ${!DIRS[*]}; do
     dir=${DIRS[index]}
     name=${NAMES[index]}
-    smallnat=${SMALL[index]//VAR/nat}
-    largenat=${LARGE[index]//VAR/nat}
+    smallnat=${SMALL[index]//VAR/nat-x86}
+    largenat=${LARGE[index]//VAR/nat-x86}
     smalloi=${SMALL[index]//VAR/oi-x86}
     largeoi=${LARGE[index]//VAR/oi-x86}
-    outputsmallnat=${OUTPUTSMALL[index]//VAR/nat}
+    outputsmallnat=${OUTPUTSMALL[index]//VAR/nat-x86}
     outputsmalloi=${OUTPUTSMALL[index]//VAR/oi-x86}
-    outputlargenat=${OUTPUTLARGE[index]//VAR/nat}
+    outputlargenat=${OUTPUTLARGE[index]//VAR/nat-x86}
     outputlargeoi=${OUTPUTLARGE[index]//VAR/oi-x86}
     active=${ACTIVATE[index]}
     if [ $active == "no" ]; then
