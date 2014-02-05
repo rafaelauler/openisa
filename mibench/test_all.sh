@@ -100,14 +100,6 @@ for index in ${!DIRS[*]}; do
     fi
     cd $dir
     for opts in "-oneregion" "-nolocals" "-debug-ir"; do
-        if [ "$opts" == "-debug-ir" ]; then
-            if [ $dir == "automotive/susan" ] ||
-                [ $dir == "security/rijndael" ] ||
-                [ $dir == "automotive/basicmath" ]; then
-                echo Skipping $opts for $dir
-                continue
-            fi
-        fi
 #        if [ "$opts" == "-optstack" ]; then
 #            if [ $dir == "automotive/susan" ] ||
 #                [ $dir == "automotive/basicmath" ]; then
