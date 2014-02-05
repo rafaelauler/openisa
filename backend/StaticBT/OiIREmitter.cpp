@@ -673,11 +673,12 @@ bool OiIREmitter::HandleLocalCall(uint64_t Addr, Value *&V, Value **First) {
     return HandleLocalCallOneRegion(Addr, V, First);
   Twine T("a");
   T = T.concat(Twine::utohexstr(Addr));
-  StringRef Name(T.str());
+  std::string Name = T.str();
+  StringRef NameRef(Name);
   HandleFunctionExitPoint(First);
   FunctionType *ft = FunctionType::get(Type::getVoidTy(getGlobalContext()),
                                        /*isvararg*/false);
-  Value *fun = TheModule->getOrInsertFunction(Name, ft);
+  Value *fun = TheModule->getOrInsertFunction(NameRef, ft);
   V = Builder.CreateCall(fun);
   if (First && NoLocals)
     *First = GetFirstInstruction(*First, V);

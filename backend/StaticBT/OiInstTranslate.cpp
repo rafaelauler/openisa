@@ -753,7 +753,6 @@ bool OiInstTranslate::HandleFCmpOperand(const MCOperand &o, Value *o0, Value *o1
 bool OiInstTranslate::HandleBranchTarget(const MCOperand &o, BasicBlock *&Target,
                                          bool IsRelative) {
   if (o.isImm()) {
-    Twine T("a");
     if (o.getImm() != 0U) {
       uint64_t tgtaddr;
       if (IsRelative)
