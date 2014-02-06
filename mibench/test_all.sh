@@ -35,8 +35,8 @@ SMALL=(basicmath_small-VAR
 "susan-VAR input_small.pgm output.corners-small-VAR.pgm -c"
 "patricia-VAR small.udp"
 "dijkstra_small-VAR input.dat"
-"rijndael-VAR input_small.asc output_small.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
-"rijndael-VAR input_small.enc output_small.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"rijndael-VAR input_small.asc output_small-VAR.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"rijndael-VAR input_small.enc output_small-VAR.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "fft-VAR 4 4096"
 "fft-VAR 4 8192 -i")
 LARGE=(basicmath_large-VAR
@@ -45,8 +45,8 @@ LARGE=(basicmath_large-VAR
 "susan-VAR input_large.pgm output.corners-large-VAR.pgm -c"
 "patricia-VAR large.udp"
 "dijkstra_large-VAR input.dat"
-"rijndael-VAR input_large.asc output_large.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
-"rijndael-VAR input_large.enc output_large.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"rijndael-VAR input_large.asc output_large-VAR.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"rijndael-VAR input_large.enc output_large-VAR.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "fft-VAR 8 32768"
 "fft-VAR 8 32768 -i")
 NAMES=(basicmath
@@ -65,8 +65,8 @@ output.edges-small-VAR.pgm
 output.corners-small-VAR.pgm
 none
 none
-output_small.enc
-output_small.dec
+output_small-VAR.enc
+output_small-VAR.dec
 none
 none)
 OUTPUTLARGE=(none
