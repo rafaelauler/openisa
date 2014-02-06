@@ -68,6 +68,8 @@ bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V, Value *
     }
     V = Builder.CreateLoad(IREmitter.Regs[reg]);
     ReadMap[reg] = true;
+    if (First != 0)
+      *First = GetFirstInstruction(*First, V);
     return true;
   } else if (o.isImm()) {
     uint64_t myimm = o.getImm();
@@ -85,7 +87,7 @@ bool OiInstTranslate::HandleAluSrcOperand(const MCOperand &o, Value *&V, Value *
         } else {
           V1 = V0;
         }
-        if (!First != 0)
+        if (First != 0)
           *First = GetFirstInstruction(*First, fixedV0, V1);
         V = V1;
         return true;
@@ -782,7 +784,7 @@ bool OiInstTranslate::HandleBranchTarget(const MCOperand &o, BasicBlock *&Target
 
 void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
 #ifndef NDEBUG
-  raw_ostream &DebugOut = dbgs();
+  raw_ostream &DebugOut = outs();
 #else
   raw_ostream &DebugOut = nulls();
 #endif
@@ -1127,7 +1129,14 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
       if (HandleDoubleSrcOperand(MI->getOperand(1), o1) &&       
           HandleDoubleDstOperand(MI->getOperand(0), o0)) {      
         Value *v0 = Builder.CreateBitCast(o1, Type::getInt64Ty(getGlobalContext()));
-        Value *v0_trunc = Builder.CreateTrunc(v0, Type::getInt32Ty(getGlobalContext()));
+        Value *v0_trunc;
+        if (ConvToDirective(conv32(MI->getOperand(1).getReg())) % 2) {
+          Value *v0_tmp = Builder.CreateLShr(v0, ConstantInt::get
+                                             (Type::getInt64Ty(getGlobalContext()), 32));
+          v0_trunc = Builder.CreateTrunc(v0_tmp, Type::getInt32Ty(getGlobalContext()));
+        } else {
+          v0_trunc = Builder.CreateTrunc(v0, Type::getInt32Ty(getGlobalContext()));
+        }        
         Value *v1 = Builder.CreateSIToFP(v0_trunc, Type::getDoubleTy(getGlobalContext()));
         Value *v3 = Builder.CreateStore(v1, o0);
         Value *first = GetFirstInstruction(o1, v0);
