@@ -1695,7 +1695,9 @@ void OiInstTranslate::printInstruction(const MCInst *MI, raw_ostream &O) {
   case Oi::JR: {
     DebugOut << "Handling JR\n";
     Value *first = 0;
-    if (!NoLocals && !OneRegion)
+    // Do not create a checkpoint at the end of the main function. Since
+    // the program is terminating, it is not neccessary.
+    if (!NoLocals && !OneRegion && IREmitter.CurFunAddr != 0x34)
       IREmitter.HandleFunctionExitPoint(&first);
     if (MI->getOperand(0).getReg() == Oi::RA
         || MI->getOperand(0).getReg() == Oi::RA_64) {
