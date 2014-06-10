@@ -11,7 +11,7 @@ oias="/l/home/rafael/p/openisa/backend/oife -assemble -filetype=obj"
 crossmips="/l/home/rafael/p/openisa/cross/cross-tools/bin/mipsel-unknown-linux-gnu-gcc --sysroot=/l/home/rafael/p/openisa/newlib/install/oi-elf -specs /l/home/rafael/p/openisa/newlib/install/oi-elf/lib/nosys.specs"
 
 #  compilar usando -S com o gcc ao inves de -c
-verbose=True
+verbose=False
 if verbose == True:
     print sys.argv
 sys.argv
@@ -62,7 +62,8 @@ for var in sys.argv[1:]:
         args_imed = args_imed + arqoutput_imed + " "
         prox = False
     elif var[:1] != "-":
-        fileName, fileExtension = os.path.splitext(var)
+        baseName = os.path.basename(var)
+        fileName, fileExtension = os.path.splitext(baseName)
         if fileExtension == ".S":
             arqInputBase = fileName
             isAsInput = True        
