@@ -43,6 +43,7 @@ BUILT_SOURCES = $(BUILT_SOURCES_raw:%=$(ObjDir)/%)
 PLUGIN=$(BIN_DIR)/OIBackend.so
 FRONTEND=$(BIN_DIR)/oife
 STATICBT=$(BIN_DIR)/oisbt
+INTERPRETER=$(BIN_DIR)/oii
 
 Sources := $(notdir $(wildcard $(SRC_DIR)/*.cpp \
            $(SRC_DIR)/TargetInfo/*.cpp \
@@ -55,11 +56,15 @@ FrontEndSources := $(notdir $(wildcard $(SRC_DIR)/FrontEnd/*.cpp))
 
 StaticBTSources := $(notdir $(wildcard $(SRC_DIR)/StaticBT/*.cpp))
 
+InterpreterSources := $(notdir $(wildcard $(SRC_DIR)/Interpreter/*.cpp))
+
 BaseNameSources := $(sort $(basename $(Sources)))
 
 FrontEndBaseNameSources := $(sort $(basename $(FrontEndSources)))
 
 StaticBTBaseNameSources := $(sort $(basename $(StaticBTSources)))
+
+InterpreterBaseNameSources := $(sort $(basename $(InterpreterSources)))
 
 PLUGIN_OBJECTS := $(BaseNameSources:%=$(ObjDir)/%.o)
 
@@ -67,8 +72,10 @@ FRONTEND_OBJECTS := $(FrontEndBaseNameSources:%=$(ObjDir)/%.o)
 
 STATICBT_OBJECTS := $(StaticBTBaseNameSources:%=$(ObjDir)/%.o) $(ObjDir)/MC2IRStreamer.o
 
-ALL_OBJECTS=$(PLUGIN_OBJECTS) $(FRONTEND_OBJECTS) $(STATICBT_OBJECTS)
-ALL_TARGETS=$(PLUGIN) $(FRONTEND) $(STATICBT)
+INTERPRETER_OBJECTS := $(InterpreterBaseNameSources:%=$(ObjDir)/%.o) $(ObjDir)/MC2IRStreamer.o
+
+ALL_OBJECTS=$(PLUGIN_OBJECTS) $(FRONTEND_OBJECTS) $(STATICBT_OBJECTS) $(INTERPRETER_OBJECTS)
+ALL_TARGETS=$(PLUGIN) $(FRONTEND) $(STATICBT) $(INTERPRETER)
 
 CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -MD -MP -I$(SRC_DIR) -I$(ObjDir)
@@ -134,6 +141,14 @@ ifeq ($(shell uname),Darwin)
 	$(QUIET)$(CXX) -o $@ $(LD_STATIC_OPTIONS) $(PLUGIN_OBJECTS) $(STATICBT_OBJECTS)
 else
 	$(QUIET)$(CXX) -o $@ $(LD_OPTIONS) $(PLUGIN_OBJECTS) $(STATICBT_OBJECTS)
+endif
+
+$(INTERPRETER): $(PLUGIN_OBJECS) $(INTERPRETER_OBJECTS)
+	@echo Linking $@
+ifeq ($(shell uname),Darwin)
+	$(QUIET)$(CXX) -o $@ $(LD_STATIC_OPTIONS) $(PLUGIN_OBJECTS) $(INTERPRETER_OBJECTS)
+else
+	$(QUIET)$(CXX) -o $@ $(LD_OPTIONS) $(PLUGIN_OBJECTS) $(INTERPRETER_OBJECTS)
 endif
 
 
