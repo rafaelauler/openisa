@@ -1,0 +1,41 @@
+ Port newlib OpenISA:
+
+ Patched newlib/libc/include/machine/_default_types.h with patch from http://cygwin.com/ml/cygwin/2014-02/msg00315.html
+ to work around Clang issue
+ Created new folder name: newlib/libc/machine/oi
+ + Changed newlib/libc/machine/configure.in line 53 to report this new folder 
+ + Changed newlib/libc/machine/configure line 813 to report this new folder 
+ + Changed newlib/libc/machine/configure line 11883 to report this new folder 
+ MACRO used at newlib/libc/include/machine/ieeefp.h:  __OI__
+ MACRO used at newlib/libc/include/machine/setjmp.h: __oi__, __oi64, _oi_fpr, __oi_soft_float
+ MACRO used at newlib/libc/include/sys/config.h: __oi__
+   Note: the macro __oi__ is not yet defined by the OpenISA compiler, it still used __mips__
+   Therefore, I commented out line 134 that links impure_ptr to a specific ELF section
+ File newlib/configure.host updated to map oi* targets to machine_dir=oi
+ Added libgloss/oi cloned from libgloss/mips
+ Changed configure @ line 3324 to recognize oi-*-linux targets
+   + Changed configure @ line 3492 to map oi libgloss directory to libgloss/oi
+   + Changed configure @ line 3797 to map unsupported libs for target oi-linux
+ Changed config.sub @ line 146 to include oi as a recognized target
+   + Changed config.sub @ line 272 to define an alias for oi to oi-unknown 
+   + Changed config.sub @ line 391 to define an alias for oi to oi-unknown 
+   + Changed config.sub @ line 1594 to define an alias for oi to oi-elf
+
+
+To configure build directory:
+
+CC_FOR_TARGET="mipsel-unknown-linux-gnu-gcc"\
+ CXX_FOR_TARGET="mipsel-unknown-linux-gnu-c++"\
+ AR_FOR_TARGET="mipsel-unknown-linux-gnu-ar"\
+ AS_FOR_TARGET="mipsel-unknown-linux-gnu-as"\
+ LD_FOR_TARGET="mipsel-unknown-linux-gnu-ld"\
+ NM_FOR_TARGET="mipsel-unknown-linux-gnu-nm"\
+ OBJDUMP_FOR_TARGET="mipsel-unknown-linux-gnu-objdump"\
+ RANLIB_FOR_TARGET="mipsel-unknown-linux-gnu-ranlib"\
+ READELF_FOR_TARGET="mipsel-unknown-linux-gnu-readelf"\
+ STRIP_FOR_TARGET="mipsel-unknown-linux-gnu-strip"\
+ ../newlib-2.1.0/configure --prefix=$(pwd)/../install -target=oi-elf
+
+make 2>&1 | tee commands.db
+build-oi.sh commands.db
+
