@@ -17,6 +17,7 @@ Echo=@echo
 SRC_DIR?=$(PWD)
 BIN_DIR?=$(PWD)
 ObjDir?=$(PWD)/obj
+INSTALL_DIR=$(PWD)/../driver
 
 ifndef VERBOSE
 	QUIET:=@
@@ -44,6 +45,7 @@ PLUGIN=$(BIN_DIR)/OIBackend.so
 FRONTEND=$(BIN_DIR)/oife
 STATICBT=$(BIN_DIR)/oisbt
 INTERPRETER=$(BIN_DIR)/oii
+OBJDUMP=$(BIN_DIR)/oi-objdump
 
 Sources := $(notdir $(wildcard $(SRC_DIR)/*.cpp \
            $(SRC_DIR)/TargetInfo/*.cpp \
@@ -58,6 +60,8 @@ StaticBTSources := $(notdir $(wildcard $(SRC_DIR)/StaticBT/*.cpp))
 
 InterpreterSources := $(notdir $(wildcard $(SRC_DIR)/Interpreter/*.cpp))
 
+ObjDumpSources := $(notdir $(wildcard $(SRC_DIR)/ObjDump/*.cpp))
+
 BaseNameSources := $(sort $(basename $(Sources)))
 
 FrontEndBaseNameSources := $(sort $(basename $(FrontEndSources)))
@@ -65,6 +69,8 @@ FrontEndBaseNameSources := $(sort $(basename $(FrontEndSources)))
 StaticBTBaseNameSources := $(sort $(basename $(StaticBTSources)))
 
 InterpreterBaseNameSources := $(sort $(basename $(InterpreterSources)))
+
+ObjDumpBaseNameSources := $(sort $(basename $(ObjDumpSources)))
 
 PLUGIN_OBJECTS := $(BaseNameSources:%=$(ObjDir)/%.o)
 
@@ -74,8 +80,11 @@ STATICBT_OBJECTS := $(StaticBTBaseNameSources:%=$(ObjDir)/%.o) $(ObjDir)/MC2IRSt
 
 INTERPRETER_OBJECTS := $(InterpreterBaseNameSources:%=$(ObjDir)/%.o) $(ObjDir)/MC2IRStreamer.o
 
-ALL_OBJECTS=$(PLUGIN_OBJECTS) $(FRONTEND_OBJECTS) $(STATICBT_OBJECTS) $(INTERPRETER_OBJECTS)
-ALL_TARGETS=$(PLUGIN) $(FRONTEND) $(STATICBT) $(INTERPRETER)
+OBJDUMP_OBJECTS := $(ObjDumpBaseNameSources:%=$(ObjDir)/%.o) $(ObjDir)/MC2IRStreamer.o
+
+ALL_OBJECTS=$(PLUGIN_OBJECTS) $(FRONTEND_OBJECTS) $(STATICBT_OBJECTS)\
+ $(INTERPRETER_OBJECTS) $(OBJDUMP_OBJECTS)
+ALL_TARGETS=$(PLUGIN) $(FRONTEND) $(STATICBT) $(INTERPRETER) $(OBJDUMP)
 
 CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -MD -MP -I$(SRC_DIR) -I$(ObjDir)
@@ -90,7 +99,9 @@ endif
 LD_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags) -lLLVM-$(shell $(LLVM_CONFIG) --version)
 
 # Basic makefile initialization
-VPATH=$(SRC_DIR):$(SRC_DIR)/TargetInfo:$(SRC_DIR)/MCTargetDesc:$(SRC_DIR)/InstPrinter:$(SRC_DIR)/Disassembler:$(SRC_DIR)/AsmParser:$(SRC_DIR)/FrontEnd:$(SRC_DIR)/StaticBT
+VPATH=$(SRC_DIR):$(SRC_DIR)/TargetInfo:$(SRC_DIR)/MCTargetDesc:$(SRC_DIR)/Ins\
+tPrinter:$(SRC_DIR)/Disassembler:$(SRC_DIR)/AsmParser:$(SRC_DIR)/FrontEnd:\
+$(SRC_DIR)/StaticBT:$(SRC_DIR)/Interpreter:$(SRC_DIR)/ObjDump
 .PHONY: default clean
 # .PRECIOUS: $(ObjDir) $(ALL_OBJECTS)
 
@@ -151,6 +162,13 @@ else
 	$(QUIET)$(CXX) -o $@ $(LD_OPTIONS) $(PLUGIN_OBJECTS) $(INTERPRETER_OBJECTS)
 endif
 
+$(OBJDUMP): $(PLUGIN_OBJECS) $(OBJDUMP_OBJECTS)
+	@echo Linking $@
+ifeq ($(shell uname),Darwin)
+	$(QUIET)$(CXX) -o $@ $(LD_STATIC_OPTIONS) $(PLUGIN_OBJECTS) $(OBJDUMP_OBJECTS)
+else
+	$(QUIET)$(CXX) -o $@ $(LD_OPTIONS) $(PLUGIN_OBJECTS) $(OBJDUMP_OBJECTS)
+endif
 
 include Makefile.tblgen
 
@@ -158,5 +176,10 @@ clean::
 	$(QUIET)rm -f $(SRC_DIR)/*~ $(SRC_DIR)/TargetInfo/*~ \
         $(SRC_DIR)/MCTargetDesc/*~ $(BUILT_SOURCES) $(ALL_OBJECTS) *.d $(PLUGIN) $(FRONTEND) $(STATICBT)
 	$(QUIET)rm -rf $(ObjDir)
+
+install: $(STATICBT) $(INTERPRETER) $(OBJDUMP)
+	cp $(STATICBT) $(INSTALL_DIR)
+	cp $(INTERPRETER) $(INSTALL_DIR)
+	cp $(OBJDUMP) $(INSTALL_DIR)
 
 -include $(ALL_OBJECTS:.o=.d)
