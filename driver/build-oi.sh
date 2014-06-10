@@ -23,7 +23,7 @@ for var in $(seq $beg ${#db[@]}); do
        [ x"${cur:0:3}" == x"mip" ] ||
        [ x"${cur:0:3}" == x"exi" ]; then
         if [ x"${cur:0:28}" == x"mipsel-unknown-linux-gnu-gcc" ]; then
-            cur=${cur/mipsel-unknown-linux-gnu-gcc/oi-cc}
+            cur=${cur/mipsel-unknown-linux-gnu-gcc/bare-oi-cc}
         fi
         while [ x"${cur:$(expr length "$cur" - 1 )}" == x"\\" ]; do
             (( var = var + 1 ))

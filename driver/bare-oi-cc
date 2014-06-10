@@ -3,15 +3,15 @@ import sys
 import subprocess
 import os
 
-emitllvm="-target mipsel-unknown-linux -emit-llvm -c --sysroot=/l/home/rafael/p/openisa/newlib/install/oi-elf"
+emitllvm="-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools"
 llvminstall="/l/home/rafael/p/llvm/llvm-3.3/install/bin/" 
 llvmllc="llc -relocation-model=static"
 llcargs="-load=/l/home/rafael/p/openisa/backend/OIBackend.so -march=oiel"
 oias="/l/home/rafael/p/openisa/backend/oife -assemble -filetype=obj"
-crossmips="/l/home/rafael/p/openisa/cross/cross-tools/bin/mipsel-unknown-linux-gnu-gcc --sysroot=/l/home/rafael/p/openisa/newlib/install/oi-elf -specs /l/home/rafael/p/openisa/newlib/install/oi-elf/lib/nosys.specs"
+crossmips="/l/home/rafael/p/openisa/cross/cross-tools/bin/mipsel-unknown-linux-gnu-gcc"
 
 #  compilar usando -S com o gcc ao inves de -c
-verbose=True
+verbose=False
 if verbose == True:
     print sys.argv
 sys.argv
