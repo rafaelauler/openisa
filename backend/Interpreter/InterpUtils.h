@@ -1,11 +1,12 @@
-//=== SBTUtils.h - General utilities --------------------*- C++ -*-==//
+//=== InterpUtils.h - General utilities ----------------*- C++ -*-==//
 // 
 // Convenience functions to convert register numbers when reading
 // an OpenISA binary and converting it to IR.
 //
 //===------------------------------------------------------------===//
-#ifndef SBTUTILS_H
-#define SBTUTILS_H
+#ifndef INTERPUTILS_H
+#define INTERPUTILS_H
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/system_error.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/IR/Value.h"
@@ -20,6 +21,7 @@ class ObjectFile;
 
 using namespace object;
 
+void DumpBytes(StringRef bytes);
 unsigned conv32(unsigned regnum);
 unsigned ConvFromDirective(unsigned regnum);
 unsigned ConvToDirective(unsigned regnum);

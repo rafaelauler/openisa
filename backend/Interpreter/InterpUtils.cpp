@@ -5,7 +5,7 @@
 //
 //===------------------------------------------------------------===//
 
-#include "SBTUtils.h"
+#include "InterpUtils.h"
 #include "OiInstrInfo.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Object/ELF.h"
@@ -18,6 +18,32 @@ bool error(error_code ec) {
   outs() << "error reading file: " << ec.message() << ".\n";
   outs().flush();
   return true;
+}
+
+void DumpBytes(StringRef bytes) {
+  static const char hex_rep[] = "0123456789abcdef";
+  // FIXME: The real way to do this is to figure out the longest instruction
+  //        and align to that size before printing. I'll fix this when I get
+  //        around to outputting relocations.
+  // 15 is the longest x86 instruction
+  // 3 is for the hex rep of a byte + a space.
+  // 1 is for the null terminator.
+  enum { OutputSize = (15 * 3) + 1 };
+  char output[OutputSize];
+
+  assert(bytes.size() <= 15
+    && "DumpBytes only supports instructions of up to 15 bytes");
+  memset(output, ' ', sizeof(output));
+  unsigned index = 0;
+  for (StringRef::iterator i = bytes.begin(),
+                           e = bytes.end(); i != e; ++i) {
+    output[index] = hex_rep[(*i & 0xF0) >> 4];
+    output[index + 1] = hex_rep[*i & 0xF];
+    index += 3;
+  }
+
+  output[sizeof(output) - 1] = 0;
+  outs() << output;
 }
 
 unsigned conv32(unsigned regnum) {
