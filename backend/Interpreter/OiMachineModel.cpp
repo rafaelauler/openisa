@@ -474,7 +474,7 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::J:
     {
       DebugOut << "Handling J\n";
-      return HandleBranchTarget(MI->getOperand(0), true, CurPC);
+      return HandleBranchTarget(MI->getOperand(0), false, CurPC);
     }
   case Oi::SRA:
     {
@@ -724,7 +724,7 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::JAL: {
     DebugOut << "Handling JAL\n";
     Bank[31] = CurPC + 8;
-    return HandleBranchTarget(MI->getOperand(0), true, CurPC);
+    return HandleBranchTarget(MI->getOperand(0), false, CurPC);
   }
   case Oi::JR64:
   case Oi::JR: {

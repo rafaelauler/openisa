@@ -124,7 +124,7 @@ static const Target *getTarget(const ObjectFile *Obj = NULL) {
   }
 
   // Update the triple name and return the found target.
-  TripleName = TheTriple.getTriple();
+  TripleName = "mipsel-unknown-unknown";
   return TheTarget;
 }
 
@@ -191,16 +191,17 @@ static void ExecutionLoop(StringRef file) {
 
   uint64_t CurPC = mem->LoadELF(file.data());
   error_code ec;
-  MCInst Inst;
   uint64_t Size;
 
 #ifndef NDEBUG
-  raw_ostream &DebugOut = DebugFlag ? dbgs() : nulls();
+  raw_ostream &DebugOut = outs();
 #else
   raw_ostream &DebugOut = nulls();
 #endif
 
   do {
+    MCInst Inst;
+    DebugOut << "@0x" << format("%04" PRIx64 " ", CurPC) << " ";
     if (DisAsm->getInstruction(Inst, Size, *mem, CurPC,
                                DebugOut, nulls())) {
       CurPC = IP->executeInstruction(&Inst, CurPC);
