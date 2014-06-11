@@ -22,90 +22,290 @@
 
 using namespace llvm;
 
-#define ARM__NR_SYSCALL_BASE	0x900000
-
-#define ARM__NR_restart_syscall		(ARM__NR_SYSCALL_BASE+  0)
-#define ARM__NR_exit			(ARM__NR_SYSCALL_BASE+  1)
-#define ARM__NR_fork			(ARM__NR_SYSCALL_BASE+  2)
-#define ARM__NR_read			(ARM__NR_SYSCALL_BASE+  3)
-#define ARM__NR_write			(ARM__NR_SYSCALL_BASE+  4)
-#define ARM__NR_open			(ARM__NR_SYSCALL_BASE+  5)
-#define ARM__NR_close			(ARM__NR_SYSCALL_BASE+  6)
-#define ARM__NR_creat			(ARM__NR_SYSCALL_BASE+  8)
-#define ARM__NR_time			(ARM__NR_SYSCALL_BASE+ 13)
-#define ARM__NR_lseek			(ARM__NR_SYSCALL_BASE+ 19)
-#define ARM__NR_getpid			(ARM__NR_SYSCALL_BASE+ 20)
-#define ARM__NR_access			(ARM__NR_SYSCALL_BASE+ 33)
-#define ARM__NR_kill			(ARM__NR_SYSCALL_BASE+ 37)
-#define ARM__NR_dup			(ARM__NR_SYSCALL_BASE+ 41)
-#define ARM__NR_times			(ARM__NR_SYSCALL_BASE+ 43)
-#define ARM__NR_brk			(ARM__NR_SYSCALL_BASE+ 45)
-#define ARM__NR_gettimeofday		(ARM__NR_SYSCALL_BASE+ 78)
-#define ARM__NR_settimeofday		(ARM__NR_SYSCALL_BASE+ 79)
-#define ARM__NR_mmap			(ARM__NR_SYSCALL_BASE+ 90)
-#define ARM__NR_munmap			(ARM__NR_SYSCALL_BASE+ 91)
-#define ARM__NR_socketcall		(ARM__NR_SYSCALL_BASE+102)
-#define ARM__NR_stat			(ARM__NR_SYSCALL_BASE+106)
-#define ARM__NR_lstat			(ARM__NR_SYSCALL_BASE+107)
-#define ARM__NR_fstat			(ARM__NR_SYSCALL_BASE+108)
-#define ARM__NR_uname			(ARM__NR_SYSCALL_BASE+122)
-#define ARM__NR__llseek			(ARM__NR_SYSCALL_BASE+140)
-#define ARM__NR_readv			(ARM__NR_SYSCALL_BASE+145)
-#define ARM__NR_writev			(ARM__NR_SYSCALL_BASE+146)
-#define ARM__NR_mmap2			(ARM__NR_SYSCALL_BASE+192)
-#define ARM__NR_stat64			(ARM__NR_SYSCALL_BASE+195)
-#define ARM__NR_lstat64			(ARM__NR_SYSCALL_BASE+196)
-#define ARM__NR_fstat64			(ARM__NR_SYSCALL_BASE+197)
-#define ARM__NR_getuid32		(ARM__NR_SYSCALL_BASE+199)
-#define ARM__NR_getgid32		(ARM__NR_SYSCALL_BASE+200)
-#define ARM__NR_geteuid32		(ARM__NR_SYSCALL_BASE+201)
-#define ARM__NR_getegid32		(ARM__NR_SYSCALL_BASE+202)
-#define ARM__NR_fcntl64			(ARM__NR_SYSCALL_BASE+221)
-#define ARM__NR_exit_group	        (ARM__NR_SYSCALL_BASE+248)
-
-
 namespace {
+
+enum syscallscodes {
+ sys_syscall = 4000,		/* 4000 */
+  sys_exit	       ,
+sys_fork		,
+sys_read		,
+sys_write		,
+sys_open		,	/* 4005 */
+sys_close		,
+sys_waitpid		,
+sys_creat		,
+sys_link		,
+sys_unlink		,	/* 4010 */
+sys_execve		,
+sys_chdir		,
+sys_time		,
+sys_mknod		,
+sys_chmod		,	/* 4015 */
+sys_lchown		,
+sys_ni_syscall		,
+sys_ni_syscall2		,	/* was sys_stat */
+sys_lseek		,
+sys_getpid		,	/* 4020 */
+sys_mount		,
+sys_oldumount		,
+sys_setuid		,
+sys_getuid		,
+sys_stime		,	/* 4025 */
+sys_ptrace		,
+sys_alarm		,
+sys_ni_syscall3		,	/* was sys_fstat */
+sys_pause		,
+sys_utime		,	/* 4030 */
+sys_ni_syscall4		,
+sys_ni_syscall5		,
+sys_access		,
+sys_nice		,
+sys_ni_syscall6		,	/* 4035 */
+sys_sync		,
+sys_kill		,
+sys_rename		,
+sys_mkdir		,
+sys_rmdir		,	/* 4040 */
+sys_dup			,
+sysm_pipe		,
+sys_times		,
+sys_ni_syscall7		,
+sys_brk			,	/* 4045 */
+sys_setgid		,
+sys_getgid		,
+sys_ni_syscall8		,	/* was signal(2) */
+sys_geteuid		,
+sys_getegid		,	/* 4050 */
+sys_acct		,
+sys_umount		,
+sys_ni_syscall9		,
+sys_ioctl		,
+sys_fcntl		,	/* 4055 */
+sys_ni_syscall10		,
+sys_setpgid		,
+sys_ni_syscall11		,
+sys_olduname		,
+sys_umask		,	/* 4060 */
+sys_chroot		,
+sys_ustat		,
+sys_dup2		,
+sys_getppid		,
+sys_getpgrp		,	/* 4065 */
+sys_setsid		,
+sys_sigaction		,
+sys_sgetmask		,
+sys_ssetmask		,
+sys_setreuid		,	/* 4070 */
+sys_setregid		,
+sys_sigsuspend		,
+sys_sigpending		,
+sys_sethostname		,
+sys_setrlimit		,	/* 4075 */
+sys_getrlimit		,
+sys_getrusage		,
+sys_gettimeofday	,
+sys_settimeofday	,
+sys_getgroups		,	/* 4080 */
+sys_setgroups		,
+sys_ni_syscall12		,	/* old_select */
+sys_symlink		,
+sys_ni_syscall13		,	/* was sys_lstat */
+sys_readlink		,	/* 4085 */
+sys_uselib		,
+sys_swapon		,
+sys_reboot		,
+sys_old_readdir		,
+sys_mmap		,	/* 4090 */
+sys_munmap		,
+sys_truncate		,
+sys_ftruncate		,
+sys_fchmod		,
+sys_fchown		,	/* 4095 */
+sys_getpriority		,
+sys_setpriority		,
+sys_ni_syscall14		,
+sys_statfs		,
+sys_fstatfs		,	/* 4100 */
+sys_ni_syscall15		,	/* was ioperm(2) */
+sys_socketcall		,
+sys_syslog		,
+sys_setitimer		,
+sys_getitimer		,	/* 4105 */
+sys_newstat		,
+sys_newlstat		,
+sys_newfstat		,
+sys_uname		,
+sys_ni_syscall16		,	/* 4110 was iopl(2) */
+sys_vhangup		,
+sys_ni_syscall17		,	/* was sys_idle() */
+sys_ni_syscall18		,	/* was sys_vm86 */
+sys_wait4		,
+sys_swapoff		,	/* 4115 */
+sys_sysinfo		,
+sys_ipc			,
+sys_fsync		,
+sys_sigreturn		,
+__sys_clone		,	/* 4120 */
+sys_setdomainname	,
+sys_newuname		,
+sys_ni_syscall20		,	/* sys_modify_ldt */
+sys_adjtimex		,
+sys_mprotect		,	/* 4125 */
+sys_sigprocmask		,
+sys_ni_syscall21		,	/* was create_module */
+sys_init_module		,
+sys_delete_module	,
+sys_ni_syscall22		,	/* 4130 was get_kernel_syms */
+sys_quotactl		,
+sys_getpgid		,
+sys_fchdir		,
+sys_bdflush		,
+sys_sysfs		,	/* 4135 */
+sys_personality		,
+sys_ni_syscall23		,	/* for afs_syscall */
+sys_setfsuid		,
+sys_setfsgid		,
+sys_llseek		,	/* 4140 */
+sys_getdents		,
+sys_select		,
+sys_flock		,
+sys_msync		,
+sys_readv		,	/* 4145 */
+sys_writev		,
+sys_cacheflush		,
+sys_cachectl		,
+sys_sysmips		,
+sys_ni_syscall24		,	/* 4150 */
+sys_getsid		,
+sys_fdatasync		,
+sys_sysctl		,
+sys_mlock		,
+sys_munlock		,	/* 4155 */
+sys_mlockall		,
+sys_munlockall		,
+sys_sched_setparam	,
+sys_sched_getparam	,
+sys_sched_setscheduler	,	/* 4160 */
+sys_sched_getscheduler	,
+sys_sched_yield		,
+sys_sched_get_priority_max,
+sys_sched_get_priority_min,
+sys_sched_rr_get_interval,	/* 4165 */
+sys_nanosleep		,
+sys_mremap		,
+sys_accept		,
+sys_bind		,
+sys_connect		,	/* 4170 */
+sys_getpeername		,
+sys_getsockname		,
+sys_getsockopt		,
+sys_listen		,
+sys_recv		,	/* 4175 */
+sys_recvfrom		,
+sys_recvmsg		,
+sys_send		,
+sys_sendmsg		,
+sys_sendto		,	/* 4180 */
+sys_setsockopt		,
+sys_shutdown		,
+sys_socket		,
+sys_socketpair		,
+sys_setresuid		,	/* 4185 */
+sys_getresuid		,
+sys_ni_syscall25		,	/* was sys_query_module */
+sys_poll		,
+sys_ni_syscall26		,	/* was nfsservctl */
+sys_setresgid		,	/* 4190 */
+sys_getresgid		,
+sys_prctl		,
+sys_rt_sigreturn	,
+sys_rt_sigaction	,
+sys_rt_sigprocmask	,	/* 4195 */
+sys_rt_sigpending	,
+sys_rt_sigtimedwait	,
+sys_rt_sigqueueinfo	,
+sys_rt_sigsuspend	,
+sys_pread64		,	/* 4200 */
+sys_pwrite64		,
+sys_chown		,
+sys_getcwd		,
+sys_capget		,
+sys_capset		,	/* 4205 */
+sys_sigaltstack		,
+sys_sendfile		,
+sys_ni_syscall27		,
+sys_ni_syscall28		,
+sys_mips_mmap2		,	/* 4210 */
+sys_truncate64		,
+sys_ftruncate64		,
+sys_stat64		,
+sys_lstat64		,
+sys_fstat64		,	/* 4215 */
+sys_pivot_root		,
+sys_mincore		,
+sys_madvise		,
+sys_getdents64		,
+sys_fcntl64		,	/* 4220 */
+sys_ni_syscall29		,
+sys_gettid		,
+sys_readahead		,
+sys_setxattr		,
+sys_lsetxattr		,	/* 4225 */
+sys_fsetxattr		,
+sys_getxattr		,
+sys_lgetxattr		,
+sys_fgetxattr		,
+sys_listxattr		,	/* 4230 */
+sys_llistxattr		,
+sys_flistxattr		,
+sys_removexattr		,
+sys_lremovexattr	,
+sys_fremovexattr	,	/* 4235 */
+sys_tkill		,
+sys_sendfile64		,
+  sys_futex		};
+
 
 uint32_t *GetSyscallTable() {
   static uint32_t syscall_table[] = {
-    ARM__NR_restart_syscall,
-    ARM__NR_exit,
-    ARM__NR_fork,
-    ARM__NR_read,
-    ARM__NR_write,
-    ARM__NR_open,
-    ARM__NR_close,
-    ARM__NR_creat,
-    ARM__NR_time,
-    ARM__NR_lseek,
-    ARM__NR_getpid,
-    ARM__NR_access,
-    ARM__NR_kill,
-    ARM__NR_dup,
-    ARM__NR_times,
-    ARM__NR_brk,
-    ARM__NR_mmap,
-    ARM__NR_munmap,
-    ARM__NR_stat,
-    ARM__NR_lstat,
-    ARM__NR_fstat,
-    ARM__NR_uname,
-    ARM__NR__llseek,
-    ARM__NR_readv,
-    ARM__NR_writev,
-    ARM__NR_mmap2,
-    ARM__NR_stat64,
-    ARM__NR_lstat64,
-    ARM__NR_fstat64,
-    ARM__NR_getuid32,
-    ARM__NR_getgid32,
-    ARM__NR_geteuid32,
-    ARM__NR_getegid32,
-    ARM__NR_fcntl64,
-    ARM__NR_exit_group,
-    ARM__NR_socketcall,
-    ARM__NR_gettimeofday,
-    ARM__NR_settimeofday
+    666,//sys_restart_syscall,
+    sys_exit,
+    sys_fork,
+    sys_read,
+    sys_write,
+    sys_open,
+    sys_close,
+    sys_creat,
+    sys_time,
+    sys_lseek,
+    sys_getpid,
+    sys_access,
+    sys_kill,
+    sys_dup,
+    sys_times,
+    sys_brk,
+    666,//sys_mmap,
+    sys_munmap,
+    666,//sys_stat,
+    666,//sys_lstat,
+    666,//sys_fstat,
+    sys_uname,
+    666,//sys__llseek,
+    sys_readv,
+    sys_writev,
+    666,//sys_mmap2,
+    sys_stat64,
+    sys_lstat64,
+    sys_fstat64,
+    666,//sys_getuid32,
+    666,//sys_getgid32,
+    666,//sys_geteuid32,
+    666,//sys_getegid32,
+    sys_fcntl64,
+    666,//sys_exit_group,
+    sys_socketcall,
+    sys_gettimeofday,
+    sys_settimeofday
   };
   return syscall_table;
 }
