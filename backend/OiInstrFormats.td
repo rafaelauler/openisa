@@ -301,6 +301,17 @@ class MFC3OP_FM<bits<6> op, bits<5> mfmt>
   let Inst{2-0}   = sel;
 }
 
+class SYSCALL_FM : StdArch {
+  bits<64> Inst;
+
+  let Inst{63-58} = 0;
+  let Inst{33-27} = 0;
+  let Inst{26-20} = 0;
+  let Inst{19-13} = 0;
+  let Inst{12-8}  = 0;
+  let Inst{7-0}   = 0xC;
+}
+
 class ADD_FM<bits<6> op, bits<8> funct> : StdArch {
   bits<7> rd;
   bits<7> rs;

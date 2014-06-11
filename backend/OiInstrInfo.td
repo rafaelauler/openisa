@@ -884,6 +884,9 @@ def XORi  : MMRel, ArithLogicI<"xori", uimm32, CPURegsOpnd, immZExt32, xor>,
 def LUi   : MMRel, LoadUpper<"lui", CPURegs, uimm32>, LUI_FM;
 
 /// Arithmetic Instructions (3-Operand, R-Type)
+def SYSCALL: InstSE<(outs ), (ins ), "syscall", [], NoItinerary, 
+    FrmR, "syscall">, SYSCALL_FM;
+
 def ADDu  : MMRel, ArithLogicR<"addu", CPURegsOpnd, 1, IIAlu, add>,
             ADD_FM<0, 0x21>;
 def SUBu  : MMRel, ArithLogicR<"subu", CPURegsOpnd, 0, IIAlu, sub>,
