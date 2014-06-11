@@ -99,9 +99,10 @@ endif
 LD_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags) -lLLVM-$(shell $(LLVM_CONFIG) --version)
 
 # Basic makefile initialization
-VPATH=$(SRC_DIR):$(SRC_DIR)/TargetInfo:$(SRC_DIR)/MCTargetDesc:$(SRC_DIR)/Ins\
-tPrinter:$(SRC_DIR)/Disassembler:$(SRC_DIR)/AsmParser:$(SRC_DIR)/FrontEnd:\
-$(SRC_DIR)/StaticBT:$(SRC_DIR)/Interpreter:$(SRC_DIR)/ObjDump
+VPATH=$(SRC_DIR):$(SRC_DIR)/TargetInfo:$(SRC_DIR)/MCTargetDesc:\
+$(SRC_DIR)/InstPrinter:$(SRC_DIR)/Disassembler:$(SRC_DIR)/AsmParser:\
+$(SRC_DIR)/FrontEnd:$(SRC_DIR)/StaticBT:$(SRC_DIR)/Interpreter:\
+$(SRC_DIR)/ObjDump
 .PHONY: default clean
 # .PRECIOUS: $(ObjDir) $(ALL_OBJECTS)
 
