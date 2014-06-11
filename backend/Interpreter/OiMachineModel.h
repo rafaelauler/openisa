@@ -31,8 +31,9 @@ class OiMachineModel {
   const MCAsmInfo &MAI;
   const MCInstrInfo &MII;
   const MCRegisterInfo &MRI;
-  OiMemoryModel *Mem;
 public:
+  OiMemoryModel *Mem;
+
   OiMachineModel(const MCAsmInfo &MAI, const MCInstrInfo &MII,
                  const MCRegisterInfo &MRI, OiMemoryModel *Mem) 
     : MAI(MAI), MII(MII), MRI(MRI), Mem(Mem)
@@ -56,10 +57,11 @@ public:
   void SetCurSection(section_iterator *i) {
   }
 
-private:
   uint32_t Bank[32];
   uint32_t Hi, Lo, FCC;
   double   DblBank[16];
+
+private:
 
   uint32_t HandleAluSrcOperand(const MCOperand &o);
   uint32_t HandleAluDstOperand(const MCOperand &o);

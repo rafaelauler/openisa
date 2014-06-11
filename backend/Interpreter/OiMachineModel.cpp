@@ -18,6 +18,7 @@
 #include "OiMachineModel.h"
 #include "OiInstrInfo.h"
 #include "StringRefMemoryObject.h"
+#include "SyscallWrapper.h"
 #include "InterpUtils.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/MC/MCInstrInfo.h"
@@ -730,6 +731,10 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::JR: {
     DebugOut << "Handling JR\n";
     return HandleAluSrcOperand(MI->getOperand(0));
+  }
+  case Oi::SYSCALL: {
+    ProcessSyscall(this);
+    return CurPC + 8;
   }
   case Oi::NOP:
     DebugOut << "Handling NOP\n";
