@@ -28,7 +28,7 @@ unsigned ConvToDirective(unsigned regnum);
 unsigned ConvToDirectiveDbl(unsigned regnum);
 bool error(error_code ec);
 uint64_t GetELFOffset(section_iterator &i);
-std::vector<std::pair<uint64_t, StringRef> > GetSymbolsList(const ObjectFile *Obj, section_iterator &i);
+std::vector<std::pair<uint64_t, StringRef> > GetSymbolsList(const ObjectFile *Obj);
 Value* GetFirstInstruction(Value *o0, Value *o1);
 Value* GetFirstInstruction(Value *o0, Value *o1, Value *o2);
 Value* GetFirstInstruction(Value *o0, Value *o1, Value *o2, Value *o3);

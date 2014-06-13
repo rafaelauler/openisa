@@ -31,12 +31,14 @@ class OiMachineModel {
   const MCAsmInfo &MAI;
   const MCInstrInfo &MII;
   const MCRegisterInfo &MRI;
+  MCInstPrinter &IP;
 public:
   OiMemoryModel *Mem;
 
   OiMachineModel(const MCAsmInfo &MAI, const MCInstrInfo &MII,
-                 const MCRegisterInfo &MRI, OiMemoryModel *Mem) 
-    : MAI(MAI), MII(MII), MRI(MRI), Mem(Mem)
+                 const MCRegisterInfo &MRI, OiMemoryModel *Mem,
+                 MCInstPrinter &IP) 
+    : MAI(MAI), MII(MII), MRI(MRI), Mem(Mem), IP(IP)
   {
     for (int i = 0; i < 32; ++i) {
       Bank[i] = 0;

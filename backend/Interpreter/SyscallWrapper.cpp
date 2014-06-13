@@ -314,7 +314,7 @@ uint32_t *GetSyscallTable() {
     return MM->Bank[5 + num];
   }
   void SetInt(OiMachineModel *MM, uint32_t num, int32_t val) {
-    MM->Bank[4 + num] = (uint32_t) val;
+    MM->Bank[2 + num] = (uint32_t) val;
   }
   void SetBuffer(OiMachineModel *MM, int argn, unsigned char* buf,
                  unsigned int size) {
@@ -327,6 +327,8 @@ uint32_t *GetSyscallTable() {
   
 
 }
+
+#define NDEBUG
 
 void ProcessSyscall(OiMachineModel *MM) {
 #ifndef NDEBUG

@@ -10,6 +10,7 @@
 #include "InterpUtils.h"
 #include "FrontEnd/MC2IRStreamer.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/Verifier.h"
@@ -22,6 +23,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/DebugInfo/DIContext.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCDisassembler.h"
 #include "llvm/MC/MCInst.h"
@@ -54,6 +56,14 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <iostream>
+#include <fstream>
+
+#ifndef NDEBUG
+extern "C" {
+#include "string.h"
+}
+#endif
 
 namespace llvm {
 
@@ -76,6 +86,7 @@ void printELFFileHeader(const object::ObjectFile *o);
 }
 using namespace llvm;
 using namespace object;
+using namespace std;
 
 namespace llvm {
   extern Target TheOiTarget, TheOielTarget;
@@ -89,13 +100,12 @@ OutputFilename("o", cl::desc("Output filename"),
                cl::value_desc("filename"));
 
 static cl::opt<bool>
-Optimize("optimize", cl::desc("Optimize the output LLVM bitcode file"));
+FullPath("fullpath", cl::desc("Display full path of source files when dumping DWARF info"));
 
 static cl::opt<uint64_t>
-StackSize("stacksize", cl::desc("Specifies the space reserved for the stack"
-                                "(Default 300B)"),
-          cl::init(300ULL));
-
+Cap("cap", cl::desc("Specifies the maximum number of instructions to interpret"
+                                "(Default 0 = unbounded)"),
+          cl::init(0ULL));
 
 static cl::opt<bool>
 Dump("dump", cl::desc("Dump the output LLVM bitcode file"));
@@ -128,6 +138,16 @@ static const Target *getTarget(const ObjectFile *Obj = NULL) {
   return TheTarget;
 }
 
+
+#ifndef NDEBUG
+static void PrintDILineInfo(DILineInfo dli) {
+  //  if (PrintFunctions)
+  //    outs() << (dli.getFunctionName() ? dli.getFunctionName() : "<unknown>")
+  //           << "\n";
+  outs() << (dli.getFileName() ? dli.getFileName() : "<unknown>") << ':'
+         << dli.getLine() << ':' << dli.getColumn() << '\n';
+}
+#endif
 
 static void ExecutionLoop(StringRef file) {
   const Target *TheTarget = getTarget();
@@ -180,8 +200,17 @@ static void ExecutionLoop(StringRef file) {
 
   int AsmPrinterVariant = AsmInfo->getAssemblerDialect();
 
+  OwningPtr<MCInstPrinter> InstPrinter(TheTarget->createMCInstPrinter(AsmPrinterVariant,
+     *AsmInfo, *MII, *MRI, *STI));
+  if (!InstPrinter) {
+    errs() << "error: no instruction printer for target " << TripleName
+           << '\n';
+    return;
+  }
+
   OwningPtr<OiMemoryModel> mem(new OiMemoryModel());
-  OwningPtr<OiMachineModel> IP(new OiMachineModel(*AsmInfo, *MII, *MRI, &*mem));
+  OwningPtr<OiMachineModel> IP(new OiMachineModel(*AsmInfo, *MII, *MRI, &*mem,
+                                                  *InstPrinter));
   // TheTarget->createMCInstPrinter(AsmPrinterVariant, *AsmInfo, *MII, *MRI, *STI));
   if (!IP) {
     errs() << "error: no instruction printer for target " << TripleName
@@ -192,19 +221,93 @@ static void ExecutionLoop(StringRef file) {
   uint64_t CurPC = mem->LoadELF(file.data());
   error_code ec;
   uint64_t Size;
+  uint64_t numEmulated = 0;
 
 #ifndef NDEBUG
   raw_ostream &DebugOut = outs();
+  OwningPtr<Binary> binary;
+  ObjectFile *o;
+  if (ec = createBinary(file, binary)) {
+    errs() << ToolName << ": '" << file << "': " << ec.message() << ".\n";
+    return;
+  }
+  if (! (o = dyn_cast<ObjectFile>(binary.get()))) {
+    errs() << ToolName << ": '" << file << "': " << "Unrecognized file type.\n";
+    return;
+  }
+  std::vector<std::pair<uint64_t, StringRef> > Symbols =
+    GetSymbolsList(o);
+  DenseMap<uint32_t, StringRef> SymbolMap;
+  for (std::vector<std::pair<uint64_t, StringRef> >::iterator I = 
+         Symbols.begin(), E = Symbols.end(); I != E; ++I) {
+    SymbolMap.insert(*I);
+  }
+  OwningPtr<DIContext> DICtx(DIContext::getDWARFContext(o));
+  string LastFileName;
+  ifstream SourceFile;
+  uint32_t LastLine = 0;
 #else
   raw_ostream &DebugOut = nulls();
 #endif
 
   do {
     MCInst Inst;
-    DebugOut << "@0x" << format("%04" PRIx64 " ", CurPC) << " ";
+#ifndef NDEBUG
+    StringRef Symbol = SymbolMap.lookup((uint32_t) CurPC);
+    StringRef Dummy;
+    if (CurPC != 0 && Symbol != Dummy)
+      DebugOut << "\e[1;35m[\e[45m\e[1;37m" << Symbol 
+               << "\e[0m\e[1;35m]\e[0m\n";
+    int SpecFlags = DILineInfoSpecifier::FileLineInfo |
+                    DILineInfoSpecifier::AbsoluteFilePath;
+    //    if (PrintFunctions)
+    //      SpecFlags |= DILineInfoSpecifier::FunctionName;
+    //    if (PrintInlining) {
+      DIInliningInfo InliningInfo =
+        DICtx->getInliningInfoForAddress(CurPC, SpecFlags);
+      uint32_t n = InliningInfo.getNumberOfFrames();
+      if (n > 0) {
+        for (uint32_t i = 0; i < n; i++) {
+          DILineInfo dli = InliningInfo.getFrame(i);
+          //          PrintDILineInfo(dli);
+          if (!dli.getFileName())
+            continue;
+          uint32_t lineNum = dli.getLine();
+          if (dli.getFileName() != LastFileName) {
+            if (LastFileName != string()) {
+              SourceFile.close();
+            }
+            LastFileName = dli.getFileName();
+            SourceFile.open(LastFileName.c_str(), ios::in);            
+          }  else if (lineNum == LastLine) {
+            continue;
+          }
+          if (SourceFile.is_open()) {
+            string lineContents;            
+            SourceFile.seekg(0, ios::beg);
+            for (int i = 0; i < lineNum; ++i) 
+              if (!getline (SourceFile, lineContents))
+                break;
+            if (FullPath)
+              DebugOut << "\e[1;35m[" << LastFileName << ":" <<
+                lineNum << "]\e[0m  ";
+            else
+              DebugOut << "\e[1;35m[" << basename(LastFileName.c_str()) 
+                       << ":" << lineNum << "]\e[0m  ";
+            DebugOut << "\e[0;33m" << lineContents << "\e[0m\n";
+            LastLine = lineNum;
+          }
+        }
+      }
+      DebugOut << "\e[1;32m[\e[1;37m0x" << format("%04" PRIx64, CurPC) 
+               << "\e[1;32m]\e[0m";
+
+
+#endif
     if (DisAsm->getInstruction(Inst, Size, *mem, CurPC,
                                DebugOut, nulls())) {
       CurPC = IP->executeInstruction(&Inst, CurPC);
+      ++numEmulated;
     } else {
       errs() << ToolName << ": warning: invalid instruction encoding\n";
       DumpBytes(StringRef(mem->memory + CurPC, Size));
@@ -212,7 +315,7 @@ static void ExecutionLoop(StringRef file) {
       if (Size == 0)
         Size = 1; // skip illegible bytes
     }
-  } while (CurPC != 0);
+  } while (CurPC != 0 && (Cap == 0 || numEmulated < Cap));
   
 }
 
