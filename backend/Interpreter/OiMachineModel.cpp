@@ -83,8 +83,9 @@ void OiMachineModel::HandleDoubleSaveOperand(const MCOperand &o, const MCOperand
     uint32_t myimm = o2.getImm();
     uint32_t reg = ConvToDirective(conv32(o.getReg()));
     *reinterpret_cast<double*>(&Mem->memory[Bank[reg] + myimm]) = val;
+    return;
   }
-  llvm_unreachable("Invalid Src operand");
+  llvm_unreachable("Invalid double save operand");
 }
 
 uint32_t OiMachineModel::HandleFloatMemOperand(const MCOperand &o, const MCOperand &o2,
@@ -558,7 +559,11 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
       uint32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
 #ifndef NDEBUG
-      DebugOut << "* Bank[" << o0 << "] <= " << o1 << " or " << o2 << "\n";
+      DebugOut << "\t\e[0;36mBank[\e[1;36m" << o0 << "\e[0;36m]\e[0m <= "
+               << "\e[1;35m" << o1 << "\e[0m or \e[1;35m" << o2 << "\e[0m\n"
+               << "\t\e[0;36mBank[\e[1;36m" << o0 << "\e[0;36m] = "
+               << "\e[1;35m" << (o1 | o2) << " \e[0;36m(0x" 
+               << format("%04" PRIx32,(o1 | o2)) << "\e[0;36m)\e[0m\n";
 #endif
       Bank[o0] = o1 | o2;
       return CurPC + 8;
