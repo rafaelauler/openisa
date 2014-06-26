@@ -10,12 +10,22 @@
 extern int errno;
 #include "warning.h"
 
+#include <sys/stat.h>
+
+
+
+
 int
 _DEFUN (_isatty, (file),
         int file)
 {
-  errno = ENOSYS;
+  struct stat buf;
+
+  if (fstat (file, &buf) < 0)
+    return 0;
+  if (S_ISCHR (buf.st_mode))
+    return 1;
   return 0;
 }
 
-stub_warning(_isatty)
+

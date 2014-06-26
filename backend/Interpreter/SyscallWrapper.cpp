@@ -24,6 +24,28 @@ using namespace llvm;
 
 namespace {
 
+struct oi_stat
+  {
+    uint16_t st_dev;
+    uint16_t st_ino;		//  File serial number.		
+    uint32_t st_mode;	        // File mode.  
+    uint16_t st_nlink;		// Link count. 
+    uint16_t st_uid;		// User ID of the file's owner.	
+    uint16_t st_gid;		// Group ID of the file's group.
+    int16_t st_rdev;	// Device number, if device. 
+    uint32_t st_size;		// Size of file, in bytes.  
+    uint32_t my_atime;			// Time of last access.  
+    uint32_t st_atimensec;	// Nscecs of last access.  
+    uint32_t my_mtime;			// Time of last modification.  
+    uint32_t st_mtimensec;	// Nsecs of last modification.  
+    uint32_t my_ctime;			// Time of last status change.  
+    uint32_t st_ctimensec;	// Nsecs of last status change.  
+    int32_t st_blksize;	// Optimal block size for I/O.  
+    int32_t st_blocks;	// Number of 512-byte blocks allocated.  
+    uint32_t st_pad5[14];
+  };
+
+
 enum syscallscodes {
  sys_syscall = 4000,		/* 4000 */
   sys_exit	       ,
@@ -286,9 +308,9 @@ uint32_t *GetSyscallTable() {
     sys_brk,
     666,//sys_mmap,
     sys_munmap,
-    666,//sys_stat,
+    sys_newstat,//sys_stat,
     666,//sys_lstat,
-    666,//sys_fstat,
+    sys_newfstat,//sys_fstat,
     sys_uname,
     666,//sys__llseek,
     sys_readv,
@@ -338,7 +360,39 @@ void ProcessSyscall(OiMachineModel *MM) {
 #endif
 #define DEBUG_SYSCALL(x) DebugOut << "Executing syscall: " << x
 #define SET_BUFFER_CORRECT_ENDIAN(x,y,z) memcpy(&MM->Mem->memory[MM->Bank[5+x]],y,z)
-#define CORRECT_STAT_STRUCT(buf)
+#define CORRECT_STAT_STRUCT(dst, src) do {                              \
+    dst.st_dev = src.st_dev;                                            \
+    dst.st_ino = src.st_ino;                                            \
+    dst.st_mode = src.st_mode;                                          \
+    dst.st_mode = 0;                                                    \
+    dst.st_mode |= ((src.st_mode & S_IFMT) == S_IFDIR)?  0040000 : 0;   \
+    dst.st_mode |= ((src.st_mode & S_IFMT) == S_IFCHR)?  0020000 : 0;   \
+    dst.st_mode |= ((src.st_mode & S_IFMT) == S_IFBLK)?  0060000 : 0;   \
+    dst.st_mode |= ((src.st_mode & S_IFMT) == S_IFREG)?  0100000 : 0;   \
+    dst.st_mode |= ((src.st_mode & S_IFMT) == S_IFIFO)?  0010000 : 0;   \
+    dst.st_mode |= ((src.st_mode & S_IFMT) == S_IFLNK)?  0120000 : 0;   \
+    dst.st_mode |= ((src.st_mode & S_IFMT) == S_IFSOCK)? 0140000 : 0;   \
+    dst.st_mode |= (src.st_mode & S_ISUID)?  04000 : 0;                 \
+    dst.st_mode |= (src.st_mode & S_ISGID)?  02000 : 0;                 \
+    dst.st_mode |= (src.st_mode & S_ISVTX)?  01000 : 0;                 \
+    dst.st_mode |= (src.st_mode & S_IREAD)?  0400 : 0;                  \
+    dst.st_mode |= (src.st_mode & S_IWRITE)? 0200 : 0;                  \
+    dst.st_mode |= (src.st_mode & S_IEXEC)?  0100 : 0;                  \
+    dst.st_nlink = src.st_nlink;                                        \
+    dst.st_uid = src.st_uid;                                            \
+    dst.st_gid = src.st_gid;                                            \
+    dst.st_rdev = src.st_rdev;                                          \
+    dst.st_size = src.st_size;                                          \
+    dst.my_atime = src.st_atim.tv_sec;                                  \
+    dst.st_atimensec = src.st_atim.tv_nsec;                             \
+    dst.my_mtime = src.st_mtim.tv_sec;                                  \
+    dst.st_mtimensec = src.st_mtim.tv_nsec;                             \
+    dst.my_ctime = src.st_ctim.tv_sec;                                  \
+    dst.st_ctimensec = src.st_ctim.tv_nsec;                             \
+    dst.st_blksize = src.st_blksize;                                    \
+    dst.st_blocks = src.st_blocks;                                      \
+  } while (0)
+  
 #define CORRECT_SOCKADDR_STRUCT_TO_HOST(buf)                      
 #define CORRECT_SOCKADDR_STRUCT_TO_GUEST(buf)                          
 #define CORRECT_TIMEVAL_STRUCT(buf)                                     
@@ -505,8 +559,9 @@ void ProcessSyscall(OiMachineModel *MM) {
     struct stat buf;
     int ret = ::stat((char *)pathname, &buf);
     if (ret >= 0) {
-      CORRECT_STAT_STRUCT(buf);
-      SetBuffer(MM, 1, (unsigned char*)&buf, sizeof(struct stat));
+      struct oi_stat dst;
+      CORRECT_STAT_STRUCT(dst, buf);
+      SetBuffer(MM, 1, (unsigned char*)&dst, 60);
     }
     SetInt(MM, 0, ret);
     return;
@@ -518,8 +573,9 @@ void ProcessSyscall(OiMachineModel *MM) {
     struct stat buf;
     int ret = ::lstat((char *)pathname, &buf);
     if (ret >= 0) {
-      CORRECT_STAT_STRUCT(buf);
-      SetBuffer(MM, 1, (unsigned char*)&buf, sizeof(struct stat));
+      struct oi_stat dst;
+      CORRECT_STAT_STRUCT(dst, buf);
+      SetBuffer(MM, 1, (unsigned char*)&dst, 60);
     }
     SetInt(MM, 0, ret);
     return;
@@ -530,8 +586,9 @@ void ProcessSyscall(OiMachineModel *MM) {
     struct stat buf;
     int ret = ::fstat(fd, &buf);
     if (ret >= 0) {
-      CORRECT_STAT_STRUCT(buf);
-      SetBuffer(MM, 1, (unsigned char*)&buf, sizeof(struct stat));
+      struct oi_stat dst;
+      CORRECT_STAT_STRUCT(dst, buf);
+      SetBuffer(MM, 1, (unsigned char*)&dst, 60);
     }
     SetInt(MM, 0, ret);
     return;
@@ -629,7 +686,7 @@ void ProcessSyscall(OiMachineModel *MM) {
     struct stat64 buf;
     int ret = ::stat64((char *)pathname, &buf);
     if (ret >= 0) {
-      CORRECT_STAT_STRUCT(buf);
+      //CORRECT_STAT_STRUCT(buf);
       SetBuffer(MM, 1, (unsigned char*)&buf, sizeof(struct stat64));
     }
     SetInt(MM, 0, ret);
@@ -642,7 +699,7 @@ void ProcessSyscall(OiMachineModel *MM) {
     struct stat64 buf;
     int ret = ::lstat64((char *)pathname, &buf);
     if (ret >= 0) {
-      CORRECT_STAT_STRUCT(buf);
+      //CORRECT_STAT_STRUCT(buf);
       SetBuffer(MM, 1, (unsigned char*)&buf, sizeof(struct stat64));
     }
     SetInt(MM, 0, ret);
@@ -654,7 +711,7 @@ void ProcessSyscall(OiMachineModel *MM) {
     struct stat64 buf;
     int ret = ::fstat64(fd, &buf);
     if (ret >= 0) {
-      CORRECT_STAT_STRUCT(buf);
+      //CORRECT_STAT_STRUCT(buf);
       SetBuffer(MM, 1, (unsigned char*)&buf, sizeof(struct stat64));
     }
     SetInt(MM, 0, ret);
