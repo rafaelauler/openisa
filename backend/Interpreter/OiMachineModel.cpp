@@ -44,6 +44,35 @@ void OiMachineModel::FinishFunction() {
 void OiMachineModel::FinishModule() {
 }
 
+void OiMachineModel::ConfigureUserLevelStack(int argc, char **argv) {
+  unsigned stackpos = Mem->TOTALSIZE - 1;
+  char *dstptr = &Mem->memory[stackpos];
+  std::vector<unsigned> StrPtrs;
+
+  for (int i = 0; i < argc; ++i) {
+    char *srcptr;
+    unsigned sz = 0;
+    while (*(srcptr = &argv[i][sz++]));
+    while (sz--) {
+      *(dstptr--) = *(srcptr--);
+    }
+    StrPtrs.push_back((unsigned)(dstptr + 1 - Mem->memory));
+  }
+  dstptr -= ((StrPtrs.size() + 1) << 2) + ((uint64_t)(dstptr) % 4);
+  unsigned *aux = reinterpret_cast<unsigned*>(dstptr);
+  for (std::vector<unsigned>::iterator I = StrPtrs.begin(),
+         E = StrPtrs.end(); I != E; ++I) {
+    *(aux++) = *I;
+  }
+  *aux = 0;
+  dstptr -= 4;
+  aux = reinterpret_cast<unsigned*>(dstptr);
+  *(aux--) = dstptr + 4 - Mem->memory;
+  *aux = argc;
+  Bank[29] = dstptr - 4 - Mem->memory;
+}
+
+
 uint32_t OiMachineModel::HandleAluSrcOperand(const MCOperand &o) {
   if (o.isReg()) {
     return Bank[ConvToDirective(conv32(o.getReg()))];  

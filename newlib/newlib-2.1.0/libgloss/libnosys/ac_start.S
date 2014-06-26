@@ -4,9 +4,9 @@
 	.globl	_start
 	.ent	_start
 _start:
-	ori $sp,$0,5242880			# 0x500000
-	addi	$sp,$sp,-1024
-	ori	$gp,$0,_gp
+	ori	$gp,$0,%lo(_gp)
+        lw      $4, 0($sp)
+        lw      $5, 4($sp)
 	jal	main
 	nop
 	jal	_exit

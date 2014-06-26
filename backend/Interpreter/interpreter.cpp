@@ -73,7 +73,6 @@ namespace object {
   class RelocationRef;
 }
 
-extern cl::opt<std::string> TripleName;
 extern cl::opt<std::string> ArchName;
 
 // Various helper functions.
@@ -92,12 +91,11 @@ namespace llvm {
   extern Target TheOiTarget, TheOielTarget;
 }
 
-static cl::list<std::string>
-InputFilenames(cl::Positional, cl::desc("<input object files>"),cl::ZeroOrMore);
-
 static cl::opt<std::string>
-OutputFilename("o", cl::desc("Output filename"),
-               cl::value_desc("filename"));
+InputFilename(cl::Positional, cl::desc("<input object files>"));
+
+static cl::list<std::string>
+GuestArguments(cl::Positional, cl::desc("<guest program arguments>"));
 
 static cl::opt<bool>
 FullPath("fullpath", cl::desc("Display full path of source files when dumping DWARF info"));
@@ -107,22 +105,11 @@ Cap("cap", cl::desc("Specifies the maximum number of instructions to interpret"
                                 "(Default 0 = unbounded)"),
           cl::init(0ULL));
 
-static cl::opt<bool>
-Dump("dump", cl::desc("Dump the output LLVM bitcode file"));
-
-static cl::list<std::string>
-MAttrs("mattr",
-  cl::CommaSeparated,
-  cl::desc("Target specific attributes"),
-  cl::value_desc("a1,+a2,-a3,..."));
-
-cl::opt<std::string>
-llvm::TripleName("triple", cl::desc("Target triple to disassemble for, "
-                                    "see -version for available targets"));
-
 extern cl::opt<int32_t> Verbosity;
 
 static StringRef ToolName;
+
+std::string TripleName = "mipsel-unknown-unknown";
 
 static const Target *getTarget(const ObjectFile *Obj = NULL) {
   // Figure out the target triple.
@@ -151,19 +138,19 @@ static void PrintDILineInfo(DILineInfo dli) {
 }
 #endif
 
-static void ExecutionLoop(StringRef file) {
+static void ExecutionLoop(StringRef file, int argc, char **argv) {
   const Target *TheTarget = getTarget();
   if (!TheTarget)
     return;
 
   // Package up features to be passed to target/subtarget
   std::string FeaturesStr;
-  if (MAttrs.size()) {
-    SubtargetFeatures Features;
-    for (unsigned i = 0; i != MAttrs.size(); ++i)
-      Features.AddFeature(MAttrs[i]);
-    FeaturesStr = Features.getString();
-  }
+  //if (MAttrs.size()) {
+  //SubtargetFeatures Features;
+  //    for (unsigned i = 0; i != MAttrs.size(); ++i)
+  //      Features.AddFeature(MAttrs[i]);
+  //    FeaturesStr = Features.getString();
+  //  }
 
   // Set up disassembler.
   OwningPtr<const MCAsmInfo> AsmInfo(TheTarget->createMCAsmInfo(TripleName));
@@ -221,6 +208,13 @@ static void ExecutionLoop(StringRef file) {
   }
 
   uint64_t CurPC = mem->LoadELF(file.data());
+  int i = 0;
+  for (i = 0; i < argc; ++i) {
+    if (file == argv[i])
+      break;
+  }
+  argc -= i;
+  IP->ConfigureUserLevelStack(argc, &argv[i]);
   error_code ec;
   uint64_t Size;
   uint64_t numEmulated = 0;
@@ -309,7 +303,6 @@ static void ExecutionLoop(StringRef file) {
       DebugOut << "\e[1;32m[\e[1;37m0x" << format("%04" PRIx64, CurPC) 
                << "\e[1;32m]\e[0m";
     }
-
 #endif
     if (DisAsm->getInstruction(Inst, Size, *mem, CurPC,
                                DebugOut, nulls())) {
@@ -324,17 +317,6 @@ static void ExecutionLoop(StringRef file) {
     }
   } while (CurPC != 0 && (Cap == 0 || numEmulated < Cap));
   
-}
-
-/// @brief Open file and figure out how to dump it.
-static void DumpInput(StringRef file) {
-  // If file isn't stdin, check that it exists.
-  if (file != "-" && !sys::fs::exists(file)) {
-    errs() << ToolName << ": '" << file << "': " << "No such file\n";
-    return;
-  }
-
-  ExecutionLoop(file);
 }
 
 int main(int argc, char **argv) {
@@ -352,16 +334,15 @@ int main(int argc, char **argv) {
   cl::AddExtraVersionPrinter(TargetRegistry::printRegisteredTargetsForVersion);
 
   cl::ParseCommandLineOptions(argc, argv, "Open-ISA Static Binary Translator\n");
-  TripleName = Triple::normalize(TripleName);
+  //TripleName = Triple::normalize(TripleName);
 
   ToolName = argv[0];
 
   // Defaults to a.out if no filenames specified.
-  if (InputFilenames.size() == 0)
-    InputFilenames.push_back("a.out");
+  if (InputFilename.size() == 0)
+    InputFilename = std::string("a.out");
 
-  std::for_each(InputFilenames.begin(), InputFilenames.end(),
-                DumpInput);
+  ExecutionLoop(InputFilename, argc, argv);
 
   return 0;
 }
