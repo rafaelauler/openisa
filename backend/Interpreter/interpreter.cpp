@@ -120,6 +120,8 @@ cl::opt<std::string>
 llvm::TripleName("triple", cl::desc("Target triple to disassemble for, "
                                     "see -version for available targets"));
 
+extern cl::opt<int32_t> Verbosity;
+
 static StringRef ToolName;
 
 static const Target *getTarget(const ObjectFile *Obj = NULL) {
@@ -255,9 +257,12 @@ static void ExecutionLoop(StringRef file) {
 #ifndef NDEBUG
     StringRef Symbol = SymbolMap.lookup((uint32_t) CurPC);
     StringRef Dummy;
-    if (CurPC != 0 && Symbol != Dummy)
-      DebugOut << "\e[1;35m[\e[45m\e[1;37m" << Symbol 
-               << "\e[0m\e[1;35m]\e[0m\n";
+    if (Verbosity > 0) {
+      if (CurPC != 0 && Symbol != Dummy)
+        DebugOut << "\e[1;35m[\e[45m\e[1;37m" << Symbol 
+                 << "\e[0m\e[1;35m]\e[0m\n";
+    }
+    if (Verbosity > 1 || Verbosity == -1) {
     int SpecFlags = DILineInfoSpecifier::FileLineInfo |
                     DILineInfoSpecifier::AbsoluteFilePath;
     //    if (PrintFunctions)
@@ -299,9 +304,11 @@ static void ExecutionLoop(StringRef file) {
           }
         }
       }
+    } // end if (Verbosity > 1)
+    if (Verbosity > 0) {
       DebugOut << "\e[1;32m[\e[1;37m0x" << format("%04" PRIx64, CurPC) 
                << "\e[1;32m]\e[0m";
-
+    }
 
 #endif
     if (DisAsm->getInstruction(Inst, Size, *mem, CurPC,

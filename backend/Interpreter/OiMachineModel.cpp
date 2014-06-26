@@ -24,10 +24,16 @@
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Object/ELF.h"
 using namespace llvm;
+
+cl::opt<int32_t>
+Verbosity("v", cl::desc("Specifies the verbosity level of debug information (up to 3)"
+                                "(Default 0 = no debug)"),
+          cl::init(0));
 
 void OiMachineModel::StartFunction(Twine &N) {
 }
@@ -219,9 +225,11 @@ uint32_t OiMachineModel::HandleBranchTarget(const MCOperand &o, bool IsRelative,
 uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
 #ifndef NDEBUG
   raw_ostream &DebugOut = outs();
-  DebugOut << "\e[0;32m";
-  IP.printInst(MI, DebugOut, "");
-  DebugOut << "\e[0m\n";
+  if (Verbosity > 0) {
+    DebugOut << "\e[0;32m";
+    IP.printInst(MI, DebugOut, "");
+    DebugOut << "\e[0m\n";
+  }
 #else
   raw_ostream &DebugOut = nulls();
 #endif
@@ -232,16 +240,19 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::ADDu:
   case Oi::ADD:
     {
-      DebugOut << "\tHandling ADDiu, ADDi, ADDu, ADD\n";
+      if (Verbosity > 0)
+        DebugOut << "\tHandling ADDiu, ADDi, ADDu, ADD\n";
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       uint32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
 #ifndef NDEBUG
+      if (Verbosity >= 2) {
       DebugOut << "\t\e[0;36mBank[\e[1;36m" << o0 << "\e[0;36m]\e[0m <= "
                << "\e[1;35m" << o1 << "\e[0m + \e[1;35m" << o2 << "\e[0m\n"
                << "\t\e[0;36mBank[\e[1;36m" << o0 << "\e[0;36m] = "
                << "\e[1;35m" << (o1 + o2) << " \e[0;36m(0x" 
                << format("%04" PRIx32,(o1 + o2)) << "\e[0;36m)\e[0m\n";
+      }
 #endif
       Bank[o0] = o1 + o2;
       return CurPC + 8;
@@ -249,28 +260,32 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::SUBu:
   case Oi::SUB:
     {
-      DebugOut << " \tHandling SUBu, SUB\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling SUBu, SUB\n";
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       uint32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
 #ifndef NDEBUG
-      DebugOut << " \tBank[" << o0 << "] <= " << o1 << " - " << o2 << "\n";
+      if (Verbosity >= 2) 
+        DebugOut << " \tBank[" << o0 << "] <= " << o1 << " - " << o2 << "\n";
 #endif
       Bank[o0] = o1 - o2;
       return CurPC + 8;
     }
   case Oi::MUL:
     {
-      DebugOut << " \tHandling MUL\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling MUL\n";
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       uint32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
       Bank[o0] = o1 * o2;
       return CurPC + 8;
     }
-  case Oi::MULT:
+  case Oi::MULTu:
     {
-      DebugOut << " \tHandling MULT\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling MULTU\n";
       uint64_t o1 = HandleAluSrcOperand(MI->getOperand(0));
       uint64_t o2 = HandleAluSrcOperand(MI->getOperand(1));
       uint64_t ans = o1 * o2;
@@ -278,10 +293,22 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
       Lo = ans & 0xFFFFFFFFULL;
       return CurPC + 8;
     }
+  case Oi::MULT:
+    {
+      if (Verbosity > 0)
+        DebugOut << " \tHandling MULT\n";
+      int64_t o1 = HandleAluSrcOperand(MI->getOperand(0));
+      int64_t o2 = HandleAluSrcOperand(MI->getOperand(1));
+      uint64_t ans = (uint64_t)(o1 * o2);
+      Hi = ans >> 32;
+      Lo = ans & 0xFFFFFFFFULL;
+      return CurPC + 8;
+    }
   case Oi::SDIV:
   case Oi::UDIV:
     {
-      DebugOut << " \tHandling DIV\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling DIV\n";
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(0));
       uint32_t o2 = HandleAluSrcOperand(MI->getOperand(1));
       Lo = o1 / o2;
@@ -290,21 +317,24 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     }
   case Oi::MFHI:
     {
-      DebugOut << " \tHandling MFHI\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling MFHI\n";
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
       Bank[o0] = Hi;
       return CurPC + 8;
     }
   case Oi::MFLO:
     {
-      DebugOut << " \tHandling MFLO\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling MFLO\n";
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
       Bank[o0] = Lo;
       return CurPC + 8;
     }
   case Oi::LDC1:
     {
-      DebugOut << " \tHandling LDC1\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling LDC1\n";
       uint32_t o1 = HandleDoubleDstOperand(MI->getOperand(0));
       double o2 = HandleDoubleLoadOperand(MI->getOperand(1), MI->getOperand(2));
       DblBank[o1] = o2;
@@ -312,13 +342,15 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     }
   case Oi::LWC1:
     {
-      DebugOut << " \tHandling LWC1\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling LWC1\n";
       llvm_unreachable("LWC1 unimplemented!");
       break;
     }
   case Oi::SDC1:
     {
-      DebugOut << " \tHandling SDC1\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling SDC1\n";
       double o1 = HandleDoubleSrcOperand(MI->getOperand(0));
       HandleDoubleSaveOperand(MI->getOperand(1), MI->getOperand(2), 
                               o1);
@@ -326,7 +358,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     }
   case Oi::SWC1:
     {
-      DebugOut << " \tHandling SWC1\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling SWC1\n";
       llvm_unreachable("LWC1 unimplemented!");
       break;
     }
@@ -335,7 +368,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   // TODO: Implement all 8 CC bits.
   case Oi::FCMP_D32:
     {
-      DebugOut << " \tHandling FCMP_D32\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling FCMP_D32\n";
       double o0 = HandleDoubleSrcOperand(MI->getOperand(0));
       double o1 = HandleDoubleSrcOperand(MI->getOperand(1));
       if (HandleFCmpOperand(MI->getOperand(2), o0, o1))
@@ -346,13 +380,15 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     }
   case Oi::FCMP_S32:
     {
-      DebugOut << " \tHandling FCMP_S32\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling FCMP_S32\n";
       llvm_unreachable("FCMP_S32 unimplemented!");
       break;
     }
   case Oi::MOVT_I:
     {
-      DebugOut << " \tHandling MOVT\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling MOVT\n";
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       uint32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
@@ -364,7 +400,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::FSUB_D32:
   case Oi::FADD_D32:
     {
-      DebugOut << " \tHandling FADD_D32 FSUB_D32\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling FADD_D32 FSUB_D32\n";
       double o1 = HandleDoubleSrcOperand(MI->getOperand(1));
       double o2 = HandleDoubleSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleDoubleDstOperand(MI->getOperand(0));
@@ -379,13 +416,15 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::FMUL_S:
   case Oi::FDIV_S:
     {
-      DebugOut << " \tHandling FADD_S FSUB_S FMUL_S FDIV_S\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling FADD_S FSUB_S FMUL_S FDIV_S\n";
       llvm_unreachable("FSUB_S.. unimplemented!");
       break;
     }
   case Oi::FMOV_D32:
     {
-      DebugOut << " \tHandling FMOV\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling FMOV\n";
       double o1 = HandleDoubleSrcOperand(MI->getOperand(1));
       uint32_t o0 = HandleDoubleDstOperand(MI->getOperand(0));
       DblBank[o0] = o1;
@@ -393,7 +432,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     }
   case Oi::FMUL_D32:
     {
-      DebugOut << " \tHandling FMUL\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling FMUL\n";
       double o1 = HandleDoubleSrcOperand(MI->getOperand(1));
       double o2 = HandleDoubleSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleDoubleDstOperand(MI->getOperand(0));
@@ -402,7 +442,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     }
   case Oi::FDIV_D32:
     {
-      DebugOut << " \tHandling FDIV\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling FDIV\n";
       double o1 = HandleDoubleSrcOperand(MI->getOperand(1));
       double o2 = HandleDoubleSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleDoubleDstOperand(MI->getOperand(0));
@@ -411,43 +452,50 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     }
   case Oi::CVT_D32_W:
     {
-      DebugOut << " \tHandling CVT.D.W\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling CVT.D.W\n";
       llvm_unreachable("CVT.D.W unimplemented!");
       break;
     }
   case Oi::CVT_S_W:
     {
-      DebugOut << " \tHandling CVT.S.W\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling CVT.S.W\n";
       llvm_unreachable("CVT.S.W unimplemented!");
       break;
     }
   case Oi::CVT_D32_S:
     {
-      DebugOut << " \tHandling CVT.D.S\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling CVT.D.S\n";
       llvm_unreachable("CVT.D.S unimplemented!");
       break;
     }
   case Oi::CVT_S_D32:
     {
-      DebugOut << " \tHandling CVT.S.D\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling CVT.S.D\n";
       llvm_unreachable("CVT.S.D unimplemented!");
       break;
     }
   case Oi::TRUNC_W_D32:
     {
-      DebugOut << " \tHandling TRUNC.W.D\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling TRUNC.W.D\n";
       llvm_unreachable("TRUNC.W.D unimplemented!");
       break;
     }
   case Oi::TRUNC_W_S:
     {
-      DebugOut << " \tHandling TRUNC.W.S\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling TRUNC.W.S\n";
       llvm_unreachable("TRUNC.W.S unimplemented!");
       break;
     }
   case Oi::MFC1:
     {
-      DebugOut << " \tHandling MFC1\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling MFC1\n";
       double o1 = HandleDoubleSrcOperand(MI->getOperand(1));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
       uint64_t tmp = 0;
@@ -461,7 +509,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     }
   case Oi::MTC1:
     {
-      DebugOut << " \tHandling MTC1\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling MTC1\n";
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       uint32_t o0 = HandleDoubleDstOperand(MI->getOperand(0));
       uint64_t val = 0;
@@ -479,7 +528,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::BC1T:
   case Oi::BC1F:
     {
-      DebugOut << " \tHandling BC1F, BC1T\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling BC1F, BC1T\n";
       if (MI->getOpcode() == Oi::BC1T && FCC)
         return HandleBranchTarget(MI->getOperand(0), true, CurPC);
       else if (MI->getOpcode() == Oi::BC1F && !FCC)
@@ -488,12 +538,14 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     }
   case Oi::J:
     {
-      DebugOut << " \tHandling J\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling J\n";
       return HandleBranchTarget(MI->getOperand(0), false, CurPC);
     }
   case Oi::SRA:
     {
-      DebugOut << " \tHandling SRA\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling SRA\n";
       int32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       int32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
@@ -503,7 +555,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::SRL:
   case Oi::SRLV:
     {
-      DebugOut << " \tHandling SRL SRLV\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling SRL SRLV\n";
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       uint32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
@@ -517,7 +570,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::SLL:
   case Oi::SLLV:
     {
-      DebugOut << " \tHandling SLL SLLV\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling SLL SLLV\n";
       if (MI->getOperand(1).isReg() &&
           ConvToDirective(conv32(MI->getOperand(1).getReg())) == 0 &&
           MI->getOperand(2).isImm() &&
@@ -525,7 +579,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
           MI->getOperand(0).isReg() &&
           ConvToDirective(conv32(MI->getOperand(0).getReg())) == 0) {
         //NOP
-        DebugOut << "... NOP!\n";
+        if (Verbosity > 0)
+          DebugOut << "... NOP!\n";
         break;
       }
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
@@ -541,7 +596,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::MOVN_I_I:
   case Oi::MOVZ_I_I:
     {
-      DebugOut << " \tHandling MOVN, MOVZ\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling MOVN, MOVZ\n";
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       uint32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
@@ -554,23 +610,27 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::ORi:
   case Oi::OR:
     {
-      DebugOut << " \tHandling ORi, OR\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling ORi, OR\n";
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       uint32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
 #ifndef NDEBUG
-      DebugOut << "\t\e[0;36mBank[\e[1;36m" << o0 << "\e[0;36m]\e[0m <= "
-               << "\e[1;35m" << o1 << "\e[0m or \e[1;35m" << o2 << "\e[0m\n"
-               << "\t\e[0;36mBank[\e[1;36m" << o0 << "\e[0;36m] = "
-               << "\e[1;35m" << (o1 | o2) << " \e[0;36m(0x" 
-               << format("%04" PRIx32,(o1 | o2)) << "\e[0;36m)\e[0m\n";
+      if (Verbosity > 2) {
+        DebugOut << "\t\e[0;36mBank[\e[1;36m" << o0 << "\e[0;36m]\e[0m <= "
+                 << "\e[1;35m" << o1 << "\e[0m or \e[1;35m" << o2 << "\e[0m\n"
+                 << "\t\e[0;36mBank[\e[1;36m" << o0 << "\e[0;36m] = "
+                 << "\e[1;35m" << (o1 | o2) << " \e[0;36m(0x" 
+                 << format("%04" PRIx32,(o1 | o2)) << "\e[0;36m)\e[0m\n";
+      }
 #endif
       Bank[o0] = o1 | o2;
       return CurPC + 8;
     }
   case Oi::NOR:
     {
-      DebugOut << " \tHandling NORi, NOR\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling NORi, NOR\n";
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       uint32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
@@ -580,7 +640,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::ANDi:
   case Oi::AND:
     {
-      DebugOut << " \tHandling ANDi, AND\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling ANDi, AND\n";
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       uint32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
@@ -590,7 +651,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::XORi:
   case Oi::XOR:
     {
-      DebugOut << " \tHandling XORi, XOR\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling XORi, XOR\n";
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       uint32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
@@ -600,7 +662,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::SLTiu:
   case Oi::SLTu:
     {
-      DebugOut << " \tHandling SLT\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling SLT\n";
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       uint32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));      
@@ -610,7 +673,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   case Oi::SLTi:
   case Oi::SLT:
     {
-      DebugOut << " \tHandling SLT\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling SLT\n";
       int32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       int32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));      
@@ -619,7 +683,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     }
   case Oi::BEQ:
     {
-      DebugOut << " \tHandling BEQ, BNE, BLTZ\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling BEQ, BNE, BLTZ\n";
       uint32_t o0 = HandleAluSrcOperand(MI->getOperand(0));
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       if (o0 == o1)
@@ -628,7 +693,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     }
   case Oi::BNE:
     {
-      DebugOut << " \tHandling BEQ, BNE, BLTZ\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling BEQ, BNE, BLTZ\n";
       uint32_t o0 = HandleAluSrcOperand(MI->getOperand(0));
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
       if (o0 != o1)
@@ -637,7 +703,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     }
   case Oi::BLTZ:
     {
-      DebugOut << " \tHandling BEQ, BNE, BLTZ\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling BEQ, BNE, BLTZ\n";
       int32_t o0 = HandleAluSrcOperand(MI->getOperand(0));
       if (o0 < 0)
         return HandleBranchTarget(MI->getOperand(1), true, CurPC);
@@ -645,15 +712,26 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     }
   case Oi::BGTZ:
     {
-      DebugOut << " \tHandling BEQ, BNE, BLTZ\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling BEQ, BNE, BLTZ\n";
       int32_t o0 = HandleAluSrcOperand(MI->getOperand(0));
       if (o0 > 0)
         return HandleBranchTarget(MI->getOperand(1), true, CurPC);
       return CurPC + 8;
     }
+  case Oi::BGEZ:
+    {
+      if (Verbosity > 0)
+        DebugOut << " \tHandling BGEZ\n";
+      int32_t o0 = HandleAluSrcOperand(MI->getOperand(0));
+      if (o0 >= 0)
+        return HandleBranchTarget(MI->getOperand(1), true, CurPC);
+      return CurPC + 8;
+    }
   case Oi::BLEZ:
     {
-      DebugOut << " \tHandling BEQ, BNE, BLTZ\n";
+      if (Verbosity > 0)
+        DebugOut << " \tHandling BEQ, BNE, BLTZ\n";
       int32_t o0 = HandleAluSrcOperand(MI->getOperand(0));
       if (o0 <= 0)
         return HandleBranchTarget(MI->getOperand(1), true, CurPC);
@@ -661,36 +739,73 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     }
   case Oi::LUi:
   case Oi::LUi64: {
-    DebugOut << " \tHandling LUi\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling LUi\n";
     uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
     uint32_t o1 = HandleLUiOperand(MI->getOperand(1));
-    Bank[o0] = o1;
+#ifndef NDEBUG
+    if (Verbosity > 0)
+      DebugOut << "\t\e[0;31mWarning, LUI ignored\e[0m\n";
+#endif
+    //Bank[o0] = o1;
     return CurPC + 8;
   }
   case Oi::LW:
   case Oi::LW64: {
-    DebugOut << " \tHandling LW\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling LW\n";
     uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
     uint32_t* o1 = HandleMemOperand(MI->getOperand(1), MI->getOperand(2));
+#ifndef NDEBUG
+    if (Verbosity >= 3) {
+      DebugOut << "\t\e[0;36mBank[\e[1;36m" << o0 << "\e[0;36m]\e[0m <= "
+               << "\e[0;31mMemory[\e[1;31m" 
+               << format("%04" PRIx32,((char*)o1 - Mem->memory)) 
+               << "\e[0;31m]\e[0m\n\t\t <= "
+               << "\e[1;35m" << *o1 << " \e[0;36m(0x" 
+               << format("%04" PRIx32,(*o1)) << "\e[0;36m)\e[0m\n";
+    }
+#endif
     Bank[o0] = *o1;
     return CurPC + 8;
   }
   case Oi::SPILLLW: {
-    DebugOut << " \tHandling SPILLLW\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling SPILLLW\n";
     uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
     uint32_t* o1 = HandleMemOperand(MI->getOperand(1), MI->getOperand(2));
+#ifndef NDEBUG
+    if (Verbosity >= 3) {
+      DebugOut << "\t\e[0;36mBank[\e[1;36m" << o0 << "\e[0;36m]\e[0m <= "
+               << "\e[0;31mMemory[\e[1;31m" 
+               << format("%04" PRIx32,((char*)o1 - Mem->memory)) 
+               << "\e[0;31m]\e[0m\n\t\t <= "
+               << "\e[1;35m" << *o1 << " \e[0;36m(0x" 
+               << format("%04" PRIx32,(*o1)) << "\e[0;36m)\e[0m\n";
+    }
+#endif
     Bank[o0] = *o1;
     return CurPC + 8;
   }
   case Oi::SPILLSW: {
-    DebugOut << " \tHandling SPILLSW\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling SPILLSW\n";
     uint32_t o0 = HandleAluSrcOperand(MI->getOperand(0));
     uint32_t* o1 = HandleMemOperand(MI->getOperand(1), MI->getOperand(2));
+#ifndef NDEBUG
+    if (Verbosity >= 3) {
+      DebugOut << "\t\e[0;31mMemory[\e[1;31m" 
+               << format("%04" PRIx32,((char*)o1 - Mem->memory)) << "\e[0;31m]\e[0m <= "
+               << "\e[1;35m" << o0 << " \e[0;36m(0x" 
+               << format("%04" PRIx32,(o0)) << "\e[0;36m)\e[0m\n";
+    }
+#endif
     *o1 = o0;
     return CurPC + 8;
   }
   case Oi::LWL: {
-    DebugOut << " \tHandling LWL\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling LWL\n";
     uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
     uint8_t* o1_tmp = reinterpret_cast<uint8_t*>
       (HandleMemOperand(MI->getOperand(1), MI->getOperand(2)));
@@ -701,7 +816,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     return CurPC + 8;
   }
   case Oi::LWR: {
-    DebugOut << " \tHandling LWR\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling LWR\n";
     uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
     uint16_t* o1 = reinterpret_cast<uint16_t*>
       (HandleMemOperand(MI->getOperand(1), MI->getOperand(2)));
@@ -710,7 +826,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     return CurPC + 8;
   }
   case Oi::LHu: {
-    DebugOut << " \tHandling LHu\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling LHu\n";
     uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
     uint16_t* o1 = reinterpret_cast<uint16_t*>
       (HandleMemOperand(MI->getOperand(1), MI->getOperand(2)));
@@ -718,7 +835,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     return CurPC + 8;
   }
   case Oi::LH: {   
-    DebugOut << " \tHandling LH\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling LH\n";
     uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
     int16_t* o1 = reinterpret_cast<int16_t*>
       (HandleMemOperand(MI->getOperand(1), MI->getOperand(2)));
@@ -727,7 +845,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     return CurPC + 8;
   }
   case Oi::LBu: {
-    DebugOut << " \tHandling LBu\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling LBu\n";
     uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
     uint8_t* o1 = reinterpret_cast<uint8_t*>
       (HandleMemOperand(MI->getOperand(1), MI->getOperand(2)));
@@ -735,7 +854,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     return CurPC + 8;
   }
   case Oi::LB: {   
-    DebugOut << " \tHandling LB\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling LB\n";
     uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
     int8_t* o1 = reinterpret_cast<int8_t*>
       (HandleMemOperand(MI->getOperand(1), MI->getOperand(2)));
@@ -744,7 +864,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     return CurPC + 8;
   }
   case Oi::SWL: {
-    DebugOut << " \tHandling SWL\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling SWL\n";
     uint32_t o0 = HandleAluSrcOperand(MI->getOperand(0));
     uint8_t* o1_tmp = reinterpret_cast<uint8_t*>
       (HandleMemOperand(MI->getOperand(1), MI->getOperand(2)));
@@ -754,7 +875,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     return CurPC + 8;
   }
   case Oi::SWR: {
-    DebugOut << " \tHandling SWR\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling SWR\n";
     uint32_t o0 = HandleAluSrcOperand(MI->getOperand(0));
     uint16_t* o1 = reinterpret_cast<uint16_t*>
       (HandleMemOperand(MI->getOperand(1), MI->getOperand(2)));
@@ -763,22 +885,39 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   }
   case Oi::SW:
   case Oi::SW64: {
-    DebugOut << " \tHandling SW\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling SW\n";
     uint32_t o0 = HandleAluSrcOperand(MI->getOperand(0));
     uint32_t* o1 = HandleMemOperand(MI->getOperand(1), MI->getOperand(2));
+#ifndef NDEBUG
+    if (Verbosity >= 3) {
+      DebugOut << "\t\e[0;31mMemory[\e[1;31m" 
+               << format("%04" PRIx32,((char*)o1 - Mem->memory)) << "\e[0;31m]\e[0m <= "
+               << "\e[1;35m" << o0 << " \e[0;36m(0x" 
+               << format("%04" PRIx32,(o0)) << "\e[0;36m)\e[0m\n";
+    }
+#endif
     *o1 = o0;
     return CurPC + 8;
   }
   case Oi::SB: {
-    DebugOut << " \tHandling SB\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling SB\n";
     uint8_t o0 = HandleAluSrcOperand(MI->getOperand(0));
     uint8_t* o1 = reinterpret_cast<uint8_t*>
       (HandleMemOperand(MI->getOperand(1), MI->getOperand(2)));
+    if (Verbosity >= 3) {
+      DebugOut << "\t\e[0;31mMemory[\e[1;31m" 
+               << format("%04" PRIx32,((char*)o1 - Mem->memory)) << "\e[0;31m]\e[0m <= "
+               << "\e[1;35m" << (uint32_t)(o0) << " \e[0;36m(0x" 
+               << format("%02" PRIx8,(o0)) << "\e[0;36m)\e[0m\n";
+    }
     *o1 = o0;
     return CurPC + 8;
   }
   case Oi::SH: {
-    DebugOut << " \tHandling SH\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling SH\n";
     uint16_t o0 = HandleAluSrcOperand(MI->getOperand(0));
     uint16_t* o1 = reinterpret_cast<uint16_t*>
       (HandleMemOperand(MI->getOperand(1), MI->getOperand(2)));
@@ -787,18 +926,21 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
   }
   case Oi::JALR64:
   case Oi::JALR: {
-    DebugOut << " \tHandling JALR\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling JALR\n";
     Bank[31] = CurPC + 8;
-    return HandleAluSrcOperand(MI->getOperand(0));
+    return HandleAluSrcOperand(MI->getOperand(1)); // Not operand 0!
   }
   case Oi::JAL: {
-    DebugOut << " \tHandling JAL\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling JAL\n";
     Bank[31] = CurPC + 8;
     return HandleBranchTarget(MI->getOperand(0), false, CurPC);
   }
   case Oi::JR64:
   case Oi::JR: {
-    DebugOut << " \tHandling JR\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling JR\n";
     return HandleAluSrcOperand(MI->getOperand(0));
   }
   case Oi::SYSCALL: {
@@ -806,7 +948,8 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
     return CurPC + 8;
   }
   case Oi::NOP:
-    DebugOut << " \tHandling NOP\n";
+    if (Verbosity > 0)
+      DebugOut << " \tHandling NOP\n";
     break;
   default: 
     llvm_unreachable("Unimplemented instruction!");
