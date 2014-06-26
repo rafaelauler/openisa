@@ -291,7 +291,10 @@ bool OiSEDAGToDAGISel::selectAddrRegImm(SDValue Addr, SDValue &Base,
       SDValue Opnd0 = Addr.getOperand(1).getOperand(0);
       if (isa<ConstantPoolSDNode>(Opnd0) || isa<GlobalAddressSDNode>(Opnd0) ||
           isa<JumpTableSDNode>(Opnd0)) {
-        Base = CurDAG->getRegister(Oi::ZERO, ValTy);//Addr.getOperand(0);
+        // Stupid modification below screws ConstantPool loading logic! Reverted
+        // Blame: commit "Adapting backend to use 32-bit immediates" 
+        //Base = CurDAG->getRegister(Oi::ZERO, ValTy);
+        Base = Addr.getOperand(0);
         Offset = Opnd0;
         return true;
       }
