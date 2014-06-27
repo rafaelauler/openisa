@@ -360,6 +360,30 @@ void ProcessSyscall(OiMachineModel *MM) {
 #endif
 #define DEBUG_SYSCALL(x) DebugOut << "Executing syscall: " << x
 #define SET_BUFFER_CORRECT_ENDIAN(x,y,z) memcpy(&MM->Mem->memory[MM->Bank[5+x]],y,z)
+#define FIX_OPEN_FLAGS(dst, src) do {                      \
+    dst = 0;                                               \
+    dst |= (src & 00000)? O_RDONLY : 0;                    \
+    dst |= (src & 00001)? O_WRONLY : 0;                    \
+    dst |= (src & 00002)? O_RDWR   : 0;                    \
+    dst |= (src & 001000)? O_CREAT  : 0;                   \
+    dst |= (src & 004000)? O_EXCL   : 0;                   \
+    dst |= (src & 0100000)? O_NOCTTY   : 0;                \
+    dst |= (src & 02000)? O_TRUNC    : 0;                  \
+    dst |= (src & 00010)? O_APPEND   : 0;                  \
+    dst |= (src & 040000)? O_NONBLOCK : 0;                 \
+    dst |= (src & 020000)? O_SYNC  : 0;                    \
+  } while (0)
+// We don't know the mapping of these:
+//    dst |= (src & 020000)? O_ASYNC   : 0;                \
+//    dst |= (src & 0100000)? O_LARGEFILE  : 0;            \
+//    dst |= (src & 0200000)? O_DIRECTORY  : 0;            \
+//    dst |= (src & 0400000)? O_NOFOLLOW   : 0;            \
+//    dst |= (src & 02000000)? O_CLOEXEC   : 0;            \
+//    dst |= (src & 040000)? O_DIRECT      : 0;            \
+//    dst |= (src & 01000000)? O_NOATIME   : 0;            \
+//    dst |= (src & 010000000)? O_PATH     : 0;            \
+//    dst |= (src & 010000)? O_DSYNC       : 0;            \
+//
 #define CORRECT_STAT_STRUCT(dst, src) do {                              \
     dst.st_dev = src.st_dev;                                            \
     dst.st_ino = src.st_ino;                                            \
@@ -438,8 +462,10 @@ void ProcessSyscall(OiMachineModel *MM) {
     unsigned char pathname[100];
     GetBuffer(MM, 0, pathname, 100);
     int flags = GetInt(MM, 1);
+    int newflags = 0;
+    FIX_OPEN_FLAGS(newflags, flags);
     int mode = GetInt(MM, 2);
-    int ret = ::open((char*)pathname, flags, mode);
+    int ret = ::open((char*)pathname, newflags, mode);
     SetInt(MM, 0, ret);
     return;
 
