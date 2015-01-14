@@ -181,6 +181,11 @@ uint32_t OiMachineModel::HandleCallTarget(const MCOperand &o) {
   return false;
 }
 
+static bool custom_isnan(double var)
+{
+  return var != var;
+}
+
 bool OiMachineModel::HandleFCmpOperand(const MCOperand &o, double o0, double o1) {
   if (o.isImm()) {
     uint64_t cond = o.getImm();
@@ -188,26 +193,19 @@ bool OiMachineModel::HandleFCmpOperand(const MCOperand &o, double o0, double o1)
     case 0: // OI_FCOND_F  false
       return false;
     case 1: // OI_FCOND_UN unordered - true if either nans
-      llvm_unreachable("Unimplemented FCmp Operand");
-      break;
+      return custom_isnan(o0) || custom_isnan(o1);
     case 2: // OI_FCOND_OEQ equal
-      llvm_unreachable("Unimplemented FCmp Operand");
-      break;
+      return o0 == o1;
     case 3: // OI_FCOND_UEQ unordered or equal
-      llvm_unreachable("Unimplemented FCmp Operand");
-      break;
+      return (custom_isnan(o0) || custom_isnan(o1)) || (o0 == o1);
     case 4: // OI_FCOND_OLT
-      llvm_unreachable("Unimplemented FCmp Operand");
-      break;
+      return o0 < o1;
     case 5: // OI_FCOND_ULT
-      llvm_unreachable("Unimplemented FCmp Operand");
-      break;
+      return (custom_isnan(o0) || custom_isnan(o1)) || (o0 < o1);
     case 6: // OI_FCOND_OLE
-      llvm_unreachable("Unimplemented FCmp Operand");
-      break;
+      return o0 <= o1;
     case 7: // OI_FCOND_ULE
-      llvm_unreachable("Unimplemented FCmp Operand");
-      break;
+      return (custom_isnan(o0) || custom_isnan(o1)) || (o0 <= o1);
     case 8: // OI_FCOND_SF
       // Exception not implemented
       llvm_unreachable("Unimplemented FCmp Operand");
@@ -223,14 +221,12 @@ bool OiMachineModel::HandleFCmpOperand(const MCOperand &o, double o0, double o1)
       llvm_unreachable("Unimplemented FCmp Operand");
       break;
     case 12: // OI_FCOND_LT
-      llvm_unreachable("Unimplemented FCmp Operand");
-      break;
+      return o0 < o1;
     case 13: // OI_FCOND_NGE
       llvm_unreachable("Unimplemented FCmp Operand");
       break;
     case 14: // OI_FCOND_LE
-      llvm_unreachable("Unimplemented FCmp Operand");
-      break;
+      return o0 <= o1;
     case 15: // OI_FCOND_NGT
       llvm_unreachable("Unimplemented FCmp Operand");
       break;
@@ -253,7 +249,7 @@ uint32_t OiMachineModel::HandleBranchTarget(const MCOperand &o, bool IsRelative,
 
 uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
 #ifndef NDEBUG
-  raw_ostream &DebugOut = outs();
+  raw_ostream &DebugOut = dbgs();
   if (Verbosity > 0) {
     DebugOut << "\e[0;32m";
     IP.printInst(MI, DebugOut, "");
@@ -401,6 +397,9 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
         DebugOut << " \tHandling FCMP_D32\n";
       double o0 = HandleDoubleSrcOperand(MI->getOperand(0));
       double o1 = HandleDoubleSrcOperand(MI->getOperand(1));
+//      if (MI->getOperand(2).getImm() != 2) {
+//        llvm_unreachable("Unimplemented FCC");
+//      }
       if (HandleFCmpOperand(MI->getOperand(2), o0, o1))
         FCC = 1;
       else
@@ -414,15 +413,60 @@ uint64_t OiMachineModel::executeInstruction(const MCInst *MI, uint64_t CurPC) {
       llvm_unreachable("FCMP_S32 unimplemented!");
       break;
     }
+    // TODO: implement all fcc bits (get in MI->getOperand(2))
   case Oi::MOVT_I:
     {
       if (Verbosity > 0)
         DebugOut << " \tHandling MOVT\n";
       uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
-      uint32_t o2 = HandleAluSrcOperand(MI->getOperand(2));
       uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
+//      if (MI->getOperand(2).getImm() != 2) {
+//        llvm_unreachable("Unimplemented FCC");
+//      }
+      if (FCC) {
+        Bank[o0] = o1;
+      } 
+      return CurPC + 8;
+    }
+  case Oi::MOVT_D32:
+    {
+      if (Verbosity > 0)
+        DebugOut << " \tHandling MOVT\n";
+      double o1 = HandleDoubleSrcOperand(MI->getOperand(1));
+      uint32_t o0 = HandleDoubleDstOperand(MI->getOperand(0));
+//      if (MI->getOperand(2).getImm() != 2) {
+//        llvm_unreachable("Unimplemented FCC");
+//      }
+      if (FCC) {
+        DblBank[o0] = o1;
+      } 
+      return CurPC + 8;
+    }
+  case Oi::MOVF_I:
+    {
+      if (Verbosity > 0)
+        DebugOut << " \tHandling MOVF\n";
+      uint32_t o1 = HandleAluSrcOperand(MI->getOperand(1));
+      uint32_t o0 = HandleAluDstOperand(MI->getOperand(0));
+//      if (MI->getOperand(2).getImm() != 2) {
+//        llvm_unreachable("Unimplemented FCC");
+//      }
       if (!FCC) {
         Bank[o0] = o1;
+      } 
+      return CurPC + 8;
+    }
+  case Oi::MOVF_D32:
+    {
+      if (Verbosity > 0)
+        DebugOut << " \tHandling MOVF\n";
+      double o1 = HandleDoubleSrcOperand(MI->getOperand(1));
+      uint32_t o0 = HandleDoubleDstOperand(MI->getOperand(0));
+      //      if (MI->getOperand(2).getImm() != 2) {
+      //        llvm_unreachable("Unimplemented FCC");
+      //      }
+      if (!FCC) {
+        DblBank[o0] = o1;
       } 
       return CurPC + 8;
     }

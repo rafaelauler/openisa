@@ -5,7 +5,7 @@ FILE1 = susan.c
 
 TARGETS=susan
 
-SBTOPT?=-optimize -oneregion -debug-ir
+SBTOPT?=-optimize -debug-ir
 
 STACKSIZE=400000
 

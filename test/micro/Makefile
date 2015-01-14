@@ -1,6 +1,6 @@
 PROGRAMNAME=simple
 STACKSIZE=4000
 
-SBTOPT?="-debug-ir"
+SBTOPT?="-nolocals"
 
 include ../Makefile.common

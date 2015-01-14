@@ -16,22 +16,33 @@ LLVMLLC=llc -relocation-model=static -O3
 #CLANGARM=clang -target armv7--eabi -mcpu=cortex-a9
 CLANG=clang
 OPT=opt -O3
+STATICBT=static-bt
 #EMITLLVM=-ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
-EMITLLVM=-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools
+EMITLLVM=-O3 -target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools
+EMITLLVMARM=-target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafael/p/openisa/cross2/cross-tools/arm-linux-musleabihf
 CROSS=mipsel-unknown-linux-gnu-gcc
 CLANGARM=arm-linux-musleabihf-gcc-4.7.3 -static
 SBTOPT?=-optimize
 ARCH?=x86
 MATTR?=
 
-all: $(PROGRAMNAME)-oi-$(ARCH) $(PROGRAMNAME)-nat
+all: $(PROGRAMNAME)-oi-$(ARCH) $(PROGRAMNAME)-nat-$(ARCH)
 
-$(PROGRAMNAME)-nat: $(PROGRAMNAME).c
-	$(CLANG) $(EMITLLVM) -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
+$(PROGRAMNAME)-nat-x86: $(PROGRAMNAME).c
+	$(CLANG) -O3 -emit-llvm -c -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
 	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
 	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
-	$(LLVMLLC) -march=x86 $(MATTR) ${PROGRAMNAME}.bc2 -o $(PROGRAMNAME)-nat.s
-	$(CLANG) -g ${PROGRAMNAME}-nat.s -o $(PROGRAMNAME)-nat -lm
+	$(LLVMLLC) -march=x86-64 $(MATTR) ${PROGRAMNAME}.bc2 -o $(PROGRAMNAME)-nat.s
+	$(CLANG) -g ${PROGRAMNAME}-nat.s -o $(PROGRAMNAME)-nat-x86 -lm
+
+$(PROGRAMNAME)-nat-arm: $(PROGRAMNAME).c
+	$(CLANG) -O3 $(EMITLLVMARM) -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
+	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
+	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
+	$(LLVMLLC) -march=arm $(MATTR) ${PROGRAMNAME}.bc2 -o $(PROGRAMNAME)-nat.s
+	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
+	cat $(PROGRAMNAME)-nat.s >> aa.s
+	$(CLANGARM) -g aa.s -o $(PROGRAMNAME)-nat-arm -lm
 
 $(PROGRAMNAME)-oi-ia64: $(PROGRAMNAME)-oi-ia64.s
 	$(CLANG) $(PROGRAMNAME)-oi-ia64.s -o $(PROGRAMNAME)-oi-ia64
@@ -54,28 +65,18 @@ $(PROGRAMNAME)-oi-$(ARCH).s: $(PROGRAMNAME)-oi.bc
 $(PROGRAMNAME).oi: $(PROGRAMNAME)-oi.o
 	$(CROSS) $(PROGRAMNAME)-oi.o -o $(PROGRAMNAME).oi
 
-$(PROGRAMNAME)-oi.o: $(PROGRAMNAME).s
-	../../backend/oife -assemble -filetype=obj -o=$(PROGRAMNAME)-oi.o $(PROGRAMNAME).s
-
-# Two methods to translate OpenISA code, one translates the .s assembly file,
-# while other translates object files. Use object files as default.
 $(PROGRAMNAME)-oi.bc: $(PROGRAMNAME)-oi.o
-	../../backend/oisbt $(SBTOPT) -stacksize $(STACKSIZE) $(PROGRAMNAME)-oi.o -o=$(PROGRAMNAME)-oi.bc
+	$(STATICBT) $(SBTOPT) -stacksize=$(STACKSIZE) $(PROGRAMNAME)-oi.o -o=$(PROGRAMNAME)-oi.bc
 
-# Method 2: Translate OpenISA directly from the assembly file (assembly
-# translation layer).
-#$(PROGRAMNAME)-oi.bc: $(PROGRAMNAME).s
-#	../../backend/oife $(PROGRAMNAME).s -o=$(PROGRAMNAME)-oi.bc
-
-read: $(PROGRAMNAME).s
-	../../backend/oife $(PROGRAMNAME).s
+$(PROGRAMNAME)-oi.o: $(PROGRAMNAME).s
+	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(PROGRAMNAME)-oi.o $(PROGRAMNAME).s
 
 $(PROGRAMNAME).s: $(PROGRAMNAME).bc
-	$(LLVMLLC) -load=../../backend/OIBackend.so -march=oiel $(PROGRAMNAME).bc -o $(PROGRAMNAME).s
+	$(LLVMLLC) -march=mipsel $(PROGRAMNAME).bc -o $(PROGRAMNAME).s
 
 $(PROGRAMNAME).bc: $(PROGRAMNAME).c
 	$(CLANG) $(EMITLLVM) -o $(PROGRAMNAME).bc $(PROGRAMNAME).c
 	$(OPT) $(PROGRAMNAME).bc -o $(PROGRAMNAME).bc
 
 clean:
-	-rm -rf $(PROGRAMNAME).s $(PROGRAMNAME).bc2 $(PROGRAMNAME).bc $(PROGRAMNAME)-oi.bc $(PROGRAMNAME)-oi-ia64.s $(PROGRAMNAME)-oi-ia64 $(PROGRAMNAME)-oi-x86.s $(PROGRAMNAME)-oi-x86 $(PROGRAMNAME)-oi.o $(PROGRAMNAME).oi $(PROGRAMNAME)-nat out-nat.txt out-oi.txt
+	-rm -rf $(PROGRAMNAME).s $(PROGRAMNAME).bc2 $(PROGRAMNAME).bc $(PROGRAMNAME)-oi.bc $(PROGRAMNAME)-oi-ia64.s $(PROGRAMNAME)-oi-ia64 $(PROGRAMNAME)-oi-x86.s $(PROGRAMNAME)-oi-x86 $(PROGRAMNAME)-oi.o $(PROGRAMNAME).oi $(PROGRAMNAME)-nat $(PROGRAMNAME)-nat-x86 $(PROGRAMNAME)-nat-arm out-nat.txt out-oi.txt

@@ -4,7 +4,7 @@ FILE1 = main.c fourierf.c fftmisc.c
 
 TARGETS=fft
 
-SBTOPT?=-debug-ir -nolocals
+SBTOPT?=-oneregion -optimize
 
 STACKSIZE=400000
 

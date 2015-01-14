@@ -18,6 +18,7 @@ sys.argv
 args_imed = ""
 args = ""
 flags = ""
+listOfLibs = ""
 prox = False
 hasO1 = False
 hasO2 = False
@@ -26,6 +27,8 @@ hasDebug = False
 genObj = False
 genAs = False
 isAsInput = False
+isSimpleAsInput = False
+isLdInput = False
 arqoutput = ""
 
 for var in sys.argv[1:]:
@@ -44,6 +47,8 @@ for var in sys.argv[1:]:
         flags = flags + var + " "         
     elif var == "-S":
         genAs = True
+    elif var[:2] == "-l":
+        listOfLibs = listOfLibs + var + " "
     elif var == "-g":
         hasDebug = True
         args = args + var + " "
@@ -67,6 +72,13 @@ for var in sys.argv[1:]:
         if fileExtension == ".S":
             arqInputBase = fileName
             isAsInput = True        
+        if fileExtension == ".s":
+            arqInputBase= fileName
+            isAsInput = True
+            isSimpleAsInput = True
+        if fileExtension == ".o":
+            arqInputBase = fileName
+            isLdInput = True
         if fileExtension == ".c":
             arqInputBase = fileName
         args = args + var + " "
@@ -95,22 +107,26 @@ if arqoutput == "":
 if isAsInput == True:
     emitllvm="-target mipsel-unknown-linux -E --sysroot=/tools"
 
-comando2 = llvminstall + "clang " + emitllvm + " " + args_imed
-if verbose == True:
-    print comando2
-retval = subprocess.call(comando2, shell=True)
-if retval != 0:
-    sys.exit(retval);
+if isLdInput == False:
+    if isSimpleAsInput == True:
+        comando2 = "cp " + arqInputBase + ".s " + arqoutput_imed
+    else:
+        comando2 = llvminstall + "clang " + emitllvm + " " + args_imed
+    if verbose == True:
+        print comando2
+    retval = subprocess.call(comando2, shell=True)
+    if retval != 0:
+        sys.exit(retval);
 
-opt = ""
-if hasO1 == True:
-    opt = "-O1"
-elif hasO2 == True:
-    opt = "-O2"
-elif hasO3 == True:
-    opt = "-O3"
+    opt = ""
+    if hasO1 == True:
+        opt = "-O1"
+    elif hasO2 == True:
+        opt = "-O2"
+    elif hasO3 == True:
+        opt = "-O3"
 
-if isAsInput == False:
+if isAsInput == False and isLdInput == False:
     if opt != "":
         comando3 = llvminstall + "opt " + opt + " " + arqoutput_imed + " -o " + arqoutput_imed2
         if verbose == True:
@@ -150,40 +166,43 @@ if isAsInput == False:
 else:
     arqoutput_imed3 = arqoutput_imed
 
-comando8 = oias + " " + arqoutput_imed3 + " -o " + arqoutput_imed4
-if verbose == True:
-    print comando8
-retval = subprocess.call(comando8, shell=True)
-
-comando9 = "rm " + arqoutput_imed3
-if verbose == True:
-    print comando9
-if retval != 0:
+if isLdInput == False:
+    comando8 = oias + " " + arqoutput_imed3 + " -o " + arqoutput_imed4
     if verbose == True:
-        comando9 = "cat " + arqoutput_imed3 + " && " + comando9
-subprocess.call(comando9, shell=True)
-if retval != 0:
-    sys.exit(retval);
-if genObj:
-    comando7 = "mv " + arqoutput_imed4 +  " " + arqoutput 
-    if verbose == True:
-        print comando7
-    subprocess.call(comando7, shell=True)
-    sys.exit(0)
+        print comando8
+    retval = subprocess.call(comando8, shell=True)
 
+    comando9 = "rm " + arqoutput_imed3
+    if verbose == True:
+        print comando9
+    if retval != 0:
+        if verbose == True:
+            comando9 = "cat " + arqoutput_imed3 + " && " + comando9
+    subprocess.call(comando9, shell=True)
+    if retval != 0:
+        sys.exit(retval);
+    if genObj:
+        comando7 = "mv " + arqoutput_imed4 +  " " + arqoutput 
+        if verbose == True:
+            print comando7
+        subprocess.call(comando7, shell=True)
+        sys.exit(0)
+else:
+    arqoutput_imed4 = arqInputBase + ".o"
 
 if hasDebug == True:
     crossmips = crossmips + " -g"
 
-comando10 = crossmips + " " + arqoutput_imed4 + " -o " + arqoutput
+comando10 = crossmips + " " + listOfLibs + " " + arqoutput_imed4 + " -o " + arqoutput
 if verbose == True:
     print comando10
 retval = subprocess.call(comando10, shell=True)
 
-comando11 = "rm " + arqoutput_imed4
-if verbose == True:
-    print comando11
-subprocess.call(comando11, shell=True)
+if isLdInput == False:
+    comando11 = "rm " + arqoutput_imed4
+    if verbose == True:
+        print comando11
+    subprocess.call(comando11, shell=True)
 
 if retval != 0:
     sys.exit(retval);

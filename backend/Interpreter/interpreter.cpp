@@ -3,7 +3,7 @@
 //===----------------------------------------------------------------------===//
 
 //#define NDEBUG
-
+#define DBT
 #include "OiMachineModel.h"
 #include "OiMemoryModel.h"
 #include "StringRefMemoryObject.h"
@@ -133,7 +133,7 @@ static void PrintDILineInfo(DILineInfo dli) {
   //  if (PrintFunctions)
   //    outs() << (dli.getFunctionName() ? dli.getFunctionName() : "<unknown>")
   //           << "\n";
-  outs() << (dli.getFileName() ? dli.getFileName() : "<unknown>") << ':'
+  dbgs() << (dli.getFileName() ? dli.getFileName() : "<unknown>") << ':'
          << dli.getLine() << ':' << dli.getColumn() << '\n';
 }
 #endif
@@ -218,9 +218,12 @@ static void ExecutionLoop(StringRef file, int argc, char **argv) {
   error_code ec;
   uint64_t Size;
   uint64_t numEmulated = 0;
+#ifdef DBT
+  DenseMap<uint32_t, uint32_t> HotAddresses;
+#endif
 
 #ifndef NDEBUG
-  raw_ostream &DebugOut = outs();
+  raw_ostream &DebugOut = dbgs();
   OwningPtr<Binary> binary;
   ObjectFile *o;
   if (ec = createBinary(file, binary)) {
@@ -252,10 +255,20 @@ static void ExecutionLoop(StringRef file, int argc, char **argv) {
     StringRef Symbol = SymbolMap.lookup((uint32_t) CurPC);
     StringRef Dummy;
     if (Verbosity > 0) {
-      if (CurPC != 0 && Symbol != Dummy)
+      if (CurPC != 0 && Symbol != Dummy) {
         DebugOut << "\e[1;35m[\e[45m\e[1;37m" << Symbol 
-                 << "\e[0m\e[1;35m]\e[0m\n";
+                 << "\e[0m\e[1;35m]\e[0m\n2C";
+      }
     }
+#ifdef DBT
+    if (CurPC != 0 && Symbol != Dummy) {
+        uint32_t funcFreq = HotAddresses[(uint32_t) CurPC];
+        HotAddresses[(uint32_t) CurPC] = funcFreq + 1;
+        if (funcFreq == 100) {
+          DebugOut << "\n" << Symbol << " is hot!\n";
+        }
+    }
+#endif
     if (Verbosity > 1 || Verbosity == -1) {
     int SpecFlags = DILineInfoSpecifier::FileLineInfo |
                     DILineInfoSpecifier::AbsoluteFilePath;

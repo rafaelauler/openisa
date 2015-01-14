@@ -8,6 +8,6 @@ FILE2 =dijkstra_large.c
 
 TARGETS =dijkstra_small dijkstra_large
 
-SBTOPT?=-optimize -oneregion -debug-ir
+SBTOPT?=-optimize -oneregion
 
 include ../../Makefile.common

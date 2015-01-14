@@ -16,6 +16,10 @@ for dir in $(find . -maxdepth 1 -mindepth 1 -type d | cut -c 3-); do
     cd $dir
     make clean
     SBTOPT="-optimize" ARCH="arm" MATTR="-mattr=vfp3,d16,a8,-neon -mcpu=cortex-a8 -float-abi=hard" make
-    arm-linux-musleabihf-gcc -O3 -static ${dir}.c -o ${dir}-nat-arm
+    if [ $? != 0 ]; then
+        echo Stopping script
+        exit
+    fi
+    #arm-linux-musleabihf-gcc -O3 -static ${dir}.c -o ${dir}-nat-arm
     cd ..
 done
