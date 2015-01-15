@@ -28,12 +28,19 @@ MATTR?=
 
 all: $(PROGRAMNAME)-oi-$(ARCH) $(PROGRAMNAME)-nat-$(ARCH)
 
-$(PROGRAMNAME)-nat-x86: $(PROGRAMNAME).c
+$(PROGRAMNAME)-nat-x86-64: $(PROGRAMNAME).c
 	$(CLANG) -O3 -emit-llvm -c -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
 	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
 	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
 	$(LLVMLLC) -march=x86-64 $(MATTR) ${PROGRAMNAME}.bc2 -o $(PROGRAMNAME)-nat.s
-	$(CLANG) -g ${PROGRAMNAME}-nat.s -o $(PROGRAMNAME)-nat-x86 -lm
+	$(CLANG) -g ${PROGRAMNAME}-nat.s -o $(PROGRAMNAME)-nat-x86-64 -lm
+
+$(PROGRAMNAME)-nat-x86: $(PROGRAMNAME).c
+	$(CLANG) -O3 -emit-llvm -c -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
+	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
+	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
+	$(LLVMLLC) -march=x86 $(MATTR) ${PROGRAMNAME}.bc2 -o $(PROGRAMNAME)-nat.s
+	$(CLANG) -m32 -g ${PROGRAMNAME}-nat.s -o $(PROGRAMNAME)-nat-x86 -lm
 
 $(PROGRAMNAME)-nat-arm: $(PROGRAMNAME).c
 	$(CLANG) -O3 $(EMITLLVMARM) -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
@@ -44,14 +51,11 @@ $(PROGRAMNAME)-nat-arm: $(PROGRAMNAME).c
 	cat $(PROGRAMNAME)-nat.s >> aa.s
 	$(CLANGARM) -g aa.s -o $(PROGRAMNAME)-nat-arm -lm
 
-$(PROGRAMNAME)-oi-ia64: $(PROGRAMNAME)-oi-ia64.s
-	$(CLANG) $(PROGRAMNAME)-oi-ia64.s -o $(PROGRAMNAME)-oi-ia64
-
-$(PROGRAMNAME)-oi-ia64.s: $(PROGRAMNAME)-oi.bc
-	$(LLVMLLC) -march=x86-64 $(PROGRAMNAME)-oi.bc -o $(PROGRAMNAME)-oi-ia64.s
+$(PROGRAMNAME)-oi-x86-64: $(PROGRAMNAME)-oi-x86-64.s
+	$(CLANG) -g $(PROGRAMNAME)-oi-x86-64.s -o $(PROGRAMNAME)-oi-x86-64 -lm
 
 $(PROGRAMNAME)-oi-x86: $(PROGRAMNAME)-oi-x86.s
-	$(CLANG) -g $(PROGRAMNAME)-oi-x86.s -o $(PROGRAMNAME)-oi-x86 -lm
+	$(CLANG) -m32 -g $(PROGRAMNAME)-oi-x86.s -o $(PROGRAMNAME)-oi-x86 -lm
 
 $(PROGRAMNAME)-oi-arm: $(PROGRAMNAME)-oi-arm.s
 	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
@@ -79,4 +83,4 @@ $(PROGRAMNAME).bc: $(PROGRAMNAME).c
 	$(OPT) $(PROGRAMNAME).bc -o $(PROGRAMNAME).bc
 
 clean:
-	-rm -rf $(PROGRAMNAME).s $(PROGRAMNAME).bc2 $(PROGRAMNAME).bc $(PROGRAMNAME)-oi.bc $(PROGRAMNAME)-oi-ia64.s $(PROGRAMNAME)-oi-ia64 $(PROGRAMNAME)-oi-x86.s $(PROGRAMNAME)-oi-x86 $(PROGRAMNAME)-oi.o $(PROGRAMNAME).oi $(PROGRAMNAME)-nat $(PROGRAMNAME)-nat-x86 $(PROGRAMNAME)-nat-arm out-nat.txt out-oi.txt
+	-rm -rf $(PROGRAMNAME).s $(PROGRAMNAME).bc2 $(PROGRAMNAME).bc $(PROGRAMNAME)-oi.bc $(PROGRAMNAME)-oi-arm.s $(PROGRAMNAME)-oi-arm $(PROGRAMNAME)-oi-x86.s $(PROGRAMNAME)-oi-x86-64.s $(PROGRAMNAME)-oi-x86 $(PROGRAMNAME)-oi-x86-64 $(PROGRAMNAME)-oi.o $(PROGRAMNAME).oi $(PROGRAMNAME)-nat $(PROGRAMNAME)-nat-x86 $(PROGRAMNAME)-nat-x86-64 $(PROGRAMNAME)-nat-arm out-nat.txt out-oi.txt
