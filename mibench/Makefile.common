@@ -8,6 +8,7 @@ CROSS=mipsel-unknown-linux-gnu-gcc
 SBTOPT?=-optimize
 STACKSIZE?=4000
 CLANGARM=arm-linux-musleabihf-gcc-4.7.3 -static
+STATICBT=static-bt
 ARCH?=x86
 MATTR?=
 
@@ -24,10 +25,10 @@ all: $(TODO)
 
 $(BENCHNAME)-nat-x86: ${BENCHNAME}-nat.bc Makefile
 	$(LLVMLLC) -march=x86 $(MATTR) ${BENCHNAME}-nat.bc -o $(BENCHNAME)-nat-x86.s
-	$(CLANG) -g ${BENCHNAME}-nat-x86.s -o $(BENCHNAME)-nat-x86 -lm
+	$(CLANG) -m32 -g ${BENCHNAME}-nat-x86.s -o $(BENCHNAME)-nat-x86 -lm
 $(BENCHNAME2)-nat-x86: ${BENCHNAME2}-nat.bc Makefile
 	$(LLVMLLC) -march=x86 $(MATTR) ${BENCHNAME2}-nat.bc -o $(BENCHNAME2)-nat-x86.s
-	$(CLANG) -g ${BENCHNAME2}-nat-x86.s -o $(BENCHNAME2)-nat-x86 -lm
+	$(CLANG) -m32 -g ${BENCHNAME2}-nat-x86.s -o $(BENCHNAME2)-nat-x86 -lm
 
 $(BENCHNAME)-nat-arm: ${FILE1} Makefile
 	$(CLANGARM) -std=c99 -O3 -static ${FILE1} -o $(BENCHNAME)-nat -lm
@@ -41,7 +42,7 @@ $(BENCHNAME2)-nat-arm: ${FILE2} Makefile
 	$(CLANG) $(EMITLLVM) $< -o $@
 
 %.bc2 : %.c
-	$(CLANG) -emit-llvm -c $< -o $@
+	$(CLANG) -m32 -emit-llvm -c $< -o $@
 
 $(BENCHNAME)-oi-arm: $(BENCHNAME)-oi.bc
 	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi-$(ARCH).s
@@ -51,23 +52,23 @@ $(BENCHNAME)-oi-arm: $(BENCHNAME)-oi.bc
 
 $(BENCHNAME)-oi-x86: $(BENCHNAME)-oi.bc
 	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi-$(ARCH).s
-	$(CLANG) -g $(BENCHNAME)-oi-$(ARCH).s -o $(BENCHNAME)-oi-$(ARCH) -lm
+	$(CLANG) -m32 -g $(BENCHNAME)-oi-$(ARCH).s -o $(BENCHNAME)-oi-$(ARCH) -lm
 
 $(BENCHNAME)-oi.bc: ${FILE1_bcs}
 	$(LLVMLINK) ${FILE1_bcs} -o $(BENCHNAME).bc 
 	$(OPT) $(BENCHNAME).bc -o $(BENCHNAME).bc
-	$(LLVMLLC) -load=../../../backend/OIBackend.so -march=oiel $(BENCHNAME).bc -o $(BENCHNAME).s
-	../../../backend/oife -assemble -filetype=obj -o=$(BENCHNAME)-oi.o $(BENCHNAME).s
-	../../../backend/oisbt $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME)-oi.o -o=$(BENCHNAME)-oi.bc
+	$(LLVMLLC) -march=mipsel $(BENCHNAME).bc -o $(BENCHNAME).s
+	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(BENCHNAME)-oi.o $(BENCHNAME).s
+	$(STATICBT) $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME)-oi.o -o=$(BENCHNAME)-oi.bc
 	$(OPT) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi.bc
 
 
 $(BENCHNAME2)-oi.bc: ${FILE2_bcs}
 	$(LLVMLINK) ${FILE2_bcs} -o $(BENCHNAME2).bc 
 	$(OPT) $(BENCHNAME2).bc -o $(BENCHNAME2).bc
-	$(LLVMLLC) -load=../../../backend/OIBackend.so -march=oiel $(BENCHNAME2).bc -o $(BENCHNAME2).s
-	../../../backend/oife -assemble -filetype=obj -o=$(BENCHNAME2)-oi.o $(BENCHNAME2).s
-	../../../backend/oisbt $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME2)-oi.o -o=$(BENCHNAME2)-oi.bc
+	$(LLVMLLC) -march=mipsel $(BENCHNAME2).bc -o $(BENCHNAME2).s
+	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(BENCHNAME2)-oi.o $(BENCHNAME2).s
+	$(STATICBT) $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME2)-oi.o -o=$(BENCHNAME2)-oi.bc
 	$(OPT) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi.bc
 
 $(BENCHNAME)-nat.bc: ${FILE1_bc2s}
@@ -89,7 +90,7 @@ $(BENCHNAME2)-oi-arm: $(BENCHNAME2)-oi.bc
 
 $(BENCHNAME2)-oi-x86: $(BENCHNAME2)-oi.bc
 	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi-$(ARCH).s
-	$(CLANG) -g $(BENCHNAME2)-oi-$(ARCH).s -o $(BENCHNAME2)-oi-$(ARCH) -lm
+	$(CLANG) -m32 -g $(BENCHNAME2)-oi-$(ARCH).s -o $(BENCHNAME2)-oi-$(ARCH) -lm
 
 clean:
 	rm -rf output* *.bc *.bc2 *.o *.s $(TODO)
