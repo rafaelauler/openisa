@@ -22,7 +22,7 @@ EMITLLVM=-O3 -target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools
 EMITLLVMARM=-target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafael/p/openisa/cross2/cross-tools/arm-linux-musleabihf
 CROSS=mipsel-unknown-linux-gnu-gcc
 CLANGARM=arm-linux-musleabihf-gcc-4.7.3 -static
-SBTOPT?=-optimize
+SBTOPT?=-optimize -oneregion
 ARCH?=x86
 MATTR?=
 
@@ -36,7 +36,7 @@ $(PROGRAMNAME)-nat-x86-64: $(PROGRAMNAME).c
 	$(CLANG) -g ${PROGRAMNAME}-nat.s -o $(PROGRAMNAME)-nat-x86-64 -lm
 
 $(PROGRAMNAME)-nat-x86: $(PROGRAMNAME).c
-	$(CLANG) -O3 -emit-llvm -c -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
+	$(CLANG) -m32 -O3 -emit-llvm -c -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
 	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
 	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
 	$(LLVMLLC) -march=x86 $(MATTR) ${PROGRAMNAME}.bc2 -o $(PROGRAMNAME)-nat.s

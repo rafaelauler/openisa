@@ -54,7 +54,7 @@ for dir in $(find . -maxdepth 1 -mindepth 1 -type d | cut -c 3-); do
         echo Running $dir native mode - current time is $(date) | tee -a $LOGFILE
         timenat="99999"
         for iter in $(seq 1 $NUMTESTS); do
-            $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${dir}-nat | tee out-golden.txt
+            $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${dir}-nat-x86 | tee out-golden.txt
             cat timeoutput.txt | tee -a $LOGFILE
             curtime=$(cat timeoutput.txt)
             dotest=$(bc <<< "scale=4; $curtime < $timenat")
