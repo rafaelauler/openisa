@@ -1,0 +1,11 @@
+Index Program Native Globals Locals Whole
+1 basicmath 0.32 0.32 0.32 0.32
+2 susan-smoothing 0.47 0.45 0.38 0.37
+3 susan-edges 1.47 2.48 1.67 1.45
+4 susan-corners 0.38 0.42 0.51 0.37
+5 patricia 0.07 0.08 0.07 0.07
+6 dijkstra 0.75 1.69 0.79 0.74
+7 rijndael-encode 0.22 0.64 0.26 0.20
+8 rijndael-decode 0.22 0.64 0.26 0.20
+9 fft 0.05 0.06 0.06 0.06
+10 fft-inv 0.03 0.04 0.04 0.03

@@ -1,0 +1,12 @@
+Extracted 1579 lines of log data.
+Index Program Native Globals Locals Whole
+1 basicmath 0.32 0.32 0.32 0.32
+2 susan-smoothing 0.48 0.46 0.38 0.37
+3 susan-edges 1.49 2.51 1.69 1.46
+4 susan-corners 0.39 0.44 0.52 0.38
+5 patricia 0.07 !! !! !!
+6 dijkstra 0.75 1.70 0.79 0.75
+7 rijndael-encode 0.24 0.66 0.27 0.21
+8 rijndael-decode 0.21 0.66 0.26 0.21
+9 fft 0.06 !! !! !!
+10 fft-inv 0.03 !! 0.33 !!
