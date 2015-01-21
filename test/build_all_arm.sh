@@ -17,12 +17,24 @@ for dir in $(find . -maxdepth 1 -mindepth 1 -type d | cut -c 3-); do
         continue
     fi
     cd $dir
-    make clean
-    SBTOPT="-optimize" ARCH="arm" MATTR="-mattr=vfp3,d16,a8,-neon -mcpu=cortex-a8 -float-abi=hard" make
-    if [ $? != 0 ]; then
-        echo Stopping script at $dir
-        exit
-    fi
-    #arm-linux-musleabihf-gcc -O3 -static ${dir}.c -o ${dir}-nat-arm
+    for opts in "-oneregion" "-nolocals" "-debug-ir"; do
+	make clean
+	SBTOPT="-optimize "${opts} ARCH="arm" MATTR="-mattr=vfp3,d16,a8,-neon -mcpu=cortex-a8 -float-abi=hard" make
+	if [ $? != 0 ]; then
+            echo Stopping script at $dir
+            exit
+	fi
+	cp ${dir}-nat-arm ../testes-arm/binarios
+	if [ $opts == "-debug-ir" ]; then
+	    cp ${dir}-oi-arm ../testes-arm/binarios/${dir}-locals
+	else
+	    cp ${dir}-oi-arm ../testes-arm/binarios/${dir}${opts}
+	fi	
+	if [ $? != 0 ]; then
+            echo Stopping script at $dir
+            exit
+	fi	
+	#arm-linux-musleabihf-gcc -O3 -static ${dir}.c -o ${dir}-nat-arm
+    done
     cd ..
 done
