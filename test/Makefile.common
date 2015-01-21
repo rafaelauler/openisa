@@ -48,6 +48,7 @@ $(PROGRAMNAME)-nat-arm: $(PROGRAMNAME).c
 	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
 	$(LLVMLLC) -march=arm $(MATTR) ${PROGRAMNAME}.bc2 -o $(PROGRAMNAME)-nat.s
 	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
+	echo "\n.text\n\t.align 2\n.type __aeabi_memset,%function\n__aeabi_memset:\npush {r2}\nmov r2, r1\npop {r1}\nb memset\n" >> aa.s
 	cat $(PROGRAMNAME)-nat.s >> aa.s
 	$(CLANGARM) -g aa.s -o $(PROGRAMNAME)-nat-arm -lm
 
