@@ -60,19 +60,16 @@ int main(int argc, char *argv[]) {
   	 ImagIn[i]=0;
 	 }
  }
-
  /* regular*/
  fft_double (MAXSIZE,invfft,RealIn,ImagIn,RealOut,ImagOut);
- 
+
  printf("RealOut:\n");
  for (i=0;i<MAXSIZE;i++)
-   printf("%d %lf \t", 0, RealOut[i]);
- printf("\n");
+   printf("%d %lf \n", 0, RealOut[i]);
 
 printf("ImagOut:\n");
  for (i=0;i<MAXSIZE;i++)
-   printf("%d %lf \t", 0, ImagOut[i]);
-   printf("\n");
+   printf("%d %lf \n", 0, ImagOut[i]);
 
  free(RealIn);
  free(ImagIn);
