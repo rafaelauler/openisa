@@ -19,7 +19,7 @@ for dir in $(find . -maxdepth 1 -mindepth 1 -type d | cut -c 3-); do
     cd $dir
     for opts in "-oneregion" "-nolocals" "-debug-ir"; do
 	make clean
-	SBTOPT="-optimize "${opts} ARCH="arm" MATTR="-mattr=vfp3,d16,a8,-neon -mcpu=cortex-a8 -float-abi=hard" make
+	SBTOPT="-optimize "${opts} ARCH="arm" MATTR="-mattr=vfp3,d16,a8,-neon -mcpu=cortex-a9 -float-abi=hard" make
 	if [ $? != 0 ]; then
             echo Stopping script at $dir
             exit
