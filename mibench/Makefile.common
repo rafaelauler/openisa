@@ -31,9 +31,9 @@ $(BENCHNAME2)-nat-x86: ${BENCHNAME2}-nat.bc Makefile
 	$(CLANG) -m32 -g ${BENCHNAME2}-nat-x86.s -o $(BENCHNAME2)-nat-x86 -lm
 
 $(BENCHNAME)-nat-arm: ${FILE1} Makefile
-	$(CLANGARM) -std=c99 -O3 -static ${FILE1} -o $(BENCHNAME)-nat -lm
+	$(CLANGARM) -std=c99 -O3 -static ${FILE1} -o $(BENCHNAME)-nat-arm -lm
 $(BENCHNAME2)-nat-arm: ${FILE2} Makefile
-	$(CLANGARM) -std=c99 -O3 -static ${FILE2} -o $(BENCHNAME2)-nat -lm
+	$(CLANGARM) -std=c99 -O3 -static ${FILE2} -o $(BENCHNAME2)-nat-arm -lm
 
 #
 # Wildcard rules
