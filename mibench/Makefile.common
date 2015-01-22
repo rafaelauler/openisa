@@ -101,7 +101,7 @@ $(BENCHNAME2)-nat.bc: ${FILE2_bc2s}
 $(BENCHNAME2)-oi-arm: $(BENCHNAME2)-oi.bc
 	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi-$(ARCH).s
 	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
-	cat $(BENCHNAME)-oi-$(ARCH).s >> aa.s
+	cat $(BENCHNAME2)-oi-$(ARCH).s >> aa.s
 	$(CLANGARM) -g aa.s -o $(BENCHNAME2)-oi-$(ARCH) -lm
 
 $(BENCHNAME2)-oi-x86: $(BENCHNAME2)-oi.bc
