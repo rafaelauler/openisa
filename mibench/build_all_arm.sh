@@ -10,14 +10,14 @@ security/rijndael
 telecomm/FFT)
 ACTIVATE=(yes #basicmath
 yes #susan-smoothing
-yes #patricia
+no #patricia
 yes #dijkstra
-yes #rijndael-encode
+no #rijndael-encode
 yes) #fft-inv
 NAMES=(basicmath_large
 susan
 patricia
-dijkstra
+dijkstra_large
 rijndael
 fft)
 ROOT=$(pwd)
