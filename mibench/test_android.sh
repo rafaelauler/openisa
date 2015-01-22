@@ -2,7 +2,7 @@
 
 REMOTEINSTALL=/data/oi/mibench
 REMOTEROOT=/data/oi//mibench/bin
-NUMTESTS=2
+NUMTESTS=3
 
 function run_test {
     echo "gtime -f'%e' -otimeoutput.txt adb -d shell ${REMOTEROOT}/"${@} > run_test.sh
@@ -82,9 +82,9 @@ echo -ne "1 basicmath " && run_family "basicmath_large" && echo -ne "\n"
 echo -ne "2 susan-smoothing " && run_family "../susan" "-s" && echo -ne "\n"
 echo -ne "3 susan-edges " && run_family "../susan" "-e" && echo -ne "\n"
 echo -ne "4 susan-corners " && run_family "../susan" "-c" && echo -ne "\n"
-#echo -ne "5 patricia " && run_family "sieve" && echo -ne "\n"
+echo -ne "5 patricia " && run_family "patricia" "${REMOTEINSTALL}/input/large.udp" && echo -ne "\n"
 echo -ne "6 dijkstra " && run_family "dijkstra_large" "${REMOTEINSTALL}/input/dijkstra.dat" && echo -ne "\n"
-#echo -ne "7 rijndael-encode " && run_family "lists" && echo -ne "\n"
-#echo -ne "8 rijndael-decode " && run_family "random" && echo -ne "\n"
+echo -ne "7 rijndael-encode " && run_family "../rijndael" "e" && echo -ne "\n"
+echo -ne "8 rijndael-decode " && run_family "../rijndael" "d" && echo -ne "\n"
 echo -ne "9 fft " && run_family "fft" '8 32768' && echo -ne "\n"
 echo -ne "0 fft-inv " && run_family "fft" "8 32768 -i" && echo -ne "\n"
