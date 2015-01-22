@@ -55,7 +55,7 @@ $(BENCHNAME2)-nat-arm: ${BENCHNAME2}-nat.bc Makefile
 
 %.bc2 : %.c
 ifeq ($(ARCH),arm)
-	$(CLANG) $(EMITLLVMARM) -c $< -o $@
+	$(CLANG) $(EMITLLVMARM) -DARMTARGET -c $< -o $@
 else
 	$(CLANG) -m32 -emit-llvm -c $< -o $@
 endif

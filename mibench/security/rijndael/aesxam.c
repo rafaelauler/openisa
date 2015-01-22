@@ -108,7 +108,11 @@ int encfile(FILE *fin, FILE *fout, aes *ctx, char* fn)
     fillrand(inbuf, 1);             /* make top 4 bits of a byte random */
     l = 15;                         /* and store the length of the last */
                                     /* block in the lower 4 bits        */
+#ifndef ARMTARGET
     inbuf[0] = (((char)flen.__pos) & 15) | (inbuf[0] & ~15);
+#else
+    inbuf[0] = (((char)flen) & 15) | (inbuf[0] & ~15);
+#endif
 
     while(!feof(fin))               /* loop to encrypt the input file   */
     {                               /* input 1st 16 bytes to buf[1..16] */
