@@ -75,7 +75,7 @@ $(BENCHNAME)-oi.bc: ${FILE1_bcs}
 	$(OPT) $(BENCHNAME).bc -o $(BENCHNAME).bc
 	$(LLVMLLC) -march=mipsel $(BENCHNAME).bc -o $(BENCHNAME).s
 	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(BENCHNAME)-oi.o $(BENCHNAME).s
-	$(STATICBT) $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME)-oi.o -o=$(BENCHNAME)-oi.bc
+	$(STATICBT) -target=$(ARCH) $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME)-oi.o -o=$(BENCHNAME)-oi.bc
 	$(OPT) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi.bc
 
 
@@ -84,7 +84,7 @@ $(BENCHNAME2)-oi.bc: ${FILE2_bcs}
 	$(OPT) $(BENCHNAME2).bc -o $(BENCHNAME2).bc
 	$(LLVMLLC) -march=mipsel $(BENCHNAME2).bc -o $(BENCHNAME2).s
 	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(BENCHNAME2)-oi.o $(BENCHNAME2).s
-	$(STATICBT) $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME2)-oi.o -o=$(BENCHNAME2)-oi.bc
+	$(STATICBT) -target=$(ARCH) $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME2)-oi.o -o=$(BENCHNAME2)-oi.bc
 	$(OPT) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi.bc
 
 $(BENCHNAME)-nat.bc: ${FILE1_bc2s}
