@@ -2,7 +2,7 @@
 
 REMOTEINSTALL=/data/oi
 REMOTEROOT=/data/oi/binarios
-NUMTESTS=2
+NUMTESTS=20
 
 function run_test {
     echo "gtime -f'%e' -otimeoutput.txt adb -d shell ${REMOTEROOT}/"${1} > run_test.sh
@@ -75,12 +75,13 @@ if [ $? -ne 0 ]; then
     exit
 fi
 
+echo Times include delay of ~0.02s for USB communication
 echo -ne "Index Program Native Globals Locals Whole\n"
 
-#echo -ne "1 fib " && run_family "fib" && echo -ne "\n"
+echo -ne "1 fib " && run_family "fib" && echo -ne "\n"
 echo -ne "1 matrix " && run_family "matrix" && echo -ne "\n"
 echo -ne "1 heapsort " && run_family "heapsort" && echo -ne "\n"
-#echo -ne "1 ackermann " && run_family "ackermann" && echo -ne "\n"
+echo -ne "1 ackermann " && run_family "ackermann" && echo -ne "\n"
 echo -ne "1 sieve " && run_family "sieve" && echo -ne "\n"
 echo -ne "1 array " && run_family "array" && echo -ne "\n"
 echo -ne "1 lists " && run_family "lists" && echo -ne "\n"
