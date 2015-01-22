@@ -31,22 +31,20 @@ $(BENCHNAME2)-nat-x86: ${BENCHNAME2}-nat.bc Makefile
 	$(LLVMLLC) -march=x86 $(MATTR) ${BENCHNAME2}-nat.bc -o $(BENCHNAME2)-nat-x86.s
 	$(CLANG) -m32 -g ${BENCHNAME2}-nat-x86.s -o $(BENCHNAME2)-nat-x86 -lm
 
-$(BENCHNAME)-nat-arm: ${FILE1} Makefile
-	$(CLANG) -O3 $(EMITLLVMARM) -o $(BENCHNAME).bc2 $(BENCHNAME).c
-	$(OPT) $(BENCHNAME).bc2 -o $(BENCHNAME).bc2
-	$(OPT) $(BENCHNAME).bc2 -o $(BENCHNAME).bc2
-	$(LLVMLLC) -march=arm $(MATTR) ${BENCHNAME}.bc2 -o $(BENCHNAME)-nat.s
+$(BENCHNAME)-nat-arm: ${BENCHNAME}-nat.bc Makefile
+	$(LLVMLLC) -march=arm $(MATTR) ${BENCHNAME}-nat.bc -o $(BENCHNAME)-nat-arm.s
 	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
-	cat $(BENCHNAME)-nat.s >> aa.s
-	$(CLANGARM) -O3 -g aa.s -o $(BENCHNAME)-nat-arm -lm
+	echo "\n.text\n\t.align 2\n.type __aeabi_memset,%function\n__aeabi_memset:\npush {r2}\nmov r2, r1\npop {r1}\nb memset\n" >> aa.s
+	echo "\n.text\n\t.align 2\n.type __aeabi_memcpy,%function\n__aeabi_memcpy:\nb memcpy\n" >> aa.s
+	cat $(BENCHNAME)-nat-arm.s >> aa.s
+	$(CLANGARM) -g aa.s -o $(BENCHNAME)-nat-arm -lm
 
-$(BENCHNAME2)-nat-arm: ${FILE2} Makefile
-	$(CLANG) -O3 $(EMITLLVMARM) -o $(BENCHNAME2).bc2 $(BENCHNAME2).c
-	$(OPT) $(BENCHNAME2).bc2 -o $(BENCHNAME2).bc2
-	$(OPT) $(BENCHNAME2).bc2 -o $(BENCHNAME2).bc2
-	$(LLVMLLC) -march=arm $(MATTR) ${BENCHNAME2}.bc2 -o $(BENCHNAME2)-nat.s
+$(BENCHNAME2)-nat-arm: ${BENCHNAME2}-nat.bc Makefile
+	$(LLVMLLC) -march=arm $(MATTR) ${BENCHNAME2}-nat.bc -o $(BENCHNAME2)-nat-arm.s
 	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
-	cat $(BENCHNAME2)-nat.s >> aa.s
+	echo "\n.text\n\t.align 2\n.type __aeabi_memset,%function\n__aeabi_memset:\npush {r2}\nmov r2, r1\npop {r1}\nb memset\n" >> aa.s
+	echo "\n.text\n\t.align 2\n.type __aeabi_memcpy,%function\n__aeabi_memcpy:\nb memcpy\n" >> aa.s
+	cat $(BENCHNAME2)-nat-arm.s >> aa.s
 	$(CLANGARM) -O3 -g aa.s -o $(BENCHNAME2)-nat-arm -lm
 
 #
@@ -56,7 +54,11 @@ $(BENCHNAME2)-nat-arm: ${FILE2} Makefile
 	$(CLANG) $(EMITLLVM) $< -o $@
 
 %.bc2 : %.c
+ifeq ($(ARCH),arm)
+	$(CLANG) $(EMITLLVMARM) -c $< -o $@
+else
 	$(CLANG) -m32 -emit-llvm -c $< -o $@
+endif
 
 $(BENCHNAME)-oi-arm: $(BENCHNAME)-oi.bc
 	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi-$(ARCH).s
