@@ -4,6 +4,7 @@ LLVMLINK=llvm-link
 CLANG=clang
 OPT=opt -O3
 EMITLLVM=-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools
+EMITLLVMARM=-target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafael/p/openisa/cross2/cross-tools/arm-linux-musleabihf
 CROSS=mipsel-unknown-linux-gnu-gcc
 SBTOPT?=-optimize
 STACKSIZE?=4000
@@ -31,9 +32,22 @@ $(BENCHNAME2)-nat-x86: ${BENCHNAME2}-nat.bc Makefile
 	$(CLANG) -m32 -g ${BENCHNAME2}-nat-x86.s -o $(BENCHNAME2)-nat-x86 -lm
 
 $(BENCHNAME)-nat-arm: ${FILE1} Makefile
-	$(CLANGARM) -std=c99 -O3 -static ${FILE1} -o $(BENCHNAME)-nat-arm -lm
+	$(CLANG) -O3 $(EMITLLVMARM) -o $(BENCHNAME).bc2 $(BENCHNAME).c
+	$(OPT) $(BENCHNAME).bc2 -o $(BENCHNAME).bc2
+	$(OPT) $(BENCHNAME).bc2 -o $(BENCHNAME).bc2
+	$(LLVMLLC) -march=arm $(MATTR) ${BENCHNAME}.bc2 -o $(BENCHNAME)-nat.s
+	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
+	cat $(BENCHNAME)-nat.s >> aa.s
+	$(CLANGARM) -O3 -g aa.s -o $(BENCHNAME)-nat-arm -lm
+
 $(BENCHNAME2)-nat-arm: ${FILE2} Makefile
-	$(CLANGARM) -std=c99 -O3 -static ${FILE2} -o $(BENCHNAME2)-nat-arm -lm
+	$(CLANG) -O3 $(EMITLLVMARM) -o $(BENCHNAME2).bc2 $(BENCHNAME2).c
+	$(OPT) $(BENCHNAME2).bc2 -o $(BENCHNAME2).bc2
+	$(OPT) $(BENCHNAME2).bc2 -o $(BENCHNAME2).bc2
+	$(LLVMLLC) -march=arm $(MATTR) ${BENCHNAME2}.bc2 -o $(BENCHNAME2)-nat.s
+	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
+	cat $(BENCHNAME2)-nat.s >> aa.s
+	$(CLANGARM) -O3 -g aa.s -o $(BENCHNAME2)-nat-arm -lm
 
 #
 # Wildcard rules
@@ -55,7 +69,7 @@ $(BENCHNAME)-oi-x86: $(BENCHNAME)-oi.bc
 	$(CLANG) -m32 -g $(BENCHNAME)-oi-$(ARCH).s -o $(BENCHNAME)-oi-$(ARCH) -lm
 
 $(BENCHNAME)-oi.bc: ${FILE1_bcs}
-	$(LLVMLINK) ${FILE1_bcs} -o $(BENCHNAME).bc 
+	$(LLVMLINK) ${FILE1_bcs} -o $(BENCHNAME).bc
 	$(OPT) $(BENCHNAME).bc -o $(BENCHNAME).bc
 	$(LLVMLLC) -march=mipsel $(BENCHNAME).bc -o $(BENCHNAME).s
 	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(BENCHNAME)-oi.o $(BENCHNAME).s
@@ -64,7 +78,7 @@ $(BENCHNAME)-oi.bc: ${FILE1_bcs}
 
 
 $(BENCHNAME2)-oi.bc: ${FILE2_bcs}
-	$(LLVMLINK) ${FILE2_bcs} -o $(BENCHNAME2).bc 
+	$(LLVMLINK) ${FILE2_bcs} -o $(BENCHNAME2).bc
 	$(OPT) $(BENCHNAME2).bc -o $(BENCHNAME2).bc
 	$(LLVMLLC) -march=mipsel $(BENCHNAME2).bc -o $(BENCHNAME2).s
 	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(BENCHNAME2)-oi.o $(BENCHNAME2).s
