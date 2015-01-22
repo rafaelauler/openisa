@@ -10,9 +10,9 @@ security/rijndael
 telecomm/FFT)
 ACTIVATE=(yes #basicmath
 yes #susan-smoothing
-no #patricia
+yes #patricia
 yes #dijkstra
-no #rijndael-encode
+yes #rijndael-encode
 yes) #fft-inv
 NAMES=(basicmath_large
 susan
