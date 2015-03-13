@@ -237,7 +237,7 @@ int main(int argc, char *argv[])
     int     i=0, by=0, key_len=0, err = 0;
     aes     ctx[1];
 
-    if(argc != 5 || (toupper(*argv[3]) != 'D' && toupper(*argv[3]) != 'E'))
+    if(argc != 5 || (*argv[3] != 'd' && *argv[3] != 'e'))
     {
         printf("usage: rijndael in_filename out_filename [d/e] key_in_hex\n"); 
         err = -1; goto exit;
@@ -248,11 +248,13 @@ int main(int argc, char *argv[])
     
     while(i < 64 && *cp)    /* the maximum key length is 32 bytes and   */
     {                       /* hence at most 64 hexadecimal digits      */
-        ch = toupper(*cp++);            /* process a hexadecimal digit  */
+        ch = *cp++;            /* process a hexadecimal digit  */
         if(ch >= '0' && ch <= '9')
             by = (by << 4) + ch - '0';
         else if(ch >= 'A' && ch <= 'F')
             by = (by << 4) + ch - 'A' + 10;
+	else if (ch >= 'a' && ch <= 'f')
+            by = (by << 4) + ch - 'a' + 10;
         else                            /* error if not hexadecimal     */
         {
             printf("key must be in hexadecimal notation\n"); 
@@ -289,7 +291,7 @@ int main(int argc, char *argv[])
         err = -6; goto exit;
     }
 
-    if(toupper(*argv[3]) == 'E')
+    if(*argv[3] == 'e')
     {                           /* encryption in Cipher Block Chaining mode */
         set_key(key, key_len, enc, ctx);
 
