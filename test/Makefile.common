@@ -36,7 +36,7 @@ $(PROGRAMNAME)-nat-x86-64: $(PROGRAMNAME).c
 	$(CLANG) -g ${PROGRAMNAME}-nat.s -o $(PROGRAMNAME)-nat-x86-64 -lm
 
 $(PROGRAMNAME)-nat-x86: $(PROGRAMNAME).c
-	$(CLANG) -m32 -O3 -emit-llvm -c -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
+	$(CLANG) -O3 -mllvm -disable-llvm-optzns -m32 -emit-llvm -c -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
 	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
 	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
 	$(LLVMLLC) -march=x86 $(MATTR) ${PROGRAMNAME}.bc2 -o $(PROGRAMNAME)-nat.s
