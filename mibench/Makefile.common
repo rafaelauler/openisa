@@ -57,7 +57,7 @@ $(BENCHNAME2)-nat-arm: ${BENCHNAME2}-nat.bc Makefile
 ifeq ($(ARCH),arm)
 	$(CLANG) $(EMITLLVMARM) -DARMTARGET -c $< -o $@
 else
-	$(CLANG) -m32 -emit-llvm -c $< -o $@
+	$(CLANG) -O3 -mllvm -disable-llvm-optzns -m32 -emit-llvm -c $< -o $@
 endif
 
 $(BENCHNAME)-oi-arm: $(BENCHNAME)-oi.bc
