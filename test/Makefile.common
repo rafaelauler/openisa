@@ -18,8 +18,8 @@ CLANG=clang
 OPT=opt -O3
 STATICBT=static-bt
 #EMITLLVM=-ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
-EMITLLVM=-O3 -target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools
-EMITLLVMARM=-target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafael/p/openisa/cross2/cross-tools/arm-linux-musleabihf
+EMITLLVM=-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools -O3 -mllvm -disable-llvm-optzns
+EMITLLVMARM=-target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafael/p/openisa/cross2/cross-tools/arm-linux-musleabihf -O3 -mllvm -disable-llvm-optzns
 CROSS=mipsel-unknown-linux-gnu-gcc
 CLANGARM=arm-linux-musleabihf-gcc-4.7.3 -static
 SBTOPT?=-optimize -oneregion
