@@ -31,9 +31,6 @@
 
 #define BITS_PER_WORD   (sizeof(unsigned) * 8)
 
-int aaa(int argc, char **argv) {
-  return main(argc, argv);
-}
 
 
 int IsPowerOfTwo ( unsigned x )

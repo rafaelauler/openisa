@@ -26,12 +26,12 @@
 #include <string.h>	/* bcopy() */
 #include "patricia.h"
 
-extern int main(int argc, char **argv);
+//extern int main(int argc, char **argv);
 
-void
-aaaa(int argc, char **argv) {
-  main(argc, argv);
-}
+//void
+//aaaa(int argc, char **argv) {
+//  main(argc, argv);
+//}
 
 /*
  * Private function used to return whether

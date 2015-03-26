@@ -84,9 +84,6 @@
 #define FAST_VARIABLE
  */
 
-int aaaa(int argc, char **argv) {
-  return main(argc, argv);
-}
 
 
 #define UNROLL

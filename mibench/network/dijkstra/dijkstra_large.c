@@ -32,10 +32,6 @@ int ch = 5;
 int iPrev = 1, iNode = 2;
 int i = 1, iCost = 2, iDist = 3;
 
-int aaa(int argc, char **argv) {
-  return main(argc, argv);
-}
-
 
 void print_path (NODE *rgnNodes, int chNode)
 {
