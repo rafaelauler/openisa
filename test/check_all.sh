@@ -41,9 +41,8 @@ for dir in $(find . -maxdepth 2 -mindepth 1 -type d | cut -c 3-); do
             if [ x"$VERBOSE" == x"false" ]; then
                 echo Running make verbose:
                 SBTOPT="$myopts" make       
-            fi
-            cd ..
-            exit
+            fi            
+	    continue
         fi
 	file=${dir}
     	if [[ $dir == micro* ]]; then
