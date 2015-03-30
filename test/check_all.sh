@@ -37,11 +37,7 @@ for dir in $(find . -maxdepth 2 -mindepth 1 -type d | cut -c 3-); do
             OUT=$?
         fi
         if [ $OUT -ne 0 ]; then
-            echo "BUILD FAIL!\n Program: $dir Options: $myopts \n" | tee -a $LOGFILE
-            if [ x"$VERBOSE" == x"false" ]; then
-                echo Running make verbose:
-                SBTOPT="$myopts" make       
-            fi            
+            echo "BUILD FAIL!\n" | tee -a $LOGFILE
 	    continue
         fi
 	file=${dir}
@@ -55,7 +51,7 @@ for dir in $(find . -maxdepth 2 -mindepth 1 -type d | cut -c 3-); do
 		./${file}-nat-x86 > out-golden.txt
         	./${file}-oi-x86 > out-oi.txt
 	fi
-        diff out-golden.txt out-oi.txt
+        diff out-golden.txt out-oi.txt &> /dev/null
         if [ $? -ne 0 ]; then
             echo "FAIL!" | tee -a $LOGFILE
 	else
