@@ -134,7 +134,7 @@ for index in ${!DIRS[*]}; do
         fi
 
         ./${largeoi} &> out-large-oi.txt
-        diff out-large-golden.txt out-large-oi.txt
+        diff out-large-golden.txt out-large-oi.txt &> /dev/null
         if [ $? -ne 0 ]; then
             echo "FAIL! (large input)"
         fi
