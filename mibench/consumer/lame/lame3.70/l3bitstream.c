@@ -23,7 +23,7 @@
 #include <assert.h>
 #include "l3bitstream-pvt.h"
 
-#define DEBUG
+//#define DEBUG
 
 static Bit_stream_struc *bs = NULL;
 
@@ -44,7 +44,6 @@ BF_PartHolder *userFrameDataPH;
 
 void putMyBits( u_int val, u_int len )
 {
-  printf("PUT MY BITS %d %d\n", val, len);
     putbits( bs, val, len );
 }
 
@@ -163,9 +162,9 @@ static void encodeMainData(lame_global_flags *gfp, int l3_enc[2][2][576],
     for (gr = 0; gr < 2; gr++) {
       for (ch = 0; ch < gfp->stereo; ch++) {
         BF_PartHolder **pph = &scaleFactorsPH[gr][ch];
-        printf("Indexes to access gi: gr = %d, ch = %d\n", gr, ch);
+        //        printf("Indexes to access gi: gr = %d, ch = %d\n", gr, ch);
         gr_info *gi = &(si->gr[gr].ch[ch].tt);
-        printf("Address = %08X\n", (int)gi);
+        //        printf("Address = %08X\n", (int)gi);
         unsigned slen1 = slen1_tab[gi->scalefac_compress];
         unsigned slen2 = slen2_tab[gi->scalefac_compress];
         int *ix = &l3_enc[gr][ch][0];
@@ -630,7 +629,7 @@ Huffmancodebits( BF_PartHolder **pph, int *ix, gr_info *gi )
 #ifdef DEBUG
     c1bits = bitsWritten - bvbits;
 #endif
-    printf("part2_3_length = %d and part2_length = %d\n", gi->part2_3_length,
+    //    printf("part2_3_length = %d and part2_length = %d\n", gi->part2_3_length,
            gi->part2_length);
     if ((stuffingBits = gi->part2_3_length - gi->part2_length - bitsWritten)) {
       int stuffingWords = stuffingBits / 32;
