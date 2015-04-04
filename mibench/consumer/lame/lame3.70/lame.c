@@ -808,7 +808,7 @@ int mf_size,char *mp3buf, int mp3buf_size)
   }
 
   /* polyphase filtering / mdct */
-  dump_l3_side();
+  //  dump_l3_side();
   //  for (int aa = 0; aa < 576; ++aa) {
   //    printf("inbuf[0][%d] %d\n", aa, inbuf[0][aa]);
   //    printf("inbuf[1][%d] %d\n", aa, inbuf[1][aa]);
@@ -1087,11 +1087,11 @@ int lame_encode_buffer(lame_global_flags *gfp,
     /* copy in new samples */
     for (ch = 0; ch < gfp->stereo; ch++) {
       if (gfp->resample_ratio != 1) {
-        printf("resample buffer %d\n", ++cnt);
+        //        printf("resample buffer %d\n", ++cnt);
         n_out = fill_buffer_resample(gfp, &mfbuf[ch][mf_size], gfp->framesize,
                                      in_buffer[ch], nsamples, &n_in, ch);
       } else {
-        printf("filling buffer %d\n", ++cnt);
+        //        printf("filling buffer %d\n", ++cnt);
         n_out = fill_buffer(gfp, &mfbuf[ch][mf_size], gfp->framesize,
                             in_buffer[ch], nsamples);
         n_in = n_out;
@@ -1112,16 +1112,16 @@ int lame_encode_buffer(lame_global_flags *gfp,
         /* fatel error: mp3buffer was too small */
         return -1;
       }
-      printf("encode_buffer(): Dumping contents of mp3buf\n");
-      for (int i = 0; i < ret; ++i) {
-        printf("%08X %02X", i, mp3buf[i] & 0xFF);
-        ++i;
-        for (int y = i; y % 16 != 0 && y < ret; ++y, ++i) {
-          printf(" %02X", mp3buf[y] & 0xFF);
-        }
-        --i;
-        printf("\n");
-      }
+      //      printf("encode_buffer(): Dumping contents of mp3buf\n");
+      //      for (int i = 0; i < ret; ++i) {
+      //        printf("%08X %02X", i, mp3buf[i] & 0xFF);
+      //        ++i;
+      //        for (int y = i; y % 16 != 0 && y < ret; ++y, ++i) {
+      //          printf(" %02X", mp3buf[y] & 0xFF);
+      //        }
+      //        --i;
+      //        printf("\n");
+      //      }
 
       mp3buf += ret;
       mp3size += ret;
@@ -1452,7 +1452,7 @@ int lame_encode_finish(lame_global_flags *gfp,char *mp3buffer, int mp3buffer_siz
 	  brhist_disp_total(gfp);
 	}
 #endif
-      printf("\n");
+      //      printf("\n");
       fflush(stderr);
   }
 

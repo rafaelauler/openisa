@@ -197,9 +197,9 @@ iteration_loop( lame_global_flags *gfp,
           l3_enc[gr][ch][i] *= -1;
       }
 
-      printf("scalefac = %d %d %d ", scalefac[gr][ch].l[SBMAX_l-1], scalefac[gr][ch].s[SBMAX_s-1][0],
-             scalefac[gr][ch].s[SBMAX_s-1][1]);
-      printf("%d\n", scalefac[gr][ch].s[SBMAX_s-1][2]);
+      //      printf("scalefac = %d %d %d ", scalefac[gr][ch].l[SBMAX_l-1], scalefac[gr][ch].s[SBMAX_s-1][0],
+      //             scalefac[gr][ch].s[SBMAX_s-1][1]);
+      //      printf("%d\n", scalefac[gr][ch].s[SBMAX_s-1][2]);
 
       //      printf("Dumping l3_enc:\n");
       //      for (int i = 0; i < 576; ++i) {
@@ -790,7 +790,7 @@ void outer_loop(
   while (notdone) {
     static int OldValue[2] = {180, 180};
     int try_scale = 0;
-    printf("== Iteration %d ==\n", iteration);
+    //    printf("== Iteration %d ==\n", iteration);
     iteration++;
     if (compute_stepsize) {
       /* init and compute initial quantization step */
@@ -825,20 +825,20 @@ void outer_loop(
        * computed in bin_search_StepSize above */
       int real_bits;
       if (iteration == 1) {
-        printf("bits_found = %d, huff_bits = %d\n", bits_found, huff_bits);
+        //        printf("bits_found = %d, huff_bits = %d\n", bits_found, huff_bits);
         if (bits_found > huff_bits) {
-          printf("1");
+          //          printf("1");
           cod_info->global_gain++;
           real_bits = inner_loop(gfp, xrpow, l3_enc_w, huff_bits, cod_info);
         } else {
-          printf("2");
+          //          printf("2");
           real_bits = bits_found;
         }
       } else {
-        printf("3");
+        //        printf("3");
         real_bits = inner_loop(gfp, xrpow, l3_enc_w, huff_bits, cod_info);
       }
-      printf("real_bits = %d\n", real_bits);
+      //      printf("real_bits = %d\n", real_bits);
       cod_info->part2_3_length = real_bits;
 
       /* compute the distortion in this quantization */
@@ -849,7 +849,7 @@ void outer_loop(
         over = calc_noise1(xr, l3_enc_w, cod_info, xfsf_w, distort, l3_xmin,
                            &scalefac_w, &over_noise, &tot_noise, &max_noise);
       }
-      printf("over = %d\n", over);
+      //      printf("over = %d\n", over);
 
       /* check if this quantization is better the our saved quantization */
       if (iteration == 1)
@@ -881,7 +881,7 @@ void outer_loop(
     /* if no bands with distortion, we are done */
     if (gfp->noise_shaping_stop == 0) {
       if (over == 0) {
-        printf("No bands with distortion, we are done!\n");
+        //        printf("No bands with distortion, we are done!\n");
         notdone = 0;
       }
     }
@@ -901,14 +901,14 @@ void outer_loop(
           try_scale = 1;
       }
       notdone = !status;
-      printf("notdone = %d\n", notdone);
+      //      printf("notdone = %d\n", notdone);
     }
 
     if (try_scale && gfp->experimentalY) {
       init_outer_loop(gfp, xr, cod_info);
       compute_stepsize = 1; /* compute a new global gain */
       notdone = 1;
-      printf("We are not done - try_scale & gfp->experimentalY\n");
+      //      printf("We are not done - try_scale & gfp->experimentalY\n");
       cod_info->scalefac_scale = 1;
     }
   } /* done with main iteration */

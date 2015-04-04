@@ -320,16 +320,16 @@ void putbits(Bit_stream_struc *bs, /* bit stream structure */
     k = Min(j, bs->buf_bit_idx);
 
     tmp = val >> (j - k);
-    printf("     tmp = %d, val = %d, j = %d", tmp, val, j);
-    printf(", k = %d\n", k);
-    printf(" ---> j = %d, bs->buf_byte_idx = %d\n", j, bs->buf_byte_idx);
+    //    printf("     tmp = %d, val = %d, j = %d", tmp, val, j);
+    //    printf(", k = %d\n", k);
+    //    printf(" ---> j = %d, bs->buf_byte_idx = %d\n", j, bs->buf_byte_idx);
     //    printf(" ---> putmask[k] = %08X\n", putmask[k]);
     //    printf(" ---> bs->buf_bit_idx = %d, k = %d\n", bs->buf_bit_idx, k);
-    printf("(tmp & putmask[k]) = %d , (bs->buf_bit_idx - k) = %d\n", (tmp & putmask[k]), (bs->buf_bit_idx - k));
-    printf("(tmp & putmask[k]) << (bs->buf_bit_idx - k) = %d\n",
-           (tmp & putmask[k]) << (bs->buf_bit_idx - k));
+    //    printf("(tmp & putmask[k]) = %d , (bs->buf_bit_idx - k) = %d\n", (tmp & putmask[k]), (bs->buf_bit_idx - k));
+    //    printf("(tmp & putmask[k]) << (bs->buf_bit_idx - k) = %d\n",
+    //           (tmp & putmask[k]) << (bs->buf_bit_idx - k));
     bs->buf[bs->buf_byte_idx] |= (tmp & putmask[k]) << (bs->buf_bit_idx - k);
-    printf(" ---> bs->buf[bs->buf_byte_idx] = %d\n", bs->buf[bs->buf_byte_idx]);
+    //    printf(" ---> bs->buf[bs->buf_byte_idx] = %d\n", bs->buf[bs->buf_byte_idx]);
     bs->buf_bit_idx -= k;
     if (!bs->buf_bit_idx) {
       bs->buf_bit_idx = 8;

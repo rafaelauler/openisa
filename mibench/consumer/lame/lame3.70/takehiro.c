@@ -718,14 +718,14 @@ void best_scalefac_store(lame_global_flags *gfp, int gr, int ch,
         end = scalefac_band.s[sfb + 1];
         for (l = start; l < end; l++)
           if (l3_enc[gr][ch][3 * l + i] != 0) {
-            printf("gr = %d, ch = %d, sfb = %d", gr, ch, sfb);
-            printf(" i = %d --> l3_enc[gr][ch][3 * l + i] != 0\n", i);
+            //            printf("gr = %d, ch = %d, sfb = %d", gr, ch, sfb);
+            //            printf(" i = %d --> l3_enc[gr][ch][3 * l + i] != 0\n", i);
             break;
           }
         if (l == end) {
           scalefac[gr][ch].s[sfb][i] = 0;
-          printf("gr = %d, ch = %d, sfb = %d", gr, ch, sfb);
-          printf(" i = %d --> 0\n", i);
+          //          printf("gr = %d, ch = %d, sfb = %d", gr, ch, sfb);
+          //          printf(" i = %d --> 0\n", i);
         }
       }
     }
@@ -742,8 +742,8 @@ void best_scalefac_store(lame_global_flags *gfp, int gr, int ch,
     for (sfb = gi->sfb_smax; sfb < SBPSY_s; sfb++) {
       for (b = 0; b < 3; b++) {
         s |= scalefac[gr][ch].s[sfb][b];
-        printf("s |= scalefac[gr][ch].s[sfb][%d] = %d\n", b,
-               scalefac[gr][ch].s[sfb][b]);
+        //        printf("s |= scalefac[gr][ch].s[sfb][%d] = %d\n", b,
+        //               scalefac[gr][ch].s[sfb][b]);
       }
     }
 

@@ -840,7 +840,7 @@ bin_search_StepSize2 (lame_global_flags *gfp,int desired_rate, int start, int *i
       cod_info->global_gain = StepSize; //// CHECK HERE!!!!
 
       nBits = count_bits(gfp, ix, xrspow, cod_info);
-      printf("nBits = %d \n", nBits);
+      //      printf("nBits = %d \n", nBits);
 
       if (CurrentStep == 1) {
         break; /* nothing to adjust anymore */
@@ -1146,7 +1146,7 @@ void quantize_xrpow_ISO( FLOAT8 xr[576], int ix[576], gr_info *cod_info )
   //  for (int i = 0; i < 576; ++i) {
   //    printf("%d %lf\n", i, xr[i]);
   //  }
-  printf("%08X istep= %f ", (int)&cod_info->global_gain, istep);
+  //  printf("%08X istep= %f ", (int)&cod_info->global_gain, istep);
   {
       register int j;
       const FLOAT8 compareval0 = (1.0 - 0.4054)/istep;
@@ -1181,9 +1181,9 @@ void quantize_xrpow_ISO( FLOAT8 xr[576], int ix[576], gr_info *cod_info )
           }
           //          printf("\n");
         }
-      if (Bs == 1)
-        printf(" Bs\n");
-      else
-        printf("\n");
+      //      if (Bs == 1)
+      //        printf(" Bs\n");
+      //      else
+      //        printf("\n");
   }
 }
