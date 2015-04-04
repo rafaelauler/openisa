@@ -630,7 +630,7 @@ Huffmancodebits( BF_PartHolder **pph, int *ix, gr_info *gi )
     c1bits = bitsWritten - bvbits;
 #endif
     //    printf("part2_3_length = %d and part2_length = %d\n", gi->part2_3_length,
-           gi->part2_length);
+    //           gi->part2_length);
     if ((stuffingBits = gi->part2_3_length - gi->part2_length - bitsWritten)) {
       int stuffingWords = stuffingBits / 32;
       int remainingBits = stuffingBits % 32;

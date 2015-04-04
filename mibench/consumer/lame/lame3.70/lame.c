@@ -718,18 +718,18 @@ int mf_size,char *mp3buf, int mp3buf_size)
 
   if (gfp->padding_type == 0) {
     gfp->padding = 0;
-    printf("padding = 0\n");
+    //    printf("padding = 0\n");
   } else if (gfp->padding_type == 1) {
     gfp->padding = 1;
-    printf("padding = 1\n");
+    //    printf("padding = 1\n");
   } else {
     if (gfp->VBR) {
       gfp->padding = 0;
-      printf("padding = 0\n");
+      //      printf("padding = 0\n");
     } else {
       if (gfp->disable_reservoir) {
         gfp->padding = 0;
-        printf("padding = 0\n");
+        //        printf("padding = 0\n");
         /* if the user specified --nores, dont very gfp->padding either */
         /* tiny changes in frac_SpF rounding will cause file differences */
       } else {
@@ -737,10 +737,10 @@ int mf_size,char *mp3buf, int mp3buf_size)
           if (slot_lag > (frac_SpF - 1.0)) {
             slot_lag -= frac_SpF;
             gfp->padding = 0;
-            printf("padding = 0\n");
+            //            printf("padding = 0\n");
           } else {
             gfp->padding = 1;
-            printf("padding = 1\n");
+            //            printf("padding = 1\n");
             slot_lag += (1 - frac_SpF);
           }
         }
@@ -799,10 +799,10 @@ int mf_size,char *mp3buf, int mp3buf_size)
       cod_info->mixed_block_flag = 0; /* never used by this model */
       if (cod_info->block_type == NORM_TYPE) {
         cod_info->window_switching_flag = 0;
-        printf("window_switching_flag = 0\n");
+        //        printf("window_switching_flag = 0\n");
       } else {
         cod_info->window_switching_flag = 1;
-        printf("window_switching_flag = 0\n");
+        //        printf("window_switching_flag = 0\n");
       }
     }
   }

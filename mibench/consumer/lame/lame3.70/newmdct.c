@@ -384,7 +384,7 @@ void mdct_sub48(lame_global_flags *gfp, short *w0, short *w1,
        */
       for (band = 0; band < 32; band++, mdct_enc += 18) {
         int type = gi->block_type;
-        printf("block_type = %d\n", type);
+        //        printf("block_type = %d\n", type);
 #ifdef ALLOW_MIXED
         if (gi->mixed_block_flag && band < 2)
           type = 0;

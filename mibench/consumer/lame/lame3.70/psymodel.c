@@ -630,7 +630,7 @@ void L3psycho_anal(lame_global_flags *gfp, short int *buffer[2], int gr_out,
     if (chn < 2) {
       if (gfp->no_short_blocks) {
         uselongblock[chn] = 1;
-        printf("Since no_short_blocks = 1, we're using uselongblocks[chn] = 1\n");
+        //        printf("Since no_short_blocks = 1, we're using uselongblocks[chn] = 1\n");
       } else {
         /* tuned for t1.wav.  doesnt effect most other samples */
         if (pe[chn] > 3000) {
@@ -643,27 +643,27 @@ void L3psycho_anal(lame_global_flags *gfp, short int *buffer[2], int gr_out,
             mb += energy_s[1][j];
             mc += energy_s[2][j];
           }
-          printf("%d ma = %.10lf\n", 0, ma);
-          printf("%d mb = %.10lf\n", 0, mb);
-          printf("%d mc = %.10lf\n", 0, mc);
+          //          printf("%d ma = %.10lf\n", 0, ma);
+          //          printf("%d mb = %.10lf\n", 0, mb);
+          //          printf("%d mc = %.10lf\n", 0, mc);
           mn = Min(ma, mb);
           mn = Min(mn, mc);
           mx = Max(ma, mb);
           mx = Max(mx, mc);
 
           uselongblock[chn] = 1;
-          printf("uselongblock = 1\n");
-          printf("%d mx = %.10lf ", 0, mx);
-          printf("%d mn = %.10lf\n", 0, mn);
+          //          printf("uselongblock = 1\n");
+          //          printf("%d mx = %.10lf ", 0, mx);
+          //          printf("%d mn = %.10lf\n", 0, mn);
           if (mx >
               30 * mn) { /* big surge of energy - always use short blocks */
             uselongblock[chn] = 0;
-            printf("big surge - uselongblock = 0\n");
+            //            printf("big surge - uselongblock = 0\n");
           } else if ((mx > 10 * mn) &&
                      (pe[chn] >
                       1000)) { /* medium surge, medium pe - use short blocks */
             uselongblock[chn] = 0;
-            printf("medium surge - uselongblock = 0\n");
+            //            printf("medium surge - uselongblock = 0\n");
           }
         }
       }
@@ -837,11 +837,11 @@ void L3psycho_anal(lame_global_flags *gfp, short int *buffer[2], int gr_out,
       switch (blocktype_old[chn]) {
       case NORM_TYPE:
       case STOP_TYPE:
-        printf("NORM_TYPE\n");
+        //        printf("NORM_TYPE\n");
         blocktype[chn] = NORM_TYPE;
         break;
       case SHORT_TYPE:
-        printf("SHORT_TYPE\n");
+        //        printf("SHORT_TYPE\n");
         blocktype[chn] = STOP_TYPE;
         break;
       case START_TYPE:
@@ -852,10 +852,10 @@ void L3psycho_anal(lame_global_flags *gfp, short int *buffer[2], int gr_out,
 #else
       if (blocktype_old[chn] == NORM_TYPE ||
           blocktype_old[chn] == STOP_TYPE) {
-        printf("NORM_TYPE\n");
+        //        printf("NORM_TYPE\n");
         blocktype[chn] = NORM_TYPE;
       } else if (blocktype_old[chn] == SHORT_TYPE) {
-        printf("SHORT_TYPE\n");
+        //        printf("SHORT_TYPE\n");
         blocktype[chn] = STOP_TYPE;
       } else if (blocktype_old[chn] == START_TYPE) {
         printf("Error in block selecting\n");
