@@ -1,0 +1,52 @@
+# Global Makefile used by all OpenISA assembly check tests.
+# You should include this file and define the variables:
+#   PROGRAMNAME  (mandatory)
+#   STACKSIZE    (optional)
+#   ARCH         (mandatory)
+#   SBTOPT       (optional)
+#   MATTR        (optional)
+#
+
+LLVMLLC=llc -relocation-model=static -O3
+CLANG=clang
+OPT=opt -O3
+STATICBT=static-bt
+EMITLLVM=-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools -O3 -mllvm -disable-llvm-optzns
+EMITLLVMARM=-target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafael/p/openisa/cross2/cross-tools/arm-linux-musleabihf -O3 -mllvm -disable-llvm-optzns
+CROSS=mipsel-unknown-linux-gnu-gcc
+CLANGARM=arm-linux-musleabihf-gcc-4.7.3 -static
+SBTOPT?=-optimize -oneregion
+ARCH?=x86
+MATTR?=
+
+all: $(PROGRAMNAME)-oi-$(ARCH) $(PROGRAMNAME)-nat-$(ARCH)
+
+$(PROGRAMNAME)-nat-x86: $(PROGRAMNAME)-golden.c
+	$(CLANG) -m32 -g ${PROGRAMNAME}-golden.c -o $(PROGRAMNAME)-nat-x86 -lm
+
+$(PROGRAMNAME)-nat-arm: $(PROGRAMNAME)-golden.c
+	$(CLANGARM) -g $(PROGRAMNAME)-golden.c -o $(PROGRAMNAME)-nat-arm -lm
+
+$(PROGRAMNAME)-oi-x86: $(PROGRAMNAME)-oi-x86.s
+	$(CLANG) -m32 -g $(PROGRAMNAME)-oi-x86.s -o $(PROGRAMNAME)-oi-x86 -lm
+
+$(PROGRAMNAME)-oi-arm: $(PROGRAMNAME)-oi-arm.s
+	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
+	cat $(PROGRAMNAME)-oi-arm.s >> aa.s
+	$(CLANGARM) -g aa.s -o $(PROGRAMNAME)-oi-arm -lm
+
+$(PROGRAMNAME)-oi-$(ARCH).s: $(PROGRAMNAME)-oi.bc
+	$(OPT) $(PROGRAMNAME)-oi.bc -o $(PROGRAMNAME)-oi.bc
+	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(PROGRAMNAME)-oi.bc -o $(PROGRAMNAME)-oi-$(ARCH).s
+
+$(PROGRAMNAME).oi: $(PROGRAMNAME)-oi.o
+	$(CROSS) $(PROGRAMNAME)-oi.o -o $(PROGRAMNAME).oi
+
+$(PROGRAMNAME)-oi.bc: $(PROGRAMNAME)-oi.o
+	$(STATICBT) $(SBTOPT) -stacksize=$(STACKSIZE) $(PROGRAMNAME)-oi.o -o=$(PROGRAMNAME)-oi.bc
+
+$(PROGRAMNAME)-oi.o: $(PROGRAMNAME).s
+	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(PROGRAMNAME)-oi.o $(PROGRAMNAME).s
+
+clean:
+	-rm -rf $(PROGRAMNAME).bc2 $(PROGRAMNAME).bc $(PROGRAMNAME)-oi.bc $(PROGRAMNAME)-oi-arm.s $(PROGRAMNAME)-oi-arm $(PROGRAMNAME)-oi-x86.s $(PROGRAMNAME)-oi-x86-64.s $(PROGRAMNAME)-oi-x86 $(PROGRAMNAME)-oi-x86-64 $(PROGRAMNAME)-oi.o $(PROGRAMNAME).oi $(PROGRAMNAME)-nat $(PROGRAMNAME)-nat-x86 $(PROGRAMNAME)-nat-x86-64 $(PROGRAMNAME)-nat-arm out-nat.txt out-oi.txt
