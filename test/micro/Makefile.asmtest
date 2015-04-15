@@ -5,6 +5,7 @@
 #   ARCH         (mandatory)
 #   SBTOPT       (optional)
 #   MATTR        (optional)
+#   LD_OPTS      (optional)
 #
 
 LLVMLLC=llc -relocation-model=static -O3
@@ -18,6 +19,7 @@ CLANGARM=arm-linux-musleabihf-gcc-4.7.3 -static
 SBTOPT?=-optimize -oneregion
 ARCH?=x86
 MATTR?=
+LD_OPTS?=
 
 all: $(PROGRAMNAME)-oi-$(ARCH) $(PROGRAMNAME)-nat-$(ARCH)
 
