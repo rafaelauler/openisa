@@ -15,7 +15,8 @@ LLVMLLC=llc -relocation-model=static -O3
 #CLANG=clang -c -emit-llvm
 #CLANGARM=clang -target armv7--eabi -mcpu=cortex-a9
 CLANG=clang
-OPT=opt -O3
+OPTFLAGS?=
+OPT=opt -O3 $(OPTFLAGS)
 STATICBT=static-bt
 #EMITLLVM=-ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
 EMITLLVM=-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools -O3 -mllvm -disable-llvm-optzns
