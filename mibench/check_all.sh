@@ -14,7 +14,8 @@ network/dijkstra
 security/rijndael
 security/rijndael
 telecomm/FFT
-telecomm/FFT)
+telecomm/FFT
+consumer/lame/lame3.70)
 ACTIVATE=(yes #basicmath
 yes #susan-smoothing
 yes #susan-edges
@@ -24,7 +25,19 @@ yes #dijkstra
 yes #rijndael-encode
 yes #rijndael-decode
 yes #fft
-yes) #fft-inv
+yes #fft-inv
+yes) #lame
+CHECKSTDOUT=(yes #basicmath
+yes #susan-smoothing
+yes #susan-edges
+yes #susan-corners
+yes #patricia
+yes #dijkstra
+yes #rijndael-encode
+yes #rijndael-decode
+yes #fft
+yes #fft-inv
+no) #lame
 SMALL=(basicmath_small-VAR
 "susan-VAR input_small.pgm output.smoothing-small-VAR.pgm -s"
 "susan-VAR input_small.pgm output.edges-small-VAR.pgm -e"
@@ -34,7 +47,8 @@ SMALL=(basicmath_small-VAR
 "rijndael-VAR input_small.asc output_small-VAR.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "rijndael-VAR input_small.enc output_small-VAR.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "fft-VAR 4 4096"
-"fft-VAR 4 8192 -i")
+"fft-VAR 4 8192 -i"
+"lame-VAR ../small.wav output-sm-VAR.mp3")
 LARGE=(basicmath_large-VAR
 "susan-VAR input_large.pgm output.smoothing-large-VAR.pgm -s"
 "susan-VAR input_large.pgm output.edges-large-VAR.pgm -e"
@@ -44,7 +58,8 @@ LARGE=(basicmath_large-VAR
 "rijndael-VAR input_large.asc output_large-VAR.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "rijndael-VAR input_large.enc output_large-VAR.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "fft-VAR 8 32768"
-"fft-VAR 8 32768 -i")
+"fft-VAR 8 32768 -i"
+"lame-VAR ../large.wav output-VAR.mp3")
 NAMES=(basicmath
 susan-smoothing
 susan-edges
@@ -54,7 +69,8 @@ dijkstra
 rijndael-encode
 rijndael-decode
 fft
-fft-inv)
+fft-inv
+lame)
 OUTPUTSMALL=(none
 output.smoothing-small-VAR.pgm
 output.edges-small-VAR.pgm
@@ -64,7 +80,8 @@ none
 output_small-VAR.enc
 output_small-VAR.dec
 none
-none)
+none
+output-sm-VAR.mp3)
 OUTPUTLARGE=(none
 output.smoothing-large-VAR.pgm
 output.edges-large-VAR.pgm
@@ -74,7 +91,8 @@ none
 output_large-VAR.enc
 output_large-VAR.dec
 none
-none)
+none
+output-VAR.mp3)
 
 ROOT=$(pwd)
 
@@ -89,6 +107,7 @@ for index in ${!DIRS[*]}; do
     outputsmalloi=${OUTPUTSMALL[index]//VAR/oi-x86}
     outputlargenat=${OUTPUTLARGE[index]//VAR/nat-x86}
     outputlargeoi=${OUTPUTLARGE[index]//VAR/oi-x86}
+    checkstdoutput=${CHECKSTDOUT[index]}
     active=${ACTIVATE[index]}
     if [ $active == "no" ]; then
         echo "Skipping $name"
@@ -120,10 +139,12 @@ for index in ${!DIRS[*]}; do
         ./${smallnat} &> out-small-golden.txt
         ./${largenat} &> out-large-golden.txt
         ./${smalloi} &> out-small-oi.txt
-        diff out-small-golden.txt out-small-oi.txt &> /dev/null
-        if [ $? -ne 0 ]; then
-            echo "FAIL! (small input)"
-        fi
+	if [ x"$checkstdoutput" != x"no" ]; then
+	        diff out-small-golden.txt out-small-oi.txt &> /dev/null
+        	if [ $? -ne 0 ]; then
+        	    echo "FAIL! (small input)"
+        	fi
+	fi
         rm out-small-golden.txt out-small-oi.txt
         if [ x"$outputsmallnat" != x"none" ]; then
             diff $outputsmallnat $outputsmalloi &> /dev/null
@@ -134,10 +155,12 @@ for index in ${!DIRS[*]}; do
         fi
 
         ./${largeoi} &> out-large-oi.txt
-        diff out-large-golden.txt out-large-oi.txt &> /dev/null
-        if [ $? -ne 0 ]; then
-            echo "FAIL! (large input)"
-        fi
+	if [ x"$checkstdoutput" != x"no" ]; then
+	        diff out-large-golden.txt out-large-oi.txt &> /dev/null
+        	if [ $? -ne 0 ]; then
+        	    echo "FAIL! (large input)"
+        	fi
+	fi
         rm out-large-golden.txt out-large-oi.txt
         if [ x"$outputlargenat" != x"none" ]; then
             diff $outputlargenat $outputlargeoi &> /dev/null
