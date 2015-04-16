@@ -7,19 +7,22 @@ automotive/susan
 network/patricia
 network/dijkstra
 security/rijndael
-telecomm/FFT)
+telecomm/FFT
+consumer/lame/lame3.70)
 ACTIVATE=(yes #basicmath
 yes #susan-smoothing
 yes #patricia
 yes #dijkstra
 yes #rijndael-encode
-yes) #fft-inv
+yes #fft-inv
+yes) #lame3.70
 NAMES=(basicmath_large
 susan
 patricia
 dijkstra_large
 rijndael
-fft)
+fft
+lame)
 ROOT=$(pwd)
 
 for index in ${!DIRS[*]}; do
