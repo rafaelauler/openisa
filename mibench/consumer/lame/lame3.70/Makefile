@@ -34,6 +34,7 @@ FILE1 = brhist.c \
    main.c
 
 CPP_OPTS= -DHAVEMPGLIB -DLAMEPARSE -DNDEBUG -DLAMESNDFILE
+OPTFLAGS?=-printf-break
 
 TARGETS=lame
 
