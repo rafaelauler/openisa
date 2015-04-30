@@ -10,6 +10,7 @@ VERBOSE=false
 echo Tests started. Today is $(date). | tee -a $LOGFILE
 
 DIRS=(automotive/basicmath
+automotive/bitcount
 automotive/susan
 automotive/susan
 automotive/susan
@@ -20,6 +21,7 @@ security/rijndael
 telecomm/FFT
 telecomm/FFT)
 ACTIVATE=(yes #basicmath
+yes #bitcount
 yes #susan-smoothing
 yes #susan-edges
 yes #susan-corners
@@ -30,6 +32,7 @@ yes #rijndael-decode
 yes #fft
 yes) #fft-inv
 SMALL=(basicmath_small-VAR
+"bitcnts-VAR 100000"
 "susan-VAR input_small.pgm output.smoothing-small-VAR.pgm -s"
 "susan-VAR input_small.pgm output.edges-small-VAR.pgm -e"
 "susan-VAR input_small.pgm output.corners-small-VAR.pgm -c"
@@ -40,6 +43,7 @@ SMALL=(basicmath_small-VAR
 "fft-VAR 4 4096"
 "fft-VAR 4 8192 -i")
 LARGE=(basicmath_large-VAR
+"bitcnts-VAR 10000000"
 "susan-VAR input_large.pgm output.smoothing-large-VAR.pgm -s"
 "susan-VAR input_large.pgm output.edges-large-VAR.pgm -e"
 "susan-VAR input_large.pgm output.corners-large-VAR.pgm -c"
@@ -50,6 +54,7 @@ LARGE=(basicmath_large-VAR
 "fft-VAR 8 32768"
 "fft-VAR 8 32768 -i")
 NAMES=(basicmath
+bitcnts
 susan-smoothing
 susan-edges
 susan-corners
@@ -60,6 +65,7 @@ rijndael-decode
 fft
 fft-inv)
 OUTPUTSMALL=(none
+none
 output.smoothing-small-VAR.pgm
 output.edges-small-VAR.pgm
 output.corners-small-VAR.pgm
@@ -70,6 +76,7 @@ output_small-VAR.dec
 none
 none)
 OUTPUTLARGE=(none
+none
 output.smoothing-large-VAR.pgm
 output.edges-large-VAR.pgm
 output.corners-large-VAR.pgm
