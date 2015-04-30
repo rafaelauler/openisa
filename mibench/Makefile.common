@@ -3,7 +3,7 @@ LLVMLLC=llc -stats -relocation-model=static -O3
 LLVMLINK=llvm-link
 CLANG=clang
 OPTFLAGS?=-stats
-OPT=opt -O3 $(OPTFLAGS)
+OPT=opt -O3
 EMITLLVM=-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools -O3 -mllvm -disable-llvm-optzns
 EMITLLVMARM=-target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafael/p/openisa/cross2/cross-tools/arm-linux-musleabihf -O3 -mllvm -disable-llvm-optzns
 CROSS=mipsel-unknown-linux-gnu-gcc
@@ -74,11 +74,11 @@ $(BENCHNAME)-oi-x86: $(BENCHNAME)-oi.bc
 
 $(BENCHNAME)-oi.bc: ${FILE1_bcs}
 	$(LLVMLINK) ${FILE1_bcs} -o $(BENCHNAME).bc
-	$(OPT) $(BENCHNAME).bc -o $(BENCHNAME).bc
+	$(OPT) $(OPTFLAGS) $(BENCHNAME).bc -o $(BENCHNAME).bc
 	$(LLVMLLC) -march=mipsel $(BENCHNAME).bc -o $(BENCHNAME).s
 	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(BENCHNAME)-oi.o $(BENCHNAME).s
 	$(STATICBT) -target=$(ARCH) $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME)-oi.o -o=$(BENCHNAME)-oi.bc
-	$(OPT) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi.bc
+	$(OPT) $(OPTFLAGS) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi.bc
 
 
 $(BENCHNAME2)-oi.bc: ${FILE2_bcs}
@@ -87,17 +87,17 @@ $(BENCHNAME2)-oi.bc: ${FILE2_bcs}
 	$(LLVMLLC) -march=mipsel $(BENCHNAME2).bc -o $(BENCHNAME2).s
 	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(BENCHNAME2)-oi.o $(BENCHNAME2).s
 	$(STATICBT) -target=$(ARCH) $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME2)-oi.o -o=$(BENCHNAME2)-oi.bc
-	$(OPT) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi.bc
+	$(OPT) $(OPTFLAGS) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi.bc
 
 $(BENCHNAME)-nat.bc: ${FILE1_bc2s}
 	$(LLVMLINK) ${FILE1_bc2s} -o $(BENCHNAME)-nat.bc
-	$(OPT) $(BENCHNAME)-nat.bc -o $(BENCHNAME)-nat.bc
+	$(OPT) $(OPTFLAGS) $(BENCHNAME)-nat.bc -o $(BENCHNAME)-nat.bc
 	$(OPT) $(BENCHNAME)-nat.bc -o $(BENCHNAME)-nat.bc
 
 
 $(BENCHNAME2)-nat.bc: ${FILE2_bc2s}
 	$(LLVMLINK) ${FILE2_bc2s} -o $(BENCHNAME2)-nat.bc
-	$(OPT) $(BENCHNAME2)-nat.bc -o $(BENCHNAME2)-nat.bc
+	$(OPT) $(OPTFLAGS) $(BENCHNAME2)-nat.bc -o $(BENCHNAME2)-nat.bc
 	$(OPT) $(BENCHNAME2)-nat.bc -o $(BENCHNAME2)-nat.bc
 
 $(BENCHNAME2)-oi-arm: $(BENCHNAME2)-oi.bc
