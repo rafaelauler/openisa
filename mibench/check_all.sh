@@ -6,6 +6,7 @@ VERBOSE=false
 echo Check started. Today is $(date).
 
 DIRS=(automotive/basicmath
+automotive/bitcount
 automotive/susan
 automotive/susan
 automotive/susan
@@ -17,6 +18,7 @@ telecomm/FFT
 telecomm/FFT
 consumer/lame/lame3.70)
 ACTIVATE=(yes #basicmath
+yes #bitcount
 yes #susan-smoothing
 yes #susan-edges
 yes #susan-corners
@@ -28,6 +30,7 @@ yes #fft
 yes #fft-inv
 yes) #lame
 CHECKSTDOUT=(yes #basicmath
+yes #bitcount
 yes #susan-smoothing
 yes #susan-edges
 yes #susan-corners
@@ -39,6 +42,7 @@ yes #fft
 yes #fft-inv
 no) #lame
 SMALL=(basicmath_small-VAR
+"bitcnts-VAR 1000000"
 "susan-VAR input_small.pgm output.smoothing-small-VAR.pgm -s"
 "susan-VAR input_small.pgm output.edges-small-VAR.pgm -e"
 "susan-VAR input_small.pgm output.corners-small-VAR.pgm -c"
@@ -50,6 +54,7 @@ SMALL=(basicmath_small-VAR
 "fft-VAR 4 8192 -i"
 "lame-VAR ../small.wav output-sm-VAR.mp3")
 LARGE=(basicmath_large-VAR
+"bitcnts-VAR 10000000"
 "susan-VAR input_large.pgm output.smoothing-large-VAR.pgm -s"
 "susan-VAR input_large.pgm output.edges-large-VAR.pgm -e"
 "susan-VAR input_large.pgm output.corners-large-VAR.pgm -c"
@@ -61,6 +66,7 @@ LARGE=(basicmath_large-VAR
 "fft-VAR 8 32768 -i"
 "lame-VAR ../large.wav output-VAR.mp3")
 NAMES=(basicmath
+bitcount
 susan-smoothing
 susan-edges
 susan-corners
@@ -72,6 +78,7 @@ fft
 fft-inv
 lame)
 OUTPUTSMALL=(none
+none
 output.smoothing-small-VAR.pgm
 output.edges-small-VAR.pgm
 output.corners-small-VAR.pgm
@@ -83,6 +90,7 @@ none
 none
 output-sm-VAR.mp3)
 OUTPUTLARGE=(none
+none
 output.smoothing-large-VAR.pgm
 output.edges-large-VAR.pgm
 output.corners-large-VAR.pgm
