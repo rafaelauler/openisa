@@ -11,11 +11,11 @@ LIBSOURCES= jcapimin.c jcapistd.c jccoefct.c jccolor.c jcdctmgr.c jchuff.c \
         jquant2.c jutils.c jmemmgr.c jmemnobs.c
 
 FILE1 = cjpeg.c rdppm.c rdgif.c rdtarga.c rdrle.c rdbmp.c rdswitch.c cdjpeg.c $(LIBSOURCES)
-FILE2 = djepg.c wrppm.c wrgif.c wrtarge.c wrrle.c wrbmp.c rdcolmap.c cdjpeg.c $(LIBSOURCES)
+FILE2 = djpeg.c wrppm.c wrgif.c wrtarga.c wrrle.c wrbmp.c rdcolmap.c cdjpeg.c $(LIBSOURCES)
 
 TARGETS=cjpeg djpeg
 
-SBTOPT?=-optimize -oneregion
+SBTOPT?=-optimize -nolocals
 OPTFLAGS?=-printf-break
 
 STACKSIZE=400000
