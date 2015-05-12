@@ -16,19 +16,23 @@ security/rijndael
 security/rijndael
 telecomm/FFT
 telecomm/FFT
-consumer/lame/lame3.70)
-ACTIVATE=(yes #basicmath
-yes #bitcount
-yes #susan-smoothing
-yes #susan-edges
-yes #susan-corners
-yes #patricia
-yes #dijkstra
-yes #rijndael-encode
-yes #rijndael-decode
-yes #fft
-yes #fft-inv
-yes) #lame
+consumer/lame/lame3.70
+consumer/jpeg/jpeg-6a
+consumer/jpeg/jpeg-6a)
+ACTIVATE=(no #basicmath
+no #bitcount
+no #susan-smoothing
+no #susan-edges
+no #susan-corners
+no #patricia
+no #dijkstra
+no #rijndael-encode
+no #rijndael-decode
+no #fft
+no #fft-inv
+no #lame
+yes #cjpeg
+yes) #djpeg
 CHECKSTDOUT=(yes #basicmath
 yes #bitcount
 yes #susan-smoothing
@@ -40,7 +44,9 @@ yes #rijndael-encode
 yes #rijndael-decode
 yes #fft
 yes #fft-inv
-no) #lame
+no  #lame
+yes  #jpeg
+yes) #jpeg
 SMALL=(basicmath_small-VAR
 "bitcnts-VAR 1000000"
 "susan-VAR input_small.pgm output.smoothing-small-VAR.pgm -s"
@@ -52,7 +58,9 @@ SMALL=(basicmath_small-VAR
 "rijndael-VAR input_small.enc output_small-VAR.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "fft-VAR 4 4096"
 "fft-VAR 4 8192 -i"
-"lame-VAR ../small.wav output-sm-VAR.mp3")
+"lame-VAR ../small.wav output-sm-VAR.mp3"
+"cjpeg-VAR ../input_small.ppm"
+"djpeg-VAR ../input_small.jpg")
 LARGE=(basicmath_large-VAR
 "bitcnts-VAR 10000000"
 "susan-VAR input_large.pgm output.smoothing-large-VAR.pgm -s"
@@ -64,7 +72,9 @@ LARGE=(basicmath_large-VAR
 "rijndael-VAR input_large.enc output_large-VAR.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "fft-VAR 8 32768"
 "fft-VAR 8 32768 -i"
-"lame-VAR ../large.wav output-VAR.mp3")
+"lame-VAR ../large.wav output-VAR.mp3"
+"cjpeg-VAR ../input_large.ppm"
+"djpeg-VAR ../input_large.jpg")
 NAMES=(basicmath
 bitcount
 susan-smoothing
@@ -76,7 +86,9 @@ rijndael-encode
 rijndael-decode
 fft
 fft-inv
-lame)
+lame
+cjpeg
+djpeg)
 OUTPUTSMALL=(none
 none
 output.smoothing-small-VAR.pgm
@@ -88,7 +100,9 @@ output_small-VAR.enc
 output_small-VAR.dec
 none
 none
-output-sm-VAR.mp3)
+output-sm-VAR.mp3
+none
+none)
 OUTPUTLARGE=(none
 none
 output.smoothing-large-VAR.pgm
@@ -100,7 +114,9 @@ output_large-VAR.enc
 output_large-VAR.dec
 none
 none
-output-VAR.mp3)
+output-VAR.mp3
+none
+none)
 
 ROOT=$(pwd)
 
@@ -123,6 +139,13 @@ for index in ${!DIRS[*]}; do
     fi
     cd $dir
     for opts in "-oneregion" "-nolocals" "-debug-ir"; do
+        # Exceptions...
+        if [ x"$opts" = x"-oneregion" -a x"$name" = x"cjpeg" ]; then
+            continue
+        fi
+        if [ x"$opts" = x"-oneregion" -a x"$name" = x"djpeg" ]; then
+            continue
+        fi
         myopts=$opts" -optimize"
         make clean &> /dev/null
         echo -ne "$dir [ $myopts ] : \t\t"
