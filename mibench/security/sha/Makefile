@@ -4,7 +4,8 @@ FILE1 = sha.c sha_driver.c
 
 TARGETS=sha
 
-SBTOPT?=-debug-ir -nolocals
+SBTOPT?=-nolocals
+OPTFLAGS=-printf-break
 
 STACKSIZE=400000
 
