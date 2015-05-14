@@ -2748,7 +2748,7 @@ NULL};
                   here ? "" : " not", search_strings[i]);
             if (here)
                   printf(" [\"%s\"]", here);
-            putchar('\n');
+            printf("\n");
       }
 
       return 0;
