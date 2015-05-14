@@ -22,6 +22,7 @@ telecomm/adpcm
 telecomm/CRC32
 telecomm/FFT
 telecomm/FFT
+office/stringsearch
 consumer/lame/lame3.70
 consumer/jpeg/jpeg-6a
 consumer/jpeg/jpeg-6a)
@@ -42,6 +43,7 @@ yes #adpcm decoder
 yes #crc32
 yes #fft
 yes #fft-inv
+yes #stringsearch
 yes #lame
 yes #cjpeg
 no) #djpeg
@@ -62,6 +64,7 @@ yes #adpcm decoder
 yes #crc32
 yes #fft
 yes #fft-inv
+yes #stringsearch
 no  #lame
 yes  #jpeg
 yes) #jpeg
@@ -82,6 +85,7 @@ SMALL=(basicmath_small-VAR
 "crc-VAR ../../network/patricia/large.udp"
 "fft-VAR 4 4096"
 "fft-VAR 4 8192 -i"
+"search_small-VAR"
 "lame-VAR ../small.wav output-sm-VAR.mp3"
 "cjpeg-VAR ../input_small.ppm"
 "djpeg-VAR ../input_small.jpg")
@@ -102,6 +106,7 @@ LARGE=(basicmath_large-VAR
 "crc-VAR ../../network/patricia/large.udp"
 "fft-VAR 8 32768"
 "fft-VAR 8 32768 -i"
+"search_large-VAR"
 "lame-VAR ../large.wav output-VAR.mp3"
 "cjpeg-VAR ../input_large.ppm"
 "djpeg-VAR ../input_large.jpg")
@@ -122,6 +127,7 @@ adpcm-decoder
 crc
 fft
 fft-inv
+stringsearch
 lame
 cjpeg
 djpeg)
@@ -139,6 +145,7 @@ none
 none
 data/small.pcm
 data/small.adpcm
+none
 none
 none
 none
@@ -164,6 +171,7 @@ none
 none
 none
 none
+none
 none)
 OUTPUTSMALL=(none
 none
@@ -176,6 +184,7 @@ output_small-VAR.enc
 output_small-VAR.dec
 output_small-VAR.enc
 output_small-VAR.dec
+none
 none
 none
 none
@@ -196,6 +205,7 @@ output_large-VAR.enc
 output_large-VAR.dec
 output_large-VAR.enc
 output_large-VAR.dec
+none
 none
 none
 none
