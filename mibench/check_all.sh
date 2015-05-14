@@ -14,6 +14,8 @@ network/patricia
 network/dijkstra
 security/rijndael
 security/rijndael
+telecomm/adpcm
+telecomm/adpcm
 telecomm/CRC32
 telecomm/FFT
 telecomm/FFT
@@ -29,6 +31,8 @@ yes #patricia
 yes #dijkstra
 yes #rijndael-encode
 yes #rijndael-decode
+yes #adpcm coder
+yes #adpcm decoder
 yes #crc32
 yes #fft
 yes #fft-inv
@@ -44,6 +48,8 @@ yes #patricia
 yes #dijkstra
 yes #rijndael-encode
 yes #rijndael-decode
+yes #adpcm coder
+yes #adpcm decoder
 yes #crc32
 yes #fft
 yes #fft-inv
@@ -59,6 +65,8 @@ SMALL=(basicmath_small-VAR
 "dijkstra_small-VAR input.dat"
 "rijndael-VAR input_small.asc output_small-VAR.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "rijndael-VAR input_small.enc output_small-VAR.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"rawcaudio-VAR"
+"rawdaudio-VAR"
 "crc-VAR ../../network/patricia/large.udp"
 "fft-VAR 4 4096"
 "fft-VAR 4 8192 -i"
@@ -74,6 +82,8 @@ LARGE=(basicmath_large-VAR
 "dijkstra_large-VAR input.dat"
 "rijndael-VAR input_large.asc output_large-VAR.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "rijndael-VAR input_large.enc output_large-VAR.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"rawcaudio-VAR"
+"rawdaudio-VAR"
 "crc-VAR ../../network/patricia/large.udp"
 "fft-VAR 8 32768"
 "fft-VAR 8 32768 -i"
@@ -89,12 +99,48 @@ patricia
 dijkstra
 rijndael-encode
 rijndael-decode
+adpcm-coder
+adpcm-decoder
 crc
 fft
 fft-inv
 lame
 cjpeg
 djpeg)
+INPUTSMALL=(none
+none
+none
+none
+none
+none
+none
+none
+none
+data/small.pcm
+data/small.adpcm
+none
+none
+none
+none
+none
+none)
+INPUTLARGE=(none
+none
+none
+none
+none
+none
+none
+none
+none
+data/large.pcm
+data/large.adpcm
+none
+none
+none
+none
+none
+none)
 OUTPUTSMALL=(none
 none
 output.smoothing-small-VAR.pgm
@@ -104,6 +150,8 @@ none
 none
 output_small-VAR.enc
 output_small-VAR.dec
+none
+none
 none
 none
 none
@@ -122,6 +170,8 @@ output_large-VAR.dec
 none
 none
 none
+none
+none
 output-VAR.mp3
 none
 none)
@@ -135,6 +185,8 @@ for index in ${!DIRS[*]}; do
     largenat=${LARGE[index]//VAR/nat-x86}
     smalloi=${SMALL[index]//VAR/oi-x86}
     largeoi=${LARGE[index]//VAR/oi-x86}
+    inputsmall=${INPUTSMALL[index]}
+    inputlarge=${INPUTLARGE[index]}
     outputsmallnat=${OUTPUTSMALL[index]//VAR/nat-x86}
     outputsmalloi=${OUTPUTSMALL[index]//VAR/oi-x86}
     outputlargenat=${OUTPUTLARGE[index]//VAR/nat-x86}
@@ -175,15 +227,21 @@ for index in ${!DIRS[*]}; do
             exit
         fi
 
-        ./${smallnat} &> out-small-golden.txt
-        ./${largenat} &> out-large-golden.txt
-        ./${smalloi} &> out-small-oi.txt
-	if [ x"$checkstdoutput" != x"no" ]; then
+        if [ x"$inputsmall" != x"none" ]; then
+            ./${smallnat} < $inputsmall &> out-small-golden.txt
+            ./${largenat} < $inputlarge &> out-large-golden.txt
+            ./${smalloi} < $inputsmall &> out-small-oi.txt
+        else
+            ./${smallnat} &> out-small-golden.txt
+            ./${largenat} &> out-large-golden.txt
+            ./${smalloi} &> out-small-oi.txt
+        fi
+	      if [ x"$checkstdoutput" != x"no" ]; then
 	        diff out-small-golden.txt out-small-oi.txt &> /dev/null
         	if [ $? -ne 0 ]; then
         	    echo "FAIL! (small input)"
         	fi
-	fi
+	      fi
         rm out-small-golden.txt out-small-oi.txt
         if [ x"$outputsmallnat" != x"none" ]; then
             diff $outputsmallnat $outputsmalloi &> /dev/null
@@ -193,13 +251,17 @@ for index in ${!DIRS[*]}; do
             rm $outputsmallnat $outputsmalloi
         fi
 
-        ./${largeoi} &> out-large-oi.txt
-	if [ x"$checkstdoutput" != x"no" ]; then
+        if [ x"$inputlarge" != x"none" ]; then
+            ./${largeoi} < $inputlarge &> out-large-oi.txt
+        else
+            ./${largeoi} &> out-large-oi.txt
+        fi
+	      if [ x"$checkstdoutput" != x"no" ]; then
 	        diff out-large-golden.txt out-large-oi.txt &> /dev/null
         	if [ $? -ne 0 ]; then
         	    echo "FAIL! (large input)"
         	fi
-	fi
+	      fi
         rm out-large-golden.txt out-large-oi.txt
         if [ x"$outputlargenat" != x"none" ]; then
             diff $outputlargenat $outputlargeoi &> /dev/null
