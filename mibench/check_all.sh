@@ -14,6 +14,8 @@ network/patricia
 network/dijkstra
 security/rijndael
 security/rijndael
+security/blowfish
+security/blowfish
 telecomm/adpcm
 telecomm/adpcm
 telecomm/CRC32
@@ -31,6 +33,8 @@ yes #patricia
 yes #dijkstra
 yes #rijndael-encode
 yes #rijndael-decode
+yes #blowfish-encode
+yes #blowfish-decode
 yes #adpcm coder
 yes #adpcm decoder
 yes #crc32
@@ -48,6 +52,8 @@ yes #patricia
 yes #dijkstra
 yes #rijndael-encode
 yes #rijndael-decode
+no #blowfish-encode
+no #blowfish-decode
 yes #adpcm coder
 yes #adpcm decoder
 yes #crc32
@@ -65,6 +71,8 @@ SMALL=(basicmath_small-VAR
 "dijkstra_small-VAR input.dat"
 "rijndael-VAR input_small.asc output_small-VAR.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "rijndael-VAR input_small.enc output_small-VAR.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"bf-VAR e input_small.asc output_small-VAR.enc 1234567890abcdeffedcba0987654321"
+"bf-VAR d input_small.enc output_small-VAR.dec 1234567890abcdeffedcba0987654321"
 "rawcaudio-VAR"
 "rawdaudio-VAR"
 "crc-VAR ../../network/patricia/large.udp"
@@ -82,6 +90,8 @@ LARGE=(basicmath_large-VAR
 "dijkstra_large-VAR input.dat"
 "rijndael-VAR input_large.asc output_large-VAR.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "rijndael-VAR input_large.enc output_large-VAR.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"bf-VAR e input_large.asc output_large-VAR.enc 1234567890abcdeffedcba0987654321"
+"bf-VAR d input_large.enc output_large-VAR.dec 1234567890abcdeffedcba0987654321"
 "rawcaudio-VAR"
 "rawdaudio-VAR"
 "crc-VAR ../../network/patricia/large.udp"
@@ -99,6 +109,8 @@ patricia
 dijkstra
 rijndael-encode
 rijndael-decode
+blowfish-encode
+blowfish-decode
 adpcm-coder
 adpcm-decoder
 crc
@@ -108,6 +120,8 @@ lame
 cjpeg
 djpeg)
 INPUTSMALL=(none
+none
+none
 none
 none
 none
@@ -133,6 +147,8 @@ none
 none
 none
 none
+none
+none
 data/large.pcm
 data/large.adpcm
 none
@@ -150,6 +166,8 @@ none
 none
 output_small-VAR.enc
 output_small-VAR.dec
+output_small-VAR.enc
+output_small-VAR.dec
 none
 none
 none
@@ -165,6 +183,8 @@ output.edges-large-VAR.pgm
 output.corners-large-VAR.pgm
 none
 none
+output_large-VAR.enc
+output_large-VAR.dec
 output_large-VAR.enc
 output_large-VAR.dec
 none
