@@ -1,0 +1,114 @@
+# Mibench Basicmath Makefile adapted to run with OpenISA tools
+LLVMLLC=llc -stats -relocation-model=static -O3
+LLVMLINK=llvm-link
+CLANG=clang
+OPTFLAGS?=-stats
+OPT=opt -O3
+EMITLLVM=-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools -O3 -mllvm -disable-llvm-optzns
+EMITLLVMARM=-target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafael/p/openisa/cross2/cross-tools/arm-linux-musleabihf -O3 -mllvm -disable-llvm-optzns
+CROSS=mipsel-unknown-linux-gnu-gcc
+SBTOPT?=-optimize
+STACKSIZE?=4000
+CLANGARM=arm-linux-musleabihf-gcc-4.7.3 -static
+STATICBT=static-bt
+ARCH?=x86
+CPP_OPTS?=
+MATTR?=
+
+FILE1_basenames := $(sort $(basename $(FILE1)))
+FILE1_bcs := $(FILE1_basenames:%=%.bc)
+FILE1_bc2s := $(FILE1_basenames:%=%.bc2)
+FILE2_basenames := $(sort $(basename $(FILE2)))
+FILE2_bcs := $(FILE2_basenames:%=%.bc)
+FILE2_bc2s := $(FILE2_basenames:%=%.bc2)
+
+TODO := $(TARGETS:%=%-oi-$(ARCH)) $(TARGETS:%=%-nat-$(ARCH))
+
+all: $(TODO)
+
+$(BENCHNAME)-nat-x86: ${BENCHNAME}-nat.bc Makefile
+	$(LLVMLLC) -march=x86 $(MATTR) ${BENCHNAME}-nat.bc -o $(BENCHNAME)-nat-x86.s
+	$(CLANG) -m32 -g ${BENCHNAME}-nat-x86.s -o $(BENCHNAME)-nat-x86 -lm
+$(BENCHNAME2)-nat-x86: ${BENCHNAME2}-nat.bc Makefile
+	$(LLVMLLC) -march=x86 $(MATTR) ${BENCHNAME2}-nat.bc -o $(BENCHNAME2)-nat-x86.s
+	$(CLANG) -m32 -g ${BENCHNAME2}-nat-x86.s -o $(BENCHNAME2)-nat-x86 -lm
+
+$(BENCHNAME)-nat-arm: ${BENCHNAME}-nat.bc Makefile
+	$(LLVMLLC) -march=arm $(MATTR) ${BENCHNAME}-nat.bc -o $(BENCHNAME)-nat-arm.s
+	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
+	echo "\n.text\n\t.align 2\n.type __aeabi_memset,%function\n__aeabi_memset:\npush {r2}\nmov r2, r1\npop {r1}\nb memset\n" >> aa.s
+	echo "\n.text\n\t.align 2\n.type __aeabi_memcpy,%function\n__aeabi_memcpy:\nb memcpy\n" >> aa.s
+	cat $(BENCHNAME)-nat-arm.s >> aa.s
+	$(CLANGARM) -g aa.s -o $(BENCHNAME)-nat-arm -lm
+
+$(BENCHNAME2)-nat-arm: ${BENCHNAME2}-nat.bc Makefile
+	$(LLVMLLC) -march=arm $(MATTR) ${BENCHNAME2}-nat.bc -o $(BENCHNAME2)-nat-arm.s
+	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
+	echo "\n.text\n\t.align 2\n.type __aeabi_memset,%function\n__aeabi_memset:\npush {r2}\nmov r2, r1\npop {r1}\nb memset\n" >> aa.s
+	echo "\n.text\n\t.align 2\n.type __aeabi_memcpy,%function\n__aeabi_memcpy:\nb memcpy\n" >> aa.s
+	cat $(BENCHNAME2)-nat-arm.s >> aa.s
+	$(CLANGARM) -O3 -g aa.s -o $(BENCHNAME2)-nat-arm -lm
+
+#
+# Wildcard rules
+#
+%.bc : %.c
+	$(CLANG) $(CPP_OPTS) $(EMITLLVM) $< -o $@
+
+%.bc2 : %.c
+ifeq ($(ARCH),arm)
+	$(CLANG) $(CPP_OPTS) $(EMITLLVMARM) -DARMTARGET -c $< -o $@
+else
+	$(CLANG) $(CPP_OPTS) -O3 -mllvm -disable-llvm-optzns -m32 -emit-llvm -c $< -o $@
+endif
+
+$(BENCHNAME)-oi-arm: $(BENCHNAME)-oi.bc
+	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi-$(ARCH).s
+	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
+	cat $(BENCHNAME)-oi-$(ARCH).s >> aa.s
+	$(CLANGARM) -g aa.s -o $(BENCHNAME)-oi-$(ARCH) -lm
+
+$(BENCHNAME)-oi-x86: $(BENCHNAME)-oi.bc
+	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi-$(ARCH).s
+	$(CLANG) -m32 -g $(BENCHNAME)-oi-$(ARCH).s -o $(BENCHNAME)-oi-$(ARCH) -lm
+
+$(BENCHNAME)-oi.bc: ${FILE1_bcs}
+	$(LLVMLINK) ${FILE1_bcs} -o $(BENCHNAME).bc
+	$(OPT) $(OPTFLAGS) $(BENCHNAME).bc -o $(BENCHNAME).bc
+	$(LLVMLLC) -march=mipsel $(BENCHNAME).bc -o $(BENCHNAME).s
+	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(BENCHNAME)-oi.o $(BENCHNAME).s
+	$(STATICBT) -target=$(ARCH) $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME)-oi.o -o=$(BENCHNAME)-oi.bc
+	$(OPT) $(OPTFLAGS) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi.bc
+
+
+$(BENCHNAME2)-oi.bc: ${FILE2_bcs}
+	$(LLVMLINK) ${FILE2_bcs} -o $(BENCHNAME2).bc
+	$(OPT) $(BENCHNAME2).bc -o $(BENCHNAME2).bc
+	$(LLVMLLC) -march=mipsel $(BENCHNAME2).bc -o $(BENCHNAME2).s
+	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(BENCHNAME2)-oi.o $(BENCHNAME2).s
+	$(STATICBT) -target=$(ARCH) $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME2)-oi.o -o=$(BENCHNAME2)-oi.bc
+	$(OPT) $(OPTFLAGS) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi.bc
+
+$(BENCHNAME)-nat.bc: ${FILE1_bc2s}
+	$(LLVMLINK) ${FILE1_bc2s} -o $(BENCHNAME)-nat.bc
+	$(OPT) $(OPTFLAGS) $(BENCHNAME)-nat.bc -o $(BENCHNAME)-nat.bc
+	$(OPT) $(BENCHNAME)-nat.bc -o $(BENCHNAME)-nat.bc
+
+
+$(BENCHNAME2)-nat.bc: ${FILE2_bc2s}
+	$(LLVMLINK) ${FILE2_bc2s} -o $(BENCHNAME2)-nat.bc
+	$(OPT) $(OPTFLAGS) $(BENCHNAME2)-nat.bc -o $(BENCHNAME2)-nat.bc
+	$(OPT) $(BENCHNAME2)-nat.bc -o $(BENCHNAME2)-nat.bc
+
+$(BENCHNAME2)-oi-arm: $(BENCHNAME2)-oi.bc
+	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi-$(ARCH).s
+	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
+	cat $(BENCHNAME2)-oi-$(ARCH).s >> aa.s
+	$(CLANGARM) -g aa.s -o $(BENCHNAME2)-oi-$(ARCH) -lm
+
+$(BENCHNAME2)-oi-x86: $(BENCHNAME2)-oi.bc
+	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi-$(ARCH).s
+	$(CLANG) -m32 -g $(BENCHNAME2)-oi-$(ARCH).s -o $(BENCHNAME2)-oi-$(ARCH) -lm
+
+clean:
+	rm -rf output* *.bc *.bc2 *.o *.s $(TODO) $(FILE1_bcs) $(FILE2_bcs) $(FILE1_bc2s) $(FILE2_bc2s)
