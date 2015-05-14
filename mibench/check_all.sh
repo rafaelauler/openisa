@@ -14,25 +14,27 @@ network/patricia
 network/dijkstra
 security/rijndael
 security/rijndael
+telecomm/CRC32
 telecomm/FFT
 telecomm/FFT
 consumer/lame/lame3.70
 consumer/jpeg/jpeg-6a
 consumer/jpeg/jpeg-6a)
-ACTIVATE=(no #basicmath
-no #bitcount
-no #susan-smoothing
-no #susan-edges
-no #susan-corners
-no #patricia
-no #dijkstra
-no #rijndael-encode
-no #rijndael-decode
-no #fft
-no #fft-inv
-no #lame
+ACTIVATE=(yes #basicmath
+yes #bitcount
+yes #susan-smoothing
+yes #susan-edges
+yes #susan-corners
+yes #patricia
+yes #dijkstra
+yes #rijndael-encode
+yes #rijndael-decode
+yes #crc32
+yes #fft
+yes #fft-inv
+yes #lame
 yes #cjpeg
-yes) #djpeg
+no) #djpeg
 CHECKSTDOUT=(yes #basicmath
 yes #bitcount
 yes #susan-smoothing
@@ -42,6 +44,7 @@ yes #patricia
 yes #dijkstra
 yes #rijndael-encode
 yes #rijndael-decode
+yes #crc32
 yes #fft
 yes #fft-inv
 no  #lame
@@ -56,6 +59,7 @@ SMALL=(basicmath_small-VAR
 "dijkstra_small-VAR input.dat"
 "rijndael-VAR input_small.asc output_small-VAR.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "rijndael-VAR input_small.enc output_small-VAR.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"crc-VAR ../../network/patricia/large.udp"
 "fft-VAR 4 4096"
 "fft-VAR 4 8192 -i"
 "lame-VAR ../small.wav output-sm-VAR.mp3"
@@ -70,6 +74,7 @@ LARGE=(basicmath_large-VAR
 "dijkstra_large-VAR input.dat"
 "rijndael-VAR input_large.asc output_large-VAR.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "rijndael-VAR input_large.enc output_large-VAR.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"crc-VAR ../../network/patricia/large.udp"
 "fft-VAR 8 32768"
 "fft-VAR 8 32768 -i"
 "lame-VAR ../large.wav output-VAR.mp3"
@@ -84,6 +89,7 @@ patricia
 dijkstra
 rijndael-encode
 rijndael-decode
+crc
 fft
 fft-inv
 lame
@@ -100,6 +106,7 @@ output_small-VAR.enc
 output_small-VAR.dec
 none
 none
+none
 output-sm-VAR.mp3
 none
 none)
@@ -112,6 +119,7 @@ none
 none
 output_large-VAR.enc
 output_large-VAR.dec
+none
 none
 none
 output-VAR.mp3
