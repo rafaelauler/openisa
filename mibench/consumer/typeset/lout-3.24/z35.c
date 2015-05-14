@@ -80,7 +80,7 @@ FULL_CHAR *TimeString(void)
 /*****************************************************************************/
 
 void InitTime(void)
-{ time_t raw_time; struct tm *now;
+{ time_t raw_time;
   FULL_CHAR buff[20]; OBJECT par, tmp, sym, env;
   OBJECT tag, second, minute, hour, weekday,
 	monthday, yearday, month, year, century, dst;
@@ -103,8 +103,8 @@ void InitTime(void)
   /* get current time and convert to ASCII */
   if( time(&raw_time) == -1 )
     Error(35, 1, "unable to obtain the current time", WARN, no_fpos);
-  now = localtime(&raw_time);
-  StringCopy(time_string, AsciiToFull(asctime(now)));
+  //  now = localtime(&raw_time);
+  //  StringCopy(time_string, AsciiToFull(asctime(now)));
 
   /* start of current_moment */
   New(current_moment, CLOSURE);
@@ -112,16 +112,16 @@ void InitTime(void)
 
   /* attach its many parameters */
   add_par("%s",   KW_NOW,                      tag);
-  add_par("%.2d", now->tm_sec,                 second);
-  add_par("%.2d", now->tm_min,                 minute);
-  add_par("%.2d", now->tm_hour,                hour);
-  add_par("%d",   now->tm_mday,                monthday);
-  add_par("%d",   now->tm_mon + 1,             month);
-  add_par("%.2d", now->tm_year % 100,          year);
-  add_par("%d",   (now->tm_year+1900) / 100,   century);
-  add_par("%d",   now->tm_wday + 1,            weekday);
-  add_par("%d",   now->tm_yday,                yearday);
-  add_par("%d",   now->tm_isdst,               dst);
+  add_par("%.2d", 0,                 second);
+  add_par("%.2d", 0,                 minute);
+  add_par("%.2d", 0,                hour);
+  add_par("%d",   1,                monthday);
+  add_par("%d",   1,             month);
+  add_par("%.2d", 0,          year);
+  add_par("%d",   1,   century);
+  add_par("%d",   1,            weekday);
+  add_par("%d",   1,                yearday);
+  add_par("%d",   0,               dst);
 
   /* add a null environment */
   New(env, ENV);

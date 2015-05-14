@@ -198,7 +198,7 @@ static int pstrcollcmp(const void *a, const void *b)	/* UseCollate */
 
 void SortLines(LINE *lines, int lines_len)
 {
-  qsort(lines, lines_len, sizeof(LINE), (UseCollate ? pstrcollcmp : pstrcmp));
+  //  qsort(lines, lines_len, sizeof(LINE), (UseCollate ? pstrcollcmp : pstrcmp));
 }
 
 

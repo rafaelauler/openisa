@@ -2667,7 +2667,7 @@ static char *PDFPage_EvalExpr(char* inExpr, float* outValue)
 
 	if (i == k_pick)
 	{
-	  count = floor(val1);
+	  count = (int)val1;
 	  Assert(count != 0, no_fpos);
 	}
 	else
@@ -3597,17 +3597,8 @@ void PDFFile_Cleanup(FILE* in_fp)
   fprintf(in_fp, "/Producer (%s)\n", LOUT_VERSION);
 
   {
-    time_t now;
-    struct tm *date;
-
-    /* I will presume that localtime() is Y2K compliant.  If it isn't    */
-    /* on your system, feel free to tweak this code. :-)                 */
-
-    now = time( NULL );
-    date = localtime( &now );
     fprintf(in_fp, "/CreationDate (D:%.4d%.2d%.2d%.2d%.2d%.2d)\n",
-      date->tm_year + 1900, date->tm_mon + 1, date->tm_mday,
-      date->tm_hour, date->tm_min, date->tm_sec);
+      0, 1, 1, 1, 1, 1);
   }
 
   if (g_doc_author != NULL)

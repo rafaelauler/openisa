@@ -1238,6 +1238,8 @@ void PS_PrintGraphicInclude(OBJECT x, FULL_LENGTH colmark, FULL_LENGTH rowmark)
 	state = (StringFGets(buff, MAX_BUFF, fp) == NULL) ? FINISHED : SKIPPING;
       }
       break;
+  default:
+    break;
   }
 
   /* wrapup */

@@ -628,11 +628,6 @@ int main(int argc, char *argv[])
     }
   } /* for */
 
-  if( UseCollate )
-  {
-    if (!setlocale (LC_COLLATE, ""))
-      Error(1, 30, "unable to initialize collation", WARN, no_fpos);
-  }
 
   /* start timing if required */
   ifdebug(DPP, D, ProfileOn("main"));
