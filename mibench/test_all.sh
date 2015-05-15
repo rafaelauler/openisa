@@ -18,8 +18,18 @@ network/patricia
 network/dijkstra
 security/rijndael
 security/rijndael
+security/blowfish
+security/blowfish
+security/sha
+telecomm/adpcm
+telecomm/adpcm
+telecomm/CRC32
 telecomm/FFT
-telecomm/FFT)
+telecomm/FFT
+office/stringsearch
+consumer/lame/lame3.70
+consumer/jpeg/jpeg-6a
+consumer/jpeg/jpeg-6a)
 ACTIVATE=(yes #basicmath
 yes #bitcount
 yes #susan-smoothing
@@ -29,10 +39,31 @@ yes #patricia
 yes #dijkstra
 yes #rijndael-encode
 yes #rijndael-decode
+yes #blowfish-encode
+yes #blowfish-decode
+yes #sha
+yes #adpcm coder
+yes #adpcm decoder
+yes #crc32
 yes #fft
-yes) #fft-inv
+yes #fft-inv
+yes #stringsearch
+yes #lame
+yes #cjpeg
+no) #djpeg
+#ACTIVATE=(yes #basicmath
+#yes #bitcount
+#yes #susan-smoothing
+#yes #susan-edges
+#yes #susan-corners
+#yes #patricia
+#yes #dijkstra
+#yes #rijndael-encode
+#yes #rijndael-decode
+#yes #fft
+#yes) #fft-inv
 SMALL=(basicmath_small-VAR
-"bitcnts-VAR 100000"
+"bitcnts-VAR 1000000"
 "susan-VAR input_small.pgm output.smoothing-small-VAR.pgm -s"
 "susan-VAR input_small.pgm output.edges-small-VAR.pgm -e"
 "susan-VAR input_small.pgm output.corners-small-VAR.pgm -c"
@@ -40,8 +71,18 @@ SMALL=(basicmath_small-VAR
 "dijkstra_small-VAR input.dat"
 "rijndael-VAR input_small.asc output_small-VAR.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "rijndael-VAR input_small.enc output_small-VAR.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"bf-VAR e input_small.asc output_small-VAR.enc 1234567890abcdeffedcba0987654321"
+"bf-VAR d input_small.enc output_small-VAR.dec 1234567890abcdeffedcba0987654321"
+"sha-VAR input_small.asc"
+"rawcaudio-VAR"
+"rawdaudio-VAR"
+"crc-VAR ../../network/patricia/large.udp"
 "fft-VAR 4 4096"
-"fft-VAR 4 8192 -i")
+"fft-VAR 4 8192 -i"
+"search_small-VAR"
+"lame-VAR ../small.wav output-sm-VAR.mp3"
+"cjpeg-VAR ../input_small.ppm"
+"djpeg-VAR ../input_small.jpg")
 LARGE=(basicmath_large-VAR
 "bitcnts-VAR 10000000"
 "susan-VAR input_large.pgm output.smoothing-large-VAR.pgm -s"
@@ -51,10 +92,20 @@ LARGE=(basicmath_large-VAR
 "dijkstra_large-VAR input.dat"
 "rijndael-VAR input_large.asc output_large-VAR.enc e 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
 "rijndael-VAR input_large.enc output_large-VAR.dec d 1234567890abcdeffedcba09876543211234567890abcdeffedcba0987654321"
+"bf-VAR e input_large.asc output_large-VAR.enc 1234567890abcdeffedcba0987654321"
+"bf-VAR d input_large.enc output_large-VAR.dec 1234567890abcdeffedcba0987654321"
+"sha-VAR input_large.asc"
+"rawcaudio-VAR"
+"rawdaudio-VAR"
+"crc-VAR ../../network/patricia/large.udp"
 "fft-VAR 8 32768"
-"fft-VAR 8 32768 -i")
+"fft-VAR 8 32768 -i"
+"search_large-VAR"
+"lame-VAR ../large.wav output-VAR.mp3"
+"cjpeg-VAR ../input_large.ppm"
+"djpeg-VAR ../input_large.jpg")
 NAMES=(basicmath
-bitcnts
+bitcount
 susan-smoothing
 susan-edges
 susan-corners
@@ -62,8 +113,60 @@ patricia
 dijkstra
 rijndael-encode
 rijndael-decode
+blowfish-encode
+blowfish-decode
+sha
+adpcm-coder
+adpcm-decoder
+crc
 fft
-fft-inv)
+fft-inv
+stringsearch
+lame
+cjpeg
+djpeg)
+INPUTSMALL=(none
+none
+none
+none
+none
+none
+none
+none
+none
+none
+none
+none
+data/small.pcm
+data/small.adpcm
+none
+none
+none
+none
+none
+none
+none)
+INPUTLARGE=(none
+none
+none
+none
+none
+none
+none
+none
+none
+none
+none
+none
+data/large.pcm
+data/large.adpcm
+none
+none
+none
+none
+none
+none
+none)
 OUTPUTSMALL=(none
 none
 output.smoothing-small-VAR.pgm
@@ -73,6 +176,16 @@ none
 none
 output_small-VAR.enc
 output_small-VAR.dec
+output_small-VAR.enc
+output_small-VAR.dec
+none
+none
+none
+none
+none
+none
+none
+output-sm-VAR.mp3
 none
 none)
 OUTPUTLARGE=(none
@@ -84,6 +197,16 @@ none
 none
 output_large-VAR.enc
 output_large-VAR.dec
+output_large-VAR.enc
+output_large-VAR.dec
+none
+none
+none
+none
+none
+none
+none
+output-VAR.mp3
 none
 none)
 
@@ -96,6 +219,8 @@ for index in ${!DIRS[*]}; do
     largenat=${LARGE[index]//VAR/nat-x86}
     smalloi=${SMALL[index]//VAR/oi-x86}
     largeoi=${LARGE[index]//VAR/oi-x86}
+    inputsmall=${INPUTSMALL[index]}
+    inputlarge=${INPUTLARGE[index]}
     outputsmallnat=${OUTPUTSMALL[index]//VAR/nat-x86}
     outputsmalloi=${OUTPUTSMALL[index]//VAR/oi-x86}
     outputlargenat=${OUTPUTLARGE[index]//VAR/nat-x86}
@@ -107,13 +232,13 @@ for index in ${!DIRS[*]}; do
     fi
     cd $dir
     for opts in "-oneregion" "-nolocals" "-debug-ir"; do
-#        if [ "$opts" == "-optstack" ]; then
-#            if [ $dir == "automotive/susan" ] ||
-#                [ $dir == "automotive/basicmath" ]; then
-#                echo Skipping $opts for $dir
-#                continue
-#            fi            
-#        fi
+        # Exceptions...
+        if [ x"$opts" = x"-oneregion" -a x"$name" = x"cjpeg" ]; then
+            continue
+        fi
+        if [ x"$opts" = x"-oneregion" -a x"$name" = x"djpeg" ]; then
+            continue
+        fi
         myopts=$opts" -optimize"
         make clean &> /dev/null
         echo Building $dir with mode $myopts ...
@@ -129,7 +254,7 @@ for index in ${!DIRS[*]}; do
             if [ x"$VERBOSE" == x"false" ]; then
                 echo Running make verbose:
                 make clean &> /dev/null
-                SBTOPT="$myopts" make       
+                SBTOPT="$myopts" make
             fi
             cd $ROOT
             exit
@@ -138,7 +263,11 @@ for index in ${!DIRS[*]}; do
         echo Running $name in native mode "(small)" - current time is $(date) | tee -a $LOGFILE
         timesmallnat="99999"
         for iter in $(seq 1 $NUMTESTS); do
-            $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${smallnat} &> out-small-golden.txt
+            if [ x"$inputsmall" != x"none" ]; then
+                $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${smallnat} < $inputsmall &> /dev/null
+            else
+                $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${smallnat} &> /dev/null
+            fi
             cat timeoutput.txt | tee -a $LOGFILE
             timecand=$(cat timeoutput.txt)
             dotest=$(bc <<< "scale=4; $timecand < $timesmallnat")
@@ -155,7 +284,11 @@ for index in ${!DIRS[*]}; do
         echo Running $name in native mode "(large)" - current time is $(date) | tee -a $LOGFILE
         timelargenat="99999"
         for iter in $(seq 1 $NUMTESTS); do
-            $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${largenat} &> out-large-golden.txt
+            if [ x"$inputlarge" != x"none" ]; then
+                $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${largenat} < $inputlarge &> /dev/null
+            else
+                $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${largenat} &> /dev/null
+            fi
             cat timeoutput.txt | tee -a $LOGFILE
             timecand=$(cat timeoutput.txt)
             dotest=$(bc <<< "scale=4; $timecand < $timelargenat")
@@ -172,7 +305,11 @@ for index in ${!DIRS[*]}; do
         echo Running $name OpenISA mode "(small)" with opts $myopts - current time is $(date) | tee -a $LOGFILE
         smallesttime="99999"
         for iter in $(seq 1 $NUMTESTS); do
-            $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${smalloi} &> out-small-oi.txt
+            if [ x"$inputsmall" != x"none" ]; then
+                $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${smalloi} < $inputsmall &> /dev/null
+            else
+                $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${smalloi} &> /dev/null
+            fi
             curtime=$(cat timeoutput.txt)
             percentage=$(bc <<< "scale=4; $curtime / $timesmallnat")
             echo $curtime "("${percentage}")" | tee -a $LOGFILE
@@ -188,23 +325,14 @@ for index in ${!DIRS[*]}; do
             echo $smallesttime "("${percentage}")" | tee -a $LOGFILE
         fi
 
-        diff out-small-golden.txt out-small-oi.txt &> /dev/null
-        if [ $? -ne 0 ]; then
-            echo "!! Output mismatch (small) !!" | tee -a $LOGFILE
-        fi
-        rm out-small-golden.txt out-small-oi.txt
-        if [ x"$outputsmallnat" != x"none" ]; then
-            diff $outputsmallnat $outputsmalloi &> /dev/null
-            if [ $? -ne 0 ]; then
-                echo "!! Output mismatch (small) !!" | tee -a $LOGFILE
-            fi
-            rm $outputsmallnat $outputsmalloi
-        fi
-
         echo Running $name OpenISA mode "(large)" with opts $myopts - current time is $(date) | tee -a $LOGFILE
         smallesttime="99999"
         for iter in $(seq 1 $NUMTESTS); do
-            $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${largeoi} &> out-large-oi.txt
+            if [ x"$inputlarge" != x"none" ]; then
+                $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${largeoi} < $inputlarge &> /dev/null
+            else
+                $GNUTIME -f "%e" -otimeoutput.txt --quiet ./${largeoi} &> /dev/null
+            fi
             curtime=$(cat timeoutput.txt)
             percentage=$(bc <<< "scale=4; $curtime / $timelargenat")
             echo $curtime "("${percentage}")" | tee -a $LOGFILE
@@ -219,21 +347,7 @@ for index in ${!DIRS[*]}; do
             percentage=$(bc <<< "scale=4; $smallesttime / $timelargenat")
             echo $smallesttime "("${percentage}")" | tee -a $LOGFILE
         fi
-
-        diff out-large-golden.txt out-large-oi.txt
-        if [ $? -ne 0 ]; then
-            echo "!! Output mismatch (large) !!" | tee -a $LOGFILE
-        fi
-        rm out-large-golden.txt out-large-oi.txt
-        if [ x"$outputlargenat" != x"none" ]; then
-            diff $outputlargenat $outputlargeoi &> /dev/null
-            if [ $? -ne 0 ]; then
-                echo "!! Output mismatch (large) !!" | tee -a $LOGFILE
-            fi
-            rm $outputlargenat $outputlargeoi
-        fi
         SBTOPT="$myopts" make clean &> /dev/null
-
 
     done;
     cd $ROOT
