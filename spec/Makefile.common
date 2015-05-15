@@ -83,7 +83,7 @@ $(BENCHNAME)-oi.bc: ${FILE1_bcs}
 
 $(BENCHNAME2)-oi.bc: ${FILE2_bcs}
 	$(LLVMLINK) ${FILE2_bcs} -o $(BENCHNAME2).bc
-	$(OPT) $(BENCHNAME2).bc -o $(BENCHNAME2).bc
+	$(OPT) $(OPTFLAGS) $(BENCHNAME2).bc -o $(BENCHNAME2).bc
 	$(LLVMLLC) -march=mipsel $(BENCHNAME2).bc -o $(BENCHNAME2).s
 	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(BENCHNAME2)-oi.o $(BENCHNAME2).s
 	$(STATICBT) -target=$(ARCH) $(SBTOPT) -stacksize $(STACKSIZE) $(BENCHNAME2)-oi.o -o=$(BENCHNAME2)-oi.bc
