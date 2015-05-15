@@ -29,6 +29,7 @@ int main(int argc, char *argv[]) {
 		
  srand(1);
 
+ for (int ind = 0; ind < 20; ++ind) {
  RealIn=(double*)malloc(sizeof(double)*MAXSIZE);
  ImagIn=(double*)malloc(sizeof(double)*MAXSIZE);
  RealOut=(double*)malloc(sizeof(double)*MAXSIZE);
@@ -77,6 +78,7 @@ printf("ImagOut:\n");
  free(ImagOut);
  free(coeff);
  free(amp);
+ }
  exit(0);
 
 
