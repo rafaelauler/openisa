@@ -2738,8 +2738,9 @@ NULL};
 "and recycling it for more than its",
 "worth But trust me on the sunscreen"
 };
-      int i;
+      int i, ind;
 
+      for (ind = 0; ind < 2000; ++ind) {
       for (i = 0; find_strings[i]; i++)
       {
             init_search(find_strings[i]);
@@ -2750,7 +2751,7 @@ NULL};
                   printf(" [\"%s\"]", here);
             printf("\n");
       }
-
+      }
       return 0;
 }
 
