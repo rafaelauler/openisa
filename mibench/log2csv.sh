@@ -17,6 +17,7 @@ lines=$(wc -l ${LOG_TEMP}  | cut -d' ' -f 1)
 echo Extracted $lines lines of log data.
 
 NAMES=(basicmath
+bitcount
 susan-smoothing
 susan-edges
 susan-corners
@@ -24,10 +25,21 @@ patricia
 dijkstra
 rijndael-encode
 rijndael-decode
+blowfish-encode
+blowfish-decode
+sha
+adpcm-coder
+adpcm-decoder
+crc
 fft
-fft-inv)
+fft-inv
+stringsearch
+lame
+cjpeg
+djpeg)
 
 ACTIVATE=(yes #basicmath
+yes #bitcount
 yes #susan-smoothing
 yes #susan-edges
 yes #susan-corners
@@ -35,8 +47,18 @@ yes #patricia
 yes #dijkstra
 yes #rijndael-encode
 yes #rijndael-decode
+yes #blowfish-encode
+yes #blowfish-decode
+yes #sha
+yes #adpcm coder
+yes #adpcm decoder
+yes #crc32
 yes #fft
-yes) #fft-inv
+yes #fft-inv
+yes #stringsearch
+yes #lame
+yes #cjpeg
+no) #djpeg
 
 echo -ne "Index Program Native Globals Locals Whole\n"
 
