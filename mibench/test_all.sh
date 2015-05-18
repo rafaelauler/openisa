@@ -49,7 +49,7 @@ yes #fft
 yes #fft-inv
 yes #stringsearch
 yes #lame
-yes #cjpeg
+no #cjpeg
 no) #djpeg
 #ACTIVATE=(yes #basicmath
 #yes #bitcount
@@ -97,7 +97,7 @@ LARGE=(basicmath_large-VAR
 "sha-VAR input_large.asc"
 "rawcaudio-VAR"
 "rawdaudio-VAR"
-"crc-VAR ../../network/patricia/large.udp"
+"crc-VAR ../adpcm/data/large.pcm"
 "fft-VAR 8 32768"
 "fft-VAR 8 32768 -i"
 "search_large-VAR"
