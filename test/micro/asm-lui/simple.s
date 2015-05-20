@@ -124,5 +124,6 @@ my_float:
 	.4byte	1060439283              # float 0.707106769
 my_double:
 	.8byte	4599976659396224614     # double 0.34999999999999998
-
+my_double_result:
+  .8byte 0
 
