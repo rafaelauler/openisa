@@ -3,26 +3,50 @@
 ARMDIR=$(pwd)/testes-arm
 
 DIRS=(automotive/basicmath
+automotive/bitcount
 automotive/susan
 network/patricia
 network/dijkstra
 security/rijndael
+security/blowfish
+security/sha
+telecomm/adpcm
+telecomm/adpcm
+telecomm/CRC32
 telecomm/FFT
-consumer/lame/lame3.70)
+office/stringsearch
+consumer/lame/lame3.70
+consumer/jpeg/jpeg-6a)
 ACTIVATE=(yes #basicmath
-yes #susan-smoothing
+yes #bitcount
+yes #susan
 yes #patricia
 yes #dijkstra
-yes #rijndael-encode
-yes #fft-inv
-yes) #lame3.70
+yes #rijndael
+yes #blowfish
+yes #sha
+yes #adpcm-coder
+yes #adpcm-decoder
+yes #crc32
+yes #fft
+yes #stringsearch
+yes #lame
+yes) #jpeg-6a
 NAMES=(basicmath_large
+bitcnts
 susan
 patricia
 dijkstra_large
 rijndael
+bf
+sha
+rawcaudio
+rawdaudio
+crc
 fft
-lame)
+search_large
+lame
+cjpeg)
 ROOT=$(pwd)
 
 for index in ${!DIRS[*]}; do
@@ -36,29 +60,36 @@ for index in ${!DIRS[*]}; do
 
     cd $dir
     for opts in "-oneregion" "-nolocals" "-debug-ir"; do
-	ARCH="arm" make clean
-	ARCH="x86" make clean
-	SBTOPT="-optimize "${opts} ARCH="arm" MATTR="-mattr=vfp3,d16,a8,-neon -mcpu=cortex-a9 -float-abi=hard" make
-	if [ $? != 0 ]; then
-           echo Stopping script at $dir
-            exit
-	fi
-	mkdir -p ${ARMDIR}/bin
-	cp ${name}-nat-arm ${ARMDIR}/bin
-	if [ $? != 0 ]; then
+        # Exceptions...
+        if [ x"$opts" = x"-oneregion" -a x"$name" = x"cjpeg" ]; then
+            continue
+        fi
+        if [ x"$opts" = x"-oneregion" -a x"$name" = x"djpeg" ]; then
+            continue
+        fi
+	      ARCH="arm" make clean
+	      ARCH="x86" make clean
+	      SBTOPT="-optimize "${opts} ARCH="arm" MATTR="-mattr=vfp3,d16,a8,-neon -mcpu=cortex-a9 -float-abi=hard" make
+	      if [ $? != 0 ]; then
             echo Stopping script at $dir
             exit
-	fi
-	if [ $opts == "-debug-ir" ]; then
-	    cp ${name}-oi-arm ${ARMDIR}/bin/${name}-locals
-	else
-	    cp ${name}-oi-arm ${ARMDIR}/bin/${name}${opts}
-	fi
-	if [ $? != 0 ]; then
+	      fi
+	      mkdir -p ${ARMDIR}/bin
+	      cp ${name}-nat-arm ${ARMDIR}/bin
+	      if [ $? != 0 ]; then
             echo Stopping script at $dir
             exit
-	fi
-	#arm-linux-musleabihf-gcc -O3 -static ${dir}.c -o ${dir}-nat-arm
+	      fi
+	      if [ $opts == "-debug-ir" ]; then
+	          cp ${name}-oi-arm ${ARMDIR}/bin/${name}-locals
+	      else
+	          cp ${name}-oi-arm ${ARMDIR}/bin/${name}${opts}
+	      fi
+	      if [ $? != 0 ]; then
+            echo Stopping script at $dir
+            exit
+	      fi
+	      #arm-linux-musleabihf-gcc -O3 -static ${dir}.c -o ${dir}-nat-arm
     done
     cd ${ROOT}
 done
