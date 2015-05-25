@@ -262,14 +262,14 @@ for index in ${!DIRS[*]}; do
 
         echo Running $name in native mode "(large)" - current time is $(date) | tee -a $LOGFILE
         if [ x"$inputlarge" != x"none" ]; then
-            sudo schedtool -F -p 99 -a 0x4 -e perf stat -r $NUMTESTS ./${largenat} < $inputlarge 1> /dev/null 2>> $LOGFILE
+            sudo schedtool -F -p 99 -a 0x4 -e perf stat ./${largenat} < $inputlarge 1> /dev/null 2>> $LOGFILE
         else
             sudo schedtool -F -p 99 -a 0x4 -e perf stat -r $NUMTESTS ./${largenat} 1> /dev/null 2>> $LOGFILE
         fi
 
         echo Running $name OpenISA mode "(large)" with opts $myopts - current time is $(date) | tee -a $LOGFILE
         if [ x"$inputlarge" != x"none" ]; then
-            sudo schedtool -F -p 99 -a 0x4 -e perf stat -r $NUMTESTS ./${largeoi} < $inputlarge 1> /dev/null 2>> $LOGFILE
+            sudo schedtool -F -p 99 -a 0x4 -e perf stat ./${largeoi} < $inputlarge 1> /dev/null 2>> $LOGFILE
         else
             sudo schedtool -F -p 99 -a 0x4 -e perf stat -r $NUMTESTS ./${largeoi} 1> /dev/null 2>> $LOGFILE
         fi
