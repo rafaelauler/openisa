@@ -2,5 +2,5 @@
 
 int
 main(int argc, char **argv) {
-  printf("You typed char '%c'.\n", getc(stdin));
+  printf("You typed char '%c'.\n", fgetc(stdin));
 }
