@@ -3,12 +3,12 @@ import sys
 import subprocess
 import os
 
-emitllvm="-target mipsel-unknown-linux -emit-llvm -c --sysroot=/l/home/rafael/p/openisa/newlib/install/oi-elf"
-llvminstall="/l/home/rafael/p/llvm/llvm-3.3/install/bin/" 
+emitllvm="-target mipsel-unknown-linux -emit-llvm -c --sysroot=/home/rafaelauler/p/openisa/newlib/install/oi-elf -mllvm -disable-llvm-optzns"
+llvminstall="/home/rafaelauler/p/llvm/obj/bin/" 
 llvmllc="llc -relocation-model=static"
-llcargs="-load=/l/home/rafael/p/openisa/backend/OIBackend.so -march=oiel"
-oias="/l/home/rafael/p/openisa/backend/oife -assemble -filetype=obj"
-crossmips="/l/home/rafael/p/openisa/cross/cross-tools/bin/mipsel-unknown-linux-gnu-gcc --sysroot=/l/home/rafael/p/openisa/newlib/install/oi-elf -specs /l/home/rafael/p/openisa/newlib/install/oi-elf/lib/nosys.specs"
+llcargs="-march=mipsel"
+oias="/home/rafaelauler/p/llvm/obj/bin/llvm-mc -assemble -filetype=obj -arch mipsel"
+crossmips="/home/rafaelauler/p/openisa/cross/cross-tools/bin/mipsel-unknown-linux-gnu-gcc --sysroot=/home/rafaelauler/p/openisa/newlib/install/oi-elf -specs /home/rafaelauler/p/openisa/newlib/install/oi-elf/lib/nosys.specs"
 
 #  compilar usando -S com o gcc ao inves de -c
 verbose=False
