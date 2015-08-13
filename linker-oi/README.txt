@@ -14,6 +14,6 @@ function was not changed, but can be useful in the future.
 To build:
 mkdir build
 cd build
-../binutils-2.23.2/configure --prefix=$(pwd)/../install --disable-nls --enable-shared --disable-multilib --with-sysroot=/cross-tools --target=mipsel-unknown-linux-gnu
-make
-make install
+../binutils-2.23.2/configure --prefix=$(pwd)/../install --disable-nls --enable-shared --disable-multilib --with-sysroot=/cross-tools --target=mipsel-unknown-linux-gnu --disable-werror
+make MAKEINFO=true
+make install MAKEINFO=true
