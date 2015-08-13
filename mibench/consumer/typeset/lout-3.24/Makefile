@@ -34,7 +34,7 @@ FILE1 = $(SRCS)
 
 TARGETS=lout
 
-SBTOPT?=-optimize -oneregion
+SBTOPT?=-optimize
 OPTFLAGS?=-printf-break
 
 STACKSIZE=400000

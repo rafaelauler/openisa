@@ -19,6 +19,8 @@ madtime_SOURCES = $(common_sources) madtime.c
 BENCHNAME=mad
 FILE1 = $(madtime_SOURCES)
 
+CPP_OPTS =-std=gnu89
+
 TARGETS=mad
 
 SBTOPT?=-optimize

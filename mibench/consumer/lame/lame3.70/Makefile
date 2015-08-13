@@ -35,10 +35,11 @@ FILE1 = brhist.c \
 
 CPP_OPTS= -DHAVEMPGLIB -DLAMEPARSE -DNDEBUG -DLAMESNDFILE
 OPTFLAGS?=-printf-break
+#-debug-only=inline -inline-threshold=320
 
 TARGETS=lame
 
-SBTOPT?=-optimize -oneregion
+SBTOPT?=-optimize
 
 STACKSIZE=400000
 
