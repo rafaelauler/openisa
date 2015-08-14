@@ -1,0 +1,38 @@
+# Global Makefile used by all OpenISA assembly check tests.
+# You should include this file and define the variables:
+#   PROGRAMNAME  (mandatory)
+#   STACKSIZE    (optional)
+#   ARCH         (mandatory)
+#   SBTOPT       (optional)
+#   MATTR        (optional)
+#   LD_OPTS      (optional)
+#
+
+LLVMLLC=llc -relocation-model=static -O3
+CLANG=clang
+OPT=opt -O3
+STATICBT=static-bt
+EMITLLVM=-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools -O3 -mllvm -disable-llvm-optzns
+EMITLLVMARM=-target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafael/p/openisa/cross2/cross-tools/arm-linux-musleabihf -O3 -mllvm -disable-llvm-optzns
+CROSS=mipsel-unknown-linux-gnu-gcc
+CLANGARM=arm-linux-musleabihf-gcc-4.7.3 -static
+SBTOPT?=-optimize -oneregion
+ARCH?=x86
+MATTR?=
+LD_OPTS?=
+OICC=oi-cc
+
+all: $(PROGRAMNAME)-oi $(PROGRAMNAME)-nat-$(ARCH)
+
+$(PROGRAMNAME)-nat-x86: $(PROGRAMNAME)-golden.c
+	$(CLANG) -m32 -g ${PROGRAMNAME}-golden.c -o $(PROGRAMNAME)-nat-x86 -lm
+
+$(PROGRAMNAME)-nat-arm: $(PROGRAMNAME)-golden.c
+	$(CLANGARM) -g $(PROGRAMNAME)-golden.c -o $(PROGRAMNAME)-nat-arm -lm
+
+$(PROGRAMNAME)-oi: $(PROGRAMNAME).s
+	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(PROGRAMNAME)-oi.o $(PROGRAMNAME).s
+	$(OICC) -g $(PROGRAMNAME)-oi.o -o $(PROGRAMNAME)-oi -lm
+
+clean:
+	-rm -rf $(PROGRAMNAME)-oi $(PROGRAMNAME).bc2 $(PROGRAMNAME).bc $(PROGRAMNAME)-oi.bc $(PROGRAMNAME)-oi-arm.s $(PROGRAMNAME)-oi-arm $(PROGRAMNAME)-oi-x86.s $(PROGRAMNAME)-oi-x86-64.s $(PROGRAMNAME)-oi-x86 $(PROGRAMNAME)-oi-x86-64 $(PROGRAMNAME)-oi.o $(PROGRAMNAME).oi $(PROGRAMNAME)-nat $(PROGRAMNAME)-nat-x86 $(PROGRAMNAME)-nat-x86-64 $(PROGRAMNAME)-nat-arm out-nat.txt out-oi.txt
