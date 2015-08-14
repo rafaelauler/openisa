@@ -1,0 +1,56 @@
+# Global Makefile used by all OpenISA tests (shootout benchmark).
+# You must include this file and define the variables:
+#   PROGRAMNAME
+#   STACKSIZE
+#   ARCH
+#   SBTOPT
+#   MATTR
+#
+
+#LLVMCONFIG?=llvm-config
+#LLVMLLC=$(shell $(LLVMCONFIG) --obj-root)/$(shell $(LLVMCONFIG) --build-mode)/bin/llc
+LLVMLLC=llc -relocation-model=static -O3
+#-view-dag-combine1-dags
+#-view-sched-dags
+#CLANG=clang -c -emit-llvm
+#CLANGARM=clang -target armv7--eabi -mcpu=cortex-a9
+CLANG=clang
+OPTFLAGS?=
+OPT=opt -O3 $(OPTFLAGS)
+STATICBT=static-bt
+#EMITLLVM=-ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
+EMITLLVM=-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools -O3 -mllvm -disable-llvm-optzns
+EMITLLVMARM=-target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafaelauler/p/openisa/cross2/cross-tools/arm-linux-musleabihf -O3 -mllvm -disable-llvm-optzns
+CROSS=mipsel-unknown-linux-gnu-gcc
+CLANGARM=arm-linux-musleabihf-gcc-4.7.3 -static
+SBTOPT?=-optimize -oneregion
+ARCH?=x86
+MATTR?=
+OICC=oi-cc -O3
+
+all: $(PROGRAMNAME)-oi $(PROGRAMNAME)-nat-$(ARCH)
+
+$(PROGRAMNAME)-nat-x86: $(PROGRAMNAME).c
+	$(CLANG) -O3 -mllvm -disable-llvm-optzns -m32 -emit-llvm -c -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
+	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
+	$(LLVMLLC) -march=x86 $(MATTR) ${PROGRAMNAME}.bc2 -o $(PROGRAMNAME)-nat.s
+	$(CLANG) -m32 -g ${PROGRAMNAME}-nat.s -o $(PROGRAMNAME)-nat-x86 -lm
+
+$(PROGRAMNAME)-nat-arm: $(PROGRAMNAME).c
+	$(CLANG) -O3 $(EMITLLVMARM) -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
+	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
+	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
+	$(LLVMLLC) -march=arm $(MATTR) ${PROGRAMNAME}.bc2 -o $(PROGRAMNAME)-nat.s
+	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
+	echo "\n.text\n\t.align 2\n.type __aeabi_memset,%function\n__aeabi_memset:\npush {r2}\nmov r2, r1\npop {r1}\nb memset\n" >> aa.s
+	cat $(PROGRAMNAME)-nat.s >> aa.s
+	$(CLANGARM) -g aa.s -o $(PROGRAMNAME)-nat-arm -lm
+
+$(PROGRAMNAME)-oi: $(PROGRAMNAME).c
+	$(CLANG) $(EMITLLVM) $(PROGRAMNAME).c -o $(PROGRAMNAME)-oi.bc
+	$(OPT) $(PROGRAMNAME)-oi.bc -o $(PROGRAMNAME)-oi.bc
+	$(LLVMLLC) -march=mipsel $(PROGRAMNAME)-oi.bc -o $(PROGRAMNAME).s
+	$(OICC) -g $(PROGRAMNAME).s -o $(PROGRAMNAME)-oi -lm
+
+clean:
+	-rm -rf $(PROGRAMNAME).s $(PROGRAMNAME).bc2 $(PROGRAMNAME).bc $(PROGRAMNAME)-oi.bc $(PROGRAMNAME)-oi-arm.s $(PROGRAMNAME)-oi-arm $(PROGRAMNAME)-oi-x86.s $(PROGRAMNAME)-oi-x86-64.s $(PROGRAMNAME)-oi-x86 $(PROGRAMNAME)-oi-x86-64 $(PROGRAMNAME)-oi.o $(PROGRAMNAME).oi $(PROGRAMNAME)-nat $(PROGRAMNAME)-nat-x86 $(PROGRAMNAME)-nat-x86-64 $(PROGRAMNAME)-nat-arm out-nat.txt out-oi.txt
