@@ -20,7 +20,7 @@ OPT=opt -O3 $(OPTFLAGS)
 STATICBT=static-bt
 #EMITLLVM=-ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
 EMITLLVM=-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools -O3 -mllvm -disable-llvm-optzns
-EMITLLVMARM=-target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafaelauler/p/openisa/cross2/cross-tools/arm-linux-musleabihf -O3 -mllvm -disable-llvm-optzns
+EMITLLVMARM=-mcpu=cortex-a9 -target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafaelauler/p/openisa/cross2/cross-tools/arm-linux-musleabihf -O3 -mllvm -disable-llvm-optzns
 CROSS=mipsel-unknown-linux-gnu-gcc
 CLANGARM=arm-linux-musleabihf-gcc-4.7.3 -static
 SBTOPT?=-optimize -oneregion
