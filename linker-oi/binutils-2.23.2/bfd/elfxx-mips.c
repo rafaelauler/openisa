@@ -2283,9 +2283,9 @@ _bfd_mips_elf_lo16_reloc (bfd *abfd, arelent *reloc_entry, asymbol *symbol,
       else if (hi->rel.howto->type == R_MICROMIPS_GOT16)
 	hi->rel.howto = MIPS_ELF_RTYPE_TO_HOWTO (abfd, R_MICROMIPS_HI16, FALSE);
 
-      /* VALLO is a signed 16-bit number.  Bias it by 0x8000 so that any
+      /* VALLO is a signed 14-bit number.  Bias it by 0x2000 so that any
 	 carry or borrow will induce a change of +1 or -1 in the high part.  */
-      hi->rel.addend += (vallo + 0x8000) & 0xffff;
+      hi->rel.addend += (vallo + 0x2000) & 0x3fff;
 
       ret = _bfd_mips_elf_generic_reloc (abfd, &hi->rel, symbol, hi->data,
 					 hi->input_section, output_bfd,
