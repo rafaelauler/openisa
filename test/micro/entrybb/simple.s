@@ -17,14 +17,13 @@ main:                                   # @main
 	.fmask	0x00000000,0
 	.set	noreorder
 	.set	nomacro
-	.set	noat
-	addiu	$sp, $sp, -40         # Allocate a stack frame with 10 positions
-	sw	$ra, 36($sp)            # 4-byte Folded Spill  
-  jal aux
-	lw	$ra, 36($sp)            # 4-byte Folded Reload
-	addiu	$2, $zero, 0
-	addiu	$sp, $sp, 40
-	jr	$ra
+	addi	$sp, $sp, -40         # Allocate a stack frame with 10 positions
+	stw	$ra, 36($sp)            # 4-byte Folded Spill  
+  call aux, 0
+	ldw	$ra, 36($sp)            # 4-byte Folded Reload
+	addi	$2, $zero, 0
+	addi	$sp, $sp, 40
+	jumpr	$ra
 	.set	at
 	.set	macro
 	.set	reorder
@@ -36,17 +35,17 @@ aux:
 # BB#0:                                 # %entry
 $BB0_1:                                 # %while.body
   # =>This Inner Loop Header: Depth=1
-	lw	$5, %lo(i)($16)
-	addiu	$17, $zero, 4
-	addiu	$1, $5, 1
-	addiu	$4, $16, %lo($.str)
-	sw	$1, %lo(i)($16)
-	jal	printf
-	lw	$5, %lo(i)($16)
-	bne	$5, $17, $BB0_1
+	ldw	$5, %lo(i)($16)
+	addi	$17, $zero, 4
+	addi	$1, $5, 1
+	addi	$4, $16, %lo($.str)
+	stw	$1, %lo(i)($16)
+	call	printf, 0
+	ldw	$5, %lo(i)($16)
+	jne	$5, $17, $BB0_1
 # BB#2:                                 # %while.end
-	addiu	$2, $zero, 0
-	jr	$ra
+	addi	$2, $zero, 0
+	jumpr	$ra
 
 	.type	i,@object               # @i
 	.bss
