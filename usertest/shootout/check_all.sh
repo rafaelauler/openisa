@@ -5,6 +5,10 @@ LOGFILE=$(pwd)/log-check.txt
 ROOTDIR=$(pwd)
 VERBOSE=false
 
+# Choose the simulator to run OpenISA code
+SIMULATOR="openisa.x --load="
+#SIMULATOR="oii "
+
 echo Checking started. Today is $(date). | tee -a $LOGFILE
 
 for dir in $(find . -maxdepth 2 -mindepth 1 -type d | cut -c 3-); do
@@ -56,10 +60,10 @@ for dir in $(find . -maxdepth 2 -mindepth 1 -type d | cut -c 3-); do
 	  fi
 	  if [ -e testcase.txt ]; then
 	      ./${file}-nat-x86 > out-golden.txt < testcase.txt
-	      oii ${file}-oi > out-oi.txt < testcase.txt
+	      ${SIMULATOR}${file}-oi > out-oi.txt < testcase.txt 2> /dev/null
 	  else
 		    ./${file}-nat-x86 > out-golden.txt
-        oii ${file}-oi > out-oi.txt
+        ${SIMULATOR}${file}-oi > out-oi.txt 2> /dev/null
 	  fi
     diff out-golden.txt out-oi.txt &> /dev/null
     if [ $? -ne 0 ]; then
