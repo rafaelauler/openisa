@@ -67,8 +67,8 @@
 #define STORE_GPR sd
 #define STORE_FPR sdc1
 #else
-#define LOAD_GPR lw
-#define STORE_GPR sw
+#define LOAD_GPR ldw
+#define STORE_GPR stw
 #if __mips_fpr == 64
 #define BYTES_PER_WORD 8
 #define LOAD_FPR l.d
@@ -97,7 +97,7 @@ setjmp:
 #undef FPR_OFFSET
 
 	add	$2,$0,$0
-	j	$31
+	jumpr	$31
 
 	.end	setjmp
 
@@ -114,10 +114,10 @@ longjmp:
 #undef GPR_OFFSET
 #undef FPR_OFFSET
 
-	bne	$5,$0,1f
+	jne	$5,$0,1f
 	ori	$5,$0,1
 1:
 	add	$2,$0,$5
-	j	$31
+	jumpr	$31
 
 	.end longjmp
