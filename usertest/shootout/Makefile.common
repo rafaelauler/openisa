@@ -47,10 +47,7 @@ $(PROGRAMNAME)-nat-arm: $(PROGRAMNAME).c
 	$(CLANGARM) -g aa.s -o $(PROGRAMNAME)-nat-arm -lm
 
 $(PROGRAMNAME)-oi: $(PROGRAMNAME).c
-	$(CLANG) $(EMITLLVM) $(PROGRAMNAME).c -o $(PROGRAMNAME)-oi.bc
-	$(OPT) $(PROGRAMNAME)-oi.bc -o $(PROGRAMNAME)-oi.bc
-	$(LLVMLLC) -march=mipsel $(PROGRAMNAME)-oi.bc -o $(PROGRAMNAME).s
-	$(OICC) -g $(PROGRAMNAME).s -o $(PROGRAMNAME)-oi -lm
+	$(OICC) $(PROGRAMNAME).c -o $(PROGRAMNAME)-oi
 
 clean:
 	-rm -rf $(PROGRAMNAME)-oi $(PROGRAMNAME)-nat.s $(PROGRAMNAME).s $(PROGRAMNAME).bc2 $(PROGRAMNAME).bc $(PROGRAMNAME)-oi.bc $(PROGRAMNAME)-oi-arm.s $(PROGRAMNAME)-oi-arm $(PROGRAMNAME)-oi-x86.s $(PROGRAMNAME)-oi-x86-64.s $(PROGRAMNAME)-oi-x86 $(PROGRAMNAME)-oi-x86-64 $(PROGRAMNAME)-oi.o $(PROGRAMNAME).oi $(PROGRAMNAME)-nat $(PROGRAMNAME)-nat-x86 $(PROGRAMNAME)-nat-x86-64 $(PROGRAMNAME)-nat-arm out-nat.txt out-oi.txt
