@@ -7,7 +7,7 @@
 --start-group %(libc) %(libgloss) --end-group
 
 *link:
--L/l/home/rafael/p/openisa/newlib/install/oi-elf/lib -Tac_link.ld
+-L/home/rafaelauler/p/openisa/newlib/install/oi-elf/lib -Tac_link.ld
 
 *startfile:
 
