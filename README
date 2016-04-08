@@ -1,149 +1,157 @@
                                   OpenISA Tools
 
-Before compiling...
 -------------------------------------------------------------------------------
-> Make sure you download and install LLVM 3.3 as follows:
-
-$ cd where-you-want-llvm-to-live
-$ svn co http://llvm.org/svn/llvm-project/llvm/tags/RELEASE_33/final llvm
-$ cd llvm/tools
-$ svn co http://llvm.org/svn/llvm-project/cfe/tags/RELEASE_33/final clang
-$ cd ../projects
-$ svn co http://llvm.org/svn/llvm-project/compiler-rt/tags/RELEASE_33/final \
-compiler-rt
-
-Configure and build as follows:
-
-$ cd where-you-want-to-build-llvm (different from src dir)
-$ ../llvm/configure --prefix=your-install-directory --enable-shared
-$ make
-$ make install
-
-Put LLVM into your path:
-$ export PATH=$PATH:your-install-directory
-
-Put the LLVM3.3 shared library into your dynamic linker and loader path:
-$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(llvm-config --libdir)
-
-Compile OpenISA tools as follows:
-
-$ cd where-openisa-tools-is/backend
-$ make
-
-> Make sure you have a cross compiler for the target mipsel-unknown-linux,
-which is compatible with OpenISA and will help fill the gaps for compilation
-when there is no OpenISA tool available (e.g. linker, libc and kernel header
-files).
-
-You can download the header files as follows.
-
-$ wget http://www.ic.unicamp.br/~auler/mips-cross-sysroot.tar.bz2
-$ tar xjvf mips-cross-sysroot.tar.bz2  (unpack where convenient)
-$ sudo ln -s $(pwd)/tools /tools
-
-You can download the cross compiler compiled for Linux 2.6.32-38 x86 Ubuntu as
-follows.
-
-$ wget http://www.ic.unicamp.br/~auler/mips-cross.tar.bz2
-$ tar xjvf mips-cross.tar.bz2  (unpack where convenient)
-$ sudo ln -s $(pwd)/cross /cross
-
-Or you can compile your own mipsel-unknown-linux cross compiler using
-instructions from the Linux From Scratch project at:
-
-http://cross-lfs.org/view/CLFS-2.1.0/mips/
-
-Read sections II and III.
-
-1. Clang C frontend
---------------------------------------------------------------------------------
-
-The Clang C frontend translates C code to LLVM IR. Use it as follows:
-
-$ clang -target mips-unknown-linux -emit-llvm -c --sysroot=/tools \
-in.c -o out.bc
-
-Each parameter is detailed below.
-
--target mips-unknown-linux
-
-The LLVM IR has a light dependence on the target architecture. This instructs
-Clang to generate type sizes according to MIPS for Linux, which is compatible
-with OpenISA. 
-
--emit-llvm -c
-
-Instructs clang to generate LLVM IR code instead of going all the way down to
-full compilation.
-
--sysroot=/tools
-
-Instructs clang to use the include files from this folder (libc interface). 
-You need a mips cross-compiler installed in this folder, which has C headers
-compatible with OpenISA.
-
-2. OIBackend.so 
 -------------------------------------------------------------------------------
 
-The OpenISA backend translates LLVM IR to an OpenISA assembly file. Use it as
-follows:
+  Part I. Building the tools
 
-$ llc -load=${backend}/OIBackend.so -march=oi in.bc -o out.s
-
-Each parameter is detailed below.
-
--load=${backend}/OIBackend.so
-
-"backend" is a shell environment variable set with the path where the shared
-library OIBackend.so is located. Typically it is compiled into the backend
-folder. The effect of this parameter is to make llc load this shared library,
-which has the complete OpenISA backend.
-
--march=oi
-
-Selects the OpenISA backend.
-
-3.a. OpenISA assembler
+-------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 
-The assembler processes OpenISA text assembly files and outputs OpenISA Linux
-ELF relocatable object files, i.e. intermediate object files. Use it as
-follows:
-
-$ oife -assemble -filetype=obj -o=out.o in.s
-
-Each parameter is detailed below.
-
--assemble
-
-Tells the OpenISA FrontEnd "oife" to act as an assembler.
-
--filetype=obj
-
-Specifies that the output is an ELF object file.
-
-3.b. OpenISA Assembly-Level Translation Layer (ATL)
+-------------------------------------------------------------------------------
+0. Introduction
 -------------------------------------------------------------------------------
 
-The OpenISA Assembly-Level Translation Layer (ATL) is able to revert the
-OpenISA backend process and generate LLVM IR from the OpenISA text assembly
-file. Use it as follows:
+This document describes how to compile and install the OpenISA toolchain.
 
-$ oife in.s -o out.bc
-
-The output LLVM bitcode file can then be translated to other architectures
-using the LLVM backends, finishing the recompilation process to other machine.
-An example appears below, assuming the host architecture is Intel x86:
-
-$ llc -march=x86 in.bc -o intermediate.s
-$ gcc intermediate.s -o final
-
-4. Linker
+-------------------------------------------------------------------------------
+1. Linker
 -------------------------------------------------------------------------------
 
-Since OpenISA lacks a linker, we will rely on a mips cross compiler linker, 
-which is compatible with OpenISA. You will need a mips cross compiler installed
-in "/cross".
+The OpenISA linker is based on GNU binutils. To have access to its source code,
+you need to clone (you haven't done it already) the OpenISA master repository:
 
-$ /cross/bin/mipsel-unknown-linux-gcc in.o -o out
+$ git clone git-marvin:openisa.git --depth 1
 
+1.1 Building the linker
+
+In this step, we will build the first element of our OpenISA toolchain, a folder
+where we will keep all toolchain utils. We will call this folder "oi-toolchain".
+
+$ cd openisa/linker-oi
+$ wget http://ftp.gnu.org/gnu/binutils/binutils-2.23.2.tar.bz2
+$ tar xjvf binutils-2.23.2.tar.bz2
+$ git reset --hard  #recover modifications caused by extracting binutils package
+$ mkdir build
+$ cd build
+$ ../binutils-2.23.2/configure --prefix=$(pwd)/../../oi-toolchain \
+  --disable-nls --enable-shared --disable-multilib \
+  --target=mipsel-unknown-linux-gnu --disable-werror
+$ make MAKEINFO=true
+$ make install MAKEINFO=true
+
+-------------------------------------------------------------------------------
+2. Compiler
+-------------------------------------------------------------------------------
+
+The OpenISA compiler is based on Clang and LLVM. The llvm-openisa.git repo
+contains the source code in its entirety. Keep in mind that the LLVM project
+is composed of multiple repositories. We fork llvm, clang and compiler-rt
+repos. The latter two are added inside our llvm fork as git submodules, so
+you may want to use the "--recursive" flag when cloning.
+
+2.1 Setting up repos
+
+$ git clone --recursive git-marvin:llvm-openisa.git -b openisa
+
+This may take a while because of the long history of commits of the LLVM
+project. If you clone with "--depth 1", you can get a shallow copy much faster.
+
+2.2 Setting up your build
+
+Next step is to create a folder to build the compiler.
+
+$ mkdir obj
+$ cd obj
+
+And configure it, keeping in mind we intend to install it in the *same* folder
+you installed the linker, so adjust the command line to reflect so.
+
+$ cmake ../llvm-openisa -DLLVM_TARGETS_TO_BUILD="Mips;X86;ARM" \
+  -DCMAKE_INSTALL_PREFIX=$(pwd)/../openisa/oi-toolchain \
+  -DLLVM_DEFAULT_TARGET_TRIPLE="mipsel-unknown-linux-gnu" \
+  -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON \
+  -DCLANG_VENDOR="OpenISA Tools"
+
+If you want all OpenISA tools, including the static translator, please remove
+the "-DLLVM_INSTALL_TOOLCHAIN_ONLY=ON" flag. If you use ninja, please remember
+to add "-GNinja". Now build and install it:
+
+$ ninja && ninja install
+
+-------------------------------------------------------------------------------
+3. C standard library
+-------------------------------------------------------------------------------
+
+The OpenISA toolchain relies on newlib to provide its C library. Its source
+code is available in the same repository of the linker (the master repository).
+
+3.1 Setting up build
+
+First you need to put whatever tools you have so far of the OpenISA toolchain in
+your path:
+
+$ cd oi-toolchain/bin
+$ export PATH=$PATH:$(pwd)
+
+Now go to newlib's folder and prepare your build. Configure it to install in the
+same oi-toolchain folder used before (adjust the command line below
+accordingly).
+
+$ cd openisa/newlib
+$ mkdir build
+$ cd build
+$ CC_FOR_TARGET="clang"\
+   CXX_FOR_TARGET="clang++"\
+   AR_FOR_TARGET="mipsel-unknown-linux-gnu-ar"\
+   AS_FOR_TARGET="mipsel-unknown-linux-gnu-as"\
+   LD_FOR_TARGET="mipsel-unknown-linux-gnu-ld"\
+   NM_FOR_TARGET="mipsel-unknown-linux-gnu-nm"\
+   OBJDUMP_FOR_TARGET="mipsel-unknown-linux-gnu-objdump"\
+   RANLIB_FOR_TARGET="mipsel-unknown-linux-gnu-ranlib"\
+   READELF_FOR_TARGET="mipsel-unknown-linux-gnu-readelf"\
+   STRIP_FOR_TARGET="mipsel-unknown-linux-gnu-strip"\
+   ../newlib-2.1.0/configure --prefix=$(pwd)/../../oi-toolchain -target=oi-elf
+$ make && make install
+
+Finally, manually copy the linker script used by the OpenISA linker:
+
+$ cp ../newlib-2.1.0/libgloss/libnosys/ac_link.ld ../../oi-toolchain/oi-elf/lib
+
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+
+  Part II. Using the tools
+
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+4. Using the compiler, assembler and disassembler
+-------------------------------------------------------------------------------
+
+Use the clang compiler driver (command line "clang" if you put oi-toolchain/bin
+in your path) to access the OpenISA compiler, assembler or linker. The linker
+itself is an external tool, but the clang driver knows where to find it, if you
+installed everything following the instructions in this manual.
+
+Example 1: compile to assembly
+
+$ echo  'int main() { printf("Hello, world!\n"); return 0; }' | clang -x c \
+  -S -o test.s - && cat test.s
+
+Example 2: compile to object
+
+$ echo  'int main() { printf("Hello, world!\n"); return 0; }' | clang -x c \
+  -c -o test.o -
+
+Example 3: using a disassembler to disassemble the obj created in the previous
+  example
+
+$ llvm-objdump -disassemble test.o
+
+Example 4: compile to final executable
+
+$ clang input.c -o input
+
+                  *.---.* end of document *.---.*
