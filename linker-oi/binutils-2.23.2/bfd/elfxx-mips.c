@@ -2283,10 +2283,6 @@ _bfd_mips_elf_lo16_reloc (bfd *abfd, arelent *reloc_entry, asymbol *symbol,
       else if (hi->rel.howto->type == R_MICROMIPS_GOT16)
 	hi->rel.howto = MIPS_ELF_RTYPE_TO_HOWTO (abfd, R_MICROMIPS_HI16, FALSE);
 
-      /* VALLO is a signed 14-bit number.  Bias it by 0x2000 so that any
-	 carry or borrow will induce a change of +1 or -1 in the high part.  */
-      hi->rel.addend += (vallo + 0x2000) & 0x3fff;
-
       ret = _bfd_mips_elf_generic_reloc (abfd, &hi->rel, symbol, hi->data,
 					 hi->input_section, output_bfd,
 					 error_message);
@@ -2317,7 +2313,6 @@ _bfd_mips_elf_generic_reloc (bfd *abfd ATTRIBUTE_UNUSED, arelent *reloc_entry,
   bfd_boolean relocatable;
 
   relocatable = (output_bfd != NULL);
-
   if (reloc_entry->address > bfd_get_section_limit (abfd, input_section))
     return bfd_reloc_outofrange;
 
@@ -8100,10 +8095,6 @@ _bfd_mips_elf_check_relocs (bfd *abfd, struct bfd_link_info *info,
 		  howto = MIPS_ELF_RTYPE_TO_HOWTO (abfd, r_type, FALSE);
 		  addend = mips_elf_read_rel_addend (abfd, rel,
 						     howto, contents);
-		  if (got16_reloc_p (r_type))
-		    mips_elf_add_lo16_rel_addend (abfd, rel, rel_end,
-						  contents, &addend);
-		  else
 		    addend <<= howto->rightshift;
 		}
 	      else
@@ -9500,20 +9491,6 @@ _bfd_mips_elf_relocate_section (bfd *output_bfd, struct bfd_link_info *info,
 		      && mips_elf_local_relocation_p (input_bfd, rel,
 						      local_sections)))
 		{
-		  if (!mips_elf_add_lo16_rel_addend (input_bfd, rel, relend,
-						     contents, &addend))
-		    {
-		      if (h)
-			name = h->root.root.string;
-		      else
-			name = bfd_elf_sym_name (input_bfd, symtab_hdr,
-						 local_syms + r_symndx,
-						 sec);
-		      (*_bfd_error_handler)
-			(_("%B: Can't find matching LO16 reloc against `%s' for %s at 0x%lx in section `%A'"),
-			 input_bfd, input_section, name, howto->name,
-			 rel->r_offset);
-		    }
 		}
 	      else
 		addend <<= howto->rightshift;
