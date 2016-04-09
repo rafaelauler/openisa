@@ -8,7 +8,6 @@ OUTPUT_ARCH(mips)
 OUTPUT(mips-elf-prog)
 INPUT(ac_start.o)
 ENTRY(_start)
-SEARCH_DIR("/home/rafaelauler/p/openisa/newlib/install/oi-elf/lib");
 __DYNAMIC = 0;
 SECTIONS
 {
