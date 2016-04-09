@@ -75,7 +75,10 @@ $ cmake ../llvm-openisa -DLLVM_TARGETS_TO_BUILD="Mips;X86;ARM" \
 
 If you want all OpenISA tools, including the static translator, please remove
 the "-DLLVM_INSTALL_TOOLCHAIN_ONLY=ON" flag. If you use ninja, please remember
-to add "-GNinja". Now build and install it:
+to add "-GNinja". You may also want to add the -DCMAKE_BUILD_TYPE="Release"
+flag to build an optimized binary.
+
+Now build and install it:
 
 $ ninja && ninja install
 
@@ -114,9 +117,15 @@ $ CC_FOR_TARGET="clang"\
    ../newlib-2.1.0/configure --prefix=$(pwd)/../../oi-toolchain -target=oi-elf
 $ make && make install
 
-Finally, manually copy the linker script used by the OpenISA linker:
+Now, manually copy the linker script used by the OpenISA linker:
 
 $ cp ../newlib-2.1.0/libgloss/libnosys/ac_link.ld ../../oi-toolchain/oi-elf/lib
+
+Finally, compile ac_start.o:
+
+$ cd ../../oi-toolchain/oi-elf/lib
+$ clang -c ../../../newlib/newlib-2.1.0/libgloss/libnosys/ac_start.S \
+  -o ac_start.o
 
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
