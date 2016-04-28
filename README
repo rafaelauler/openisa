@@ -37,8 +37,9 @@ $ cd build
 $ ../binutils-2.23.2/configure --prefix=$(pwd)/../../oi-toolchain \
   --disable-nls --enable-shared --disable-multilib \
   --target=mipsel-unknown-linux-gnu --disable-werror
-$ make MAKEINFO=true
+$ make MAKEINFO=true -j20  # Adjust -j accordingly
 $ make install MAKEINFO=true
+$ cd ../..
 
 -------------------------------------------------------------------------------
 2. Compiler
@@ -52,7 +53,7 @@ you may want to use the "--recursive" flag when cloning.
 
 2.1 Setting up repos
 
-$ git clone --recursive git-marvin:llvm-openisa.git -b openisa
+$ git clone --recursive git-marvin:llvm-openisa.git -b openisa --depth 1
 
 This may take a while because of the long history of commits of the LLVM
 project. If you clone with "--depth 1", you can get a shallow copy much faster.
@@ -68,19 +69,17 @@ And configure it, keeping in mind we intend to install it in the *same* folder
 you installed the linker, so adjust the command line to reflect so.
 
 $ cmake ../llvm-openisa -DLLVM_TARGETS_TO_BUILD="Mips;X86;ARM" \
-  -DCMAKE_INSTALL_PREFIX=$(pwd)/../openisa/oi-toolchain \
+  -DCMAKE_INSTALL_PREFIX=$(pwd)/../oi-toolchain \
   -DLLVM_DEFAULT_TARGET_TRIPLE="mipsel-unknown-linux-gnu" \
-  -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON \
-  -DCLANG_VENDOR="OpenISA Tools"
+  -DCLANG_VENDOR="OpenISA Tools" -GNinja
 
-If you want all OpenISA tools, including the static translator, please remove
-the "-DLLVM_INSTALL_TOOLCHAIN_ONLY=ON" flag. If you use ninja, please remember
-to add "-GNinja". You may also want to add the -DCMAKE_BUILD_TYPE="Release"
-flag to build an optimized binary.
+If you don't use ninja, please remember to remove "-GNinja". You may also want
+to add the -DCMAKE_BUILD_TYPE="Release" flag to build an optimized binary.
 
 Now build and install it:
 
 $ ninja && ninja install
+$ cd ..
 
 -------------------------------------------------------------------------------
 3. C standard library
@@ -95,13 +94,14 @@ First you need to put whatever tools you have so far of the OpenISA toolchain in
 your path:
 
 $ cd oi-toolchain/bin
-$ export PATH=$PATH:$(pwd)
+$ export PATH=$(pwd):$PATH
+$ cd ../..
 
 Now go to newlib's folder and prepare your build. Configure it to install in the
 same oi-toolchain folder used before (adjust the command line below
 accordingly).
 
-$ cd openisa/newlib
+$ cd newlib
 $ mkdir build
 $ cd build
 $ CC_FOR_TARGET="clang"\
