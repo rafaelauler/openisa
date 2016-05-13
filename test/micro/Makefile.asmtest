@@ -24,13 +24,13 @@ LD_OPTS?=
 all: $(PROGRAMNAME)-oi-$(ARCH) $(PROGRAMNAME)-nat-$(ARCH)
 
 $(PROGRAMNAME)-nat-x86: $(PROGRAMNAME)-golden.c
-	$(CLANG) -m32 -g ${PROGRAMNAME}-golden.c -o $(PROGRAMNAME)-nat-x86 -lm
+	$(CLANG) -target x86_64-unknown-linux -m32 -g ${PROGRAMNAME}-golden.c -o $(PROGRAMNAME)-nat-x86 -lm
 
 $(PROGRAMNAME)-nat-arm: $(PROGRAMNAME)-golden.c
 	$(CLANGARM) -g $(PROGRAMNAME)-golden.c -o $(PROGRAMNAME)-nat-arm -lm
 
 $(PROGRAMNAME)-oi-x86: $(PROGRAMNAME)-oi-x86.s
-	$(CLANG) -m32 -g $(PROGRAMNAME)-oi-x86.s -o $(PROGRAMNAME)-oi-x86 -lm
+	$(CLANG) -target x86_64-unknown-linux -m32 -g $(PROGRAMNAME)-oi-x86.s -o $(PROGRAMNAME)-oi-x86 -lm
 
 $(PROGRAMNAME)-oi-arm: $(PROGRAMNAME)-oi-arm.s
 	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s

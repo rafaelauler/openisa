@@ -30,18 +30,18 @@ MATTR?=
 all: $(PROGRAMNAME)-oi-$(ARCH) $(PROGRAMNAME)-nat-$(ARCH)
 
 $(PROGRAMNAME)-nat-x86-64: $(PROGRAMNAME).c
-	$(CLANG) -O3 -emit-llvm -c -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
+	$(CLANG) -target x86_64-unknown-linux-gnu -O3 -emit-llvm -c -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
 	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
 	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
 	$(LLVMLLC) -march=x86-64 $(MATTR) ${PROGRAMNAME}.bc2 -o $(PROGRAMNAME)-nat.s
-	$(CLANG) -g ${PROGRAMNAME}-nat.s -o $(PROGRAMNAME)-nat-x86-64 -lm
+	$(CLANG) -target x86_64-unknown-linux-gnu -g ${PROGRAMNAME}-nat.s -o $(PROGRAMNAME)-nat-x86-64 -lm
 
 $(PROGRAMNAME)-nat-x86: $(PROGRAMNAME).c
-	$(CLANG) -O3 -mllvm -disable-llvm-optzns -m32 -emit-llvm -c -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
+	$(CLANG) -target x86_64-unknown-linux-gnu -O3 -mllvm -disable-llvm-optzns -m32 -emit-llvm -c -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
 	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
 	$(OPT) $(PROGRAMNAME).bc2 -o $(PROGRAMNAME).bc2
 	$(LLVMLLC) -march=x86 $(MATTR) ${PROGRAMNAME}.bc2 -o $(PROGRAMNAME)-nat.s
-	$(CLANG) -m32 -g ${PROGRAMNAME}-nat.s -o $(PROGRAMNAME)-nat-x86 -lm
+	$(CLANG) -target x86_64-unknown-linux-gnu -m32 -g ${PROGRAMNAME}-nat.s -o $(PROGRAMNAME)-nat-x86 -lm
 
 $(PROGRAMNAME)-nat-arm: $(PROGRAMNAME).c
 	$(CLANG) -O3 $(EMITLLVMARM) -o $(PROGRAMNAME).bc2 $(PROGRAMNAME).c
@@ -54,10 +54,10 @@ $(PROGRAMNAME)-nat-arm: $(PROGRAMNAME).c
 	$(CLANGARM) -g aa.s -o $(PROGRAMNAME)-nat-arm -lm
 
 $(PROGRAMNAME)-oi-x86-64: $(PROGRAMNAME)-oi-x86-64.s
-	$(CLANG) -g $(PROGRAMNAME)-oi-x86-64.s -o $(PROGRAMNAME)-oi-x86-64 -lm
+	$(CLANG) -target x86_64-unknown-linux-gnu -g $(PROGRAMNAME)-oi-x86-64.s -o $(PROGRAMNAME)-oi-x86-64 -lm
 
 $(PROGRAMNAME)-oi-x86: $(PROGRAMNAME)-oi-x86.s
-	$(CLANG) -m32 -g $(PROGRAMNAME)-oi-x86.s -o $(PROGRAMNAME)-oi-x86 -lm
+	$(CLANG) -target x86_64-unknown-linux-gnu -m32 -g $(PROGRAMNAME)-oi-x86.s -o $(PROGRAMNAME)-oi-x86 -lm
 
 $(PROGRAMNAME)-oi-arm: $(PROGRAMNAME)-oi-arm.s
 	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
