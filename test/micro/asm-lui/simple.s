@@ -6,97 +6,104 @@
   .set noat
 main:                                   # @main
   # Prologue
-	addiu	$sp, $sp, -40         # Allocate a stack frame with 10 positions
-	sw	$ra, 36($sp)            # 4-byte Folded Spill
+	addi	$sp, $sp, -40         # Allocate a stack frame with 10 positions
+	stw	$ra, 36($sp)            # 4-byte Folded Spill
 
   # Test lui with immediates
-	lui	$5, 15                  # F
-	ori	$5, $5, 16960           # 4240  -- > F4240 hex = 1.000.000 dec
-  move  $17, $5
+	ldi  	$5, 576             # 240  -- > F4240 hex = 1.000.000 dec
+	ldihi	61                  # 3D
+  add   $17, $0, $5
   # Print output
-  lui	$4, %hi($.str2)
-	addiu	$4, $4, %lo($.str2)
-	jal	printf
+	ldi 	$4, %lo($.str2)
+  ldihi	%hi($.str2)
+	call	printf, 2
 
   # Test lui with relocations
-  lui $5, %hi(my_symbol)
-  addiu $5, %lo(my_symbol)
+  ldi $5, %lo(my_symbol)
+  ldihi %hi(my_symbol)
   # Print output
-  lui	$4, %hi($.str3)
-	addiu	$4, $4, %lo($.str3)
-	jal	printf
+	ldi 	$4, %lo($.str3)
+  ldihi	%hi($.str3)
+	call	printf, 2
 
   # Test access for loading far-away addresses
- 	lui	$18, %hi(my_symbol)
-	sw	$17, %lo(my_symbol)($18)
-  lw $5, %lo(my_symbol)($18)
+  ldi $18, %lo(my_symbol)
+  ldihi %hi(my_symbol)
+	stw	$17, ($18)
+  ldw $5,  ($18)
   # Print output
-  lui	$4, %hi($.str4)
-	addiu	$4, $4, %lo($.str4)
-	jal	printf
+	ldi 	$4, %lo($.str4)
+  ldihi	%hi($.str4)
+	call	printf, 2
 
   # Testing loading far-away floats
-  lui $1, %hi(my_float)
-  lwc1  $f2, %lo(my_float)($1)
+  ldi $1, %lo(my_float)
+  ldihi %hi(my_float)
+  lwc1  $f2, ($1)
   cvt.d.s  $f2, $f2
-  move  $5, $0
+  add   $5, $0, $0
   mfc1  $6, $f2
   mfc1  $7, $f3
   # Print output
-  lui	$4, %hi($.str5)
-	addiu	$4, $4, %lo($.str5)
-	jal	printf
+	ldi 	$4, %lo($.str5)
+  ldihi	%hi($.str5)
+	call	printf, 5
 
   # Testing loading far-away doubles
-  lui $1, %hi(my_double)
-  ldc1  $f2, %lo(my_double)($1)
-  move  $5, $0
+  ldi $1, %lo(my_double)
+  ldihi %hi(my_double)
+  ldc1  $f2, ($1)
+  add   $5, $0, $0
   mfc1  $6, $f2
   mfc1  $7, $f3
   # Print output
-  lui	$4, %hi($.str6)
-	addiu	$4, $4, %lo($.str6)
-	jal	printf
+	ldi 	$4, %lo($.str6)
+  ldihi	%hi($.str6)
+	call	printf, 5
 
   # Testing storing far-away doubles
-  lui $1, %hi(my_float)
-  lwc1  $f2, %lo(my_float)($1)
+  ldi $1, %lo(my_float)
+  ldihi %hi(my_float)
+  lwc1  $f2, ($1)
   cvt.d.s  $f2, $f2
-  lui $1, %hi(my_double)
-  ldc1  $f0, %lo(my_double)($1)
+  ldi $1, %lo(my_double)
+  ldihi %hi(my_double)
+  ldc1  $f0, ($1)
   mul.d $f0, $f0, $f2
-  lui $1, %hi(my_double_result)
-  sdc1 $f0, %lo(my_double_result)($1)
-  ldc1 $f6, %lo(my_double_result)($1)
-  move $5, $0
+  ldi $1, %lo(my_double_result)
+  ldihi %hi(my_double_result)
+  sdc1 $f0, ($1)
+  ldc1 $f6, ($1)
+  add  $5, $0, $0
   mfc1 $6, $f6
   mfc1 $7, $f7
   # Print output
-  lui	$4, %hi($.str7)
-	addiu	$4, $4, %lo($.str7)
-	jal	printf
+	ldi 	$4, %lo($.str7)
+  ldihi	%hi($.str7)
+	call	printf, 5
 
   # Printing 10 * my_double as int
-  addiu $1, $0, 10
+  addi  $1, $0, 10
   mtc1  $1, $f2
   cvt.d.w  $f2, $f2
-  lui $1, %hi(my_double)
-  ldc1  $f0, %lo(my_double)($1)
+	ldi 	$1, %lo(my_double)
+  ldihi	%hi(my_double)
+  ldc1  $f0, ($1)
   mul.d $f0, $f0, $f2
   trunc.w.d $f5, $f0
   mfc1 $5, $f5
   mfc1 $6, $f0
   mfc1 $7, $f1
   # Print output
-  lui	$4, %hi($.str8)
-	addiu	$4, $4, %lo($.str8)
-	jal	printf
+	ldi 	$4, %lo($.str8)
+  ldihi	%hi($.str8)
+	call	printf, 5
 
   # Epilogue
-	lw	$ra, 36($sp)            # 4-byte Folded Reload
-	addiu	$2, $zero, 0
-	addiu	$sp, $sp, 40
-	jr	$ra
+	ldw	$ra, 36($sp)            # 4-byte Folded Reload
+	addi	$2, $zero, 0
+	addi	$sp, $sp, 40
+	jumpr	$ra
 
 $tmp0:
 
