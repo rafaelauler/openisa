@@ -28,10 +28,10 @@ all: $(TODO)
 
 $(BENCHNAME)-nat-x86: ${BENCHNAME}-nat.bc Makefile
 	$(LLVMLLC) -march=x86 $(MATTR) ${BENCHNAME}-nat.bc -o $(BENCHNAME)-nat-x86.s
-	$(CLANG) -m32 -g ${BENCHNAME}-nat-x86.s -o $(BENCHNAME)-nat-x86 -lm
+	$(CLANG) -target x86_64-unknown-linux-gnu -m32 -g ${BENCHNAME}-nat-x86.s -o $(BENCHNAME)-nat-x86 -lm
 $(BENCHNAME2)-nat-x86: ${BENCHNAME2}-nat.bc Makefile
 	$(LLVMLLC) -march=x86 $(MATTR) ${BENCHNAME2}-nat.bc -o $(BENCHNAME2)-nat-x86.s
-	$(CLANG) -m32 -g ${BENCHNAME2}-nat-x86.s -o $(BENCHNAME2)-nat-x86 -lm
+	$(CLANG) -target x86_64-unknown-linux-gnu -m32 -g ${BENCHNAME2}-nat-x86.s -o $(BENCHNAME2)-nat-x86 -lm
 
 $(BENCHNAME)-nat-arm: ${BENCHNAME}-nat.bc Makefile
 	$(LLVMLLC) -march=arm $(MATTR) ${BENCHNAME}-nat.bc -o $(BENCHNAME)-nat-arm.s
@@ -59,7 +59,7 @@ $(BENCHNAME2)-nat-arm: ${BENCHNAME2}-nat.bc Makefile
 ifeq ($(ARCH),arm)
 	$(CLANG) $(CPP_OPTS) $(EMITLLVMARM) -DARMTARGET -c $< -o $@
 else
-	$(CLANG) $(CPP_OPTS) -O3 -mllvm -disable-llvm-optzns -m32 -emit-llvm -c $< -o $@
+	$(CLANG) -target x86_64-unknown-linux-gnu $(CPP_OPTS) -O3 -mllvm -disable-llvm-optzns -m32 -emit-llvm -c $< -o $@
 endif
 
 $(BENCHNAME)-oi-arm: $(BENCHNAME)-oi.bc
@@ -70,7 +70,7 @@ $(BENCHNAME)-oi-arm: $(BENCHNAME)-oi.bc
 
 $(BENCHNAME)-oi-x86: $(BENCHNAME)-oi.bc
 	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi-$(ARCH).s
-	$(CLANG) -m32 -g $(BENCHNAME)-oi-$(ARCH).s -o $(BENCHNAME)-oi-$(ARCH) -lm
+	$(CLANG) -target x86_64-unknown-linux-gnu -m32 -g $(BENCHNAME)-oi-$(ARCH).s -o $(BENCHNAME)-oi-$(ARCH) -lm
 
 $(BENCHNAME)-oi.bc: ${FILE1_bcs}
 	$(LLVMLINK) ${FILE1_bcs} -o $(BENCHNAME).bc
@@ -108,7 +108,7 @@ $(BENCHNAME2)-oi-arm: $(BENCHNAME2)-oi.bc
 
 $(BENCHNAME2)-oi-x86: $(BENCHNAME2)-oi.bc
 	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi-$(ARCH).s
-	$(CLANG) -m32 -g $(BENCHNAME2)-oi-$(ARCH).s -o $(BENCHNAME2)-oi-$(ARCH) -lm
+	$(CLANG) -target x86_64-unknown-linux-gnu -m32 -g $(BENCHNAME2)-oi-$(ARCH).s -o $(BENCHNAME2)-oi-$(ARCH) -lm
 
 clean:
 	rm -rf output* *.bc *.bc2 *.o *.s $(TODO) $(FILE1_bcs) $(FILE2_bcs) $(FILE1_bc2s) $(FILE2_bc2s)
