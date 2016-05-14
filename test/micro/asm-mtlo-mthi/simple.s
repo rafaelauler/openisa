@@ -6,26 +6,22 @@
   .set noat
 main:                                   # @main
   # Prologue
-	addiu	$sp, $sp, -40         # Allocate a stack frame with 10 positions
-	sw	$ra, 36($sp)            # 4-byte Folded Spill
+	addi	$sp, $sp, -40         # Allocate a stack frame with 10 positions
+	stw	$ra, 36($sp)            # 4-byte Folded Spill
 
-  ori $10, 1515
-  ori $11, 4040
-  mtlo $10
-  mthi $11
-  mflo $5
-  mfhi $6
+  addi $5, $0, 1515
+  addi $6, $0, 4040
   # Print output
-  lui	$4, %hi($.str)
-	addiu	$4, $4, %lo($.str)
-	jal	printf
+  ldi	  $4, %lo($.str)
+  ldihi	%hi($.str)
+	call	printf, 3
 
 
   # Epilogue
-	lw	$ra, 36($sp)            # 4-byte Folded Reload
-	addiu	$2, $zero, 0
-	addiu	$sp, $sp, 40
-	jr	$ra
+	ldw	$ra, 36($sp)            # 4-byte Folded Reload
+	addi	$2, $zero, 0
+	addi	$sp, $sp, 40
+	jumpr	$ra
 
 .data
 $.str:
