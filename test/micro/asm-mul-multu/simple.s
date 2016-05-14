@@ -4,52 +4,50 @@
   .set noat
 main:                                   # @main
   # Prologue
-	addiu	$sp, $sp, -40         # Allocate a stack frame with 10 positions
-	sw	$ra, 36($sp)            # 4-byte Folded Spill
+	addi	$sp, $sp, -40         # Allocate a stack frame with 10 positions
+	stw	$ra, 36($sp)            # 4-byte Folded Spill
 
   # Test input reading
-	lui	$1, 15                  # F
-	ori	$1, $1, 16960           # 4240  -- > F4240 hex = 1.000.000 dec
-	sw	$1, 24($sp)             # Stack(24) <= 1.000.000
-	addiu	$1, $zero, 3
-	sw	$1, 16($sp)             # Stack(16) <= 3
-	lui	$1, %hi($str)
-	addiu	$4, $1, %lo($str)     # $4 <=  $str
-	sw	$zero, 28($sp)          # Stack(28) <= 0
-	sw	$zero, 20($sp)          # Stack(20) <= 0
-	jal	puts                    # puts($str)
-	lui	$1, %hi($.str1)
-	addiu	$4, $1, %lo($.str1)
-	addiu	$5, $sp, 24
-	addiu	$6, $sp, 16
-	jal	__isoc99_scanf          # scanf($.str1, &Stack(24), &Stack(16))
+	ldi  	$1, 576             # 240  -- > F4240 hex = 1.000.000 dec
+	ldihi	61                  # 3D
+	stw	  $1, 24($sp)         # Stack(24) <= 1.000.000
+	addi	$1, $zero, 3
+	stw	$1, 16($sp)             # Stack(16) <= 3
+	ldi 	$4, %lo($str)
+  ldihi	%hi($str)            # $4 <=  $str
+	stw	$zero, 28($sp)          # Stack(28) <= 0
+	stw	$zero, 20($sp)          # Stack(20) <= 0
+	call	puts, 1               # puts($str)
+	ldi 	$4, %lo($.str1)
+  ldihi	%hi($.str1)
+	addi	$5, $sp, 24
+	addi	$6, $sp, 16
+	call	__isoc99_scanf, 3     # scanf($.str1, &Stack(24), &Stack(16))
 
   # Load operands
-	lw	$1, 24($sp)
-	lw	$2, 16($sp)
-	lw	$5, 20($sp)
+	ldw	$1, 24($sp)
+	ldw	$2, 16($sp)
+	ldw	$5, 20($sp)
 
   # Test program
-	multu	$2, $1
-	lui	$4, %hi($.str2)
-	addiu	$4, $4, %lo($.str2)
-	mflo	$6
-	mfhi	$3
-	mul	$1, $5, $1
-	lw	$5, 28($sp)
-	mul	$2, $2, $5
+	mulu	$3, $6, $2, $1
+	ldi 	$4, %lo($.str2)
+  ldihi	%hi($.str2)
+	mul	$0, $1, $5, $1
+	ldw	$5, 28($sp)
+	mul	$0, $2, $2, $5
 
   # Print output
-	addiu	$5, $zero, 0
-	addu	$2, $3, $2
-	addu	$7, $2, $1
-	jal	printf
+	addi	$5, $zero, 0
+	add  	$2, $3, $2
+	add	  $7, $2, $1
+	call	printf, 4
 
   # Epilogue
-	lw	$ra, 36($sp)            # 4-byte Folded Reload
-	addiu	$2, $zero, 0
-	addiu	$sp, $sp, 40
-	jr	$ra
+	ldw	 $ra, 36($sp)            # 4-byte Folded Reload
+	addi	$2, $zero, 0
+	addi	$sp, $sp, 40
+	jumpr	$ra
 
 $tmp0:
 
