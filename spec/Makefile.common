@@ -11,6 +11,7 @@ SBTOPT?=-optimize
 STACKSIZE?=4000
 CLANGARM=arm-linux-musleabihf-gcc-4.7.3 -static
 STATICBT=static-bt
+PASS2=sbtpass2
 ARCH?=x86
 CPP_OPTS?=
 MATTR?=
@@ -67,10 +68,12 @@ $(BENCHNAME)-oi-arm: $(BENCHNAME)-oi.bc
 	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
 	cat $(BENCHNAME)-oi-$(ARCH).s >> aa.s
 	$(CLANGARM) -g aa.s -o $(BENCHNAME)-oi-$(ARCH) -lm
+	$(PASS2) $(BENCHNAME)-oi-$(ARCH)
 
 $(BENCHNAME)-oi-x86: $(BENCHNAME)-oi.bc
 	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi-$(ARCH).s
 	$(CLANG) -target x86_64-unknown-linux-gnu -m32 -g $(BENCHNAME)-oi-$(ARCH).s -o $(BENCHNAME)-oi-$(ARCH) -lm
+	$(PASS2) $(BENCHNAME)-oi-$(ARCH)
 
 $(BENCHNAME)-oi.bc: ${FILE1_bcs}
 	$(LLVMLINK) ${FILE1_bcs} -o $(BENCHNAME).bc
@@ -105,10 +108,12 @@ $(BENCHNAME2)-oi-arm: $(BENCHNAME2)-oi.bc
 	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
 	cat $(BENCHNAME2)-oi-$(ARCH).s >> aa.s
 	$(CLANGARM) -g aa.s -o $(BENCHNAME2)-oi-$(ARCH) -lm
+	$(PASS2) $(BENCHNAME2)-oi-$(ARCH)
 
 $(BENCHNAME2)-oi-x86: $(BENCHNAME2)-oi.bc
 	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi-$(ARCH).s
 	$(CLANG) -target x86_64-unknown-linux-gnu -m32 -g $(BENCHNAME2)-oi-$(ARCH).s -o $(BENCHNAME2)-oi-$(ARCH) -lm
+	$(PASS2) $(BENCHNAME2)-oi-$(ARCH)
 
 clean:
 	rm -rf *.bc *.bc2 *.o *.s $(TODO) $(FILE1_bcs) $(FILE2_bcs) $(FILE1_bc2s) $(FILE2_bc2s)

@@ -18,6 +18,7 @@ CLANG=clang
 OPTFLAGS?=
 OPT=opt -O3 $(OPTFLAGS)
 STATICBT=static-bt
+PASS2=sbtpass2
 #EMITLLVM=-ccc-host-triple mips-unknown-linux -ccc-clang-archs mips -emit-llvm -c
 EMITLLVM=-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools -O3 -mllvm -disable-llvm-optzns
 EMITLLVMARM=-mcpu=cortex-a9 -target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafaelauler/p/openisa/cross2/cross-tools/arm-linux-musleabihf -O3 -mllvm -disable-llvm-optzns
@@ -55,14 +56,17 @@ $(PROGRAMNAME)-nat-arm: $(PROGRAMNAME).c
 
 $(PROGRAMNAME)-oi-x86-64: $(PROGRAMNAME)-oi-x86-64.s
 	$(CLANG) -target x86_64-unknown-linux-gnu -g $(PROGRAMNAME)-oi-x86-64.s -o $(PROGRAMNAME)-oi-x86-64 -lm
+	$(PASS2) $(PROGRAMNAME)-oi-x86-64
 
 $(PROGRAMNAME)-oi-x86: $(PROGRAMNAME)-oi-x86.s
 	$(CLANG) -target x86_64-unknown-linux-gnu -m32 -g $(PROGRAMNAME)-oi-x86.s -o $(PROGRAMNAME)-oi-x86 -lm
+	$(PASS2) $(PROGRAMNAME)-oi-x86
 
 $(PROGRAMNAME)-oi-arm: $(PROGRAMNAME)-oi-arm.s
 	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
 	cat $(PROGRAMNAME)-oi-arm.s >> aa.s
 	$(CLANGARM) -g aa.s -o $(PROGRAMNAME)-oi-arm -lm
+	$(PASS2) $(PROGRAMNAME)-oi-arm
 
 $(PROGRAMNAME)-oi-$(ARCH).s: $(PROGRAMNAME)-oi.bc
 	$(OPT) $(PROGRAMNAME)-oi.bc -o $(PROGRAMNAME)-oi.bc
