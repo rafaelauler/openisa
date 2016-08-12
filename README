@@ -21,7 +21,7 @@ This document describes how to compile and install the OpenISA toolchain.
 The OpenISA linker is based on GNU binutils. To have access to its source code,
 you need to clone (you haven't done it already) the OpenISA master repository:
 
-$ git clone git-marvin:openisa.git --depth 1
+$ git clone https://github.com/rafaelauler/openisa.git --depth 1
 
 1.1 Building the linker
 
@@ -53,7 +53,8 @@ you may want to use the "--recursive" flag when cloning.
 
 2.1 Setting up repos
 
-$ git clone --recursive git-marvin:llvm-openisa.git -b openisa --depth 1
+$ git clone --recursive https://github.com/rafaelauler/llvm-openisa.git \
+    -b openisa --depth 1
 
 This may take a while because of the long history of commits of the LLVM
 project. If you clone with "--depth 1", you can get a shallow copy much faster.

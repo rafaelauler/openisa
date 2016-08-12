@@ -13,7 +13,7 @@ function check_error {
 mkdir -p $ROOT || check_error
 cd $ROOT || check_error
 [ ! -f ${ROOT}/oi-toolchain/bin/mipsel-unknown-linux-gnu-ld ] && {
-    git clone git-marvin:openisa.git --depth 1 || check_error
+    git clone https://github.com/rafaelauler/openisa.git --depth 1 || check_error
     cd openisa/linker-oi || check_error
     wget http://ftp.gnu.org/gnu/binutils/binutils-2.23.2.tar.bz2 || check_error
     tar xjvf binutils-2.23.2.tar.bz2 || check_error
@@ -28,7 +28,7 @@ cd $ROOT || check_error
 }
 [ ! -d ${ROOT}/llvm-openisa ] && {
     cd ${ROOT} || check_error
-    git clone --recursive git-marvin:llvm-openisa.git -b openisa --depth 1 || check_error
+    git clone --recursive https://github.com/rafaelauler/llvm-openisa.git -b openisa --depth 1 || check_error
 }
 [ ! -f ${ROOT}/obj/bin/clang ] && {
     cd ${ROOT} || check_error
