@@ -26,7 +26,7 @@ CROSS=mipsel-unknown-linux-gnu-gcc
 CLANGARM=arm-linux-musleabihf-gcc-4.7.3 -static
 SBTOPT?=-optimize -oneregion
 ARCH?=x86
-MATTR?=
+MATTR?=-mattr=avx2
 
 all: $(PROGRAMNAME)-oi-$(ARCH) $(PROGRAMNAME)-nat-$(ARCH)
 
@@ -76,7 +76,7 @@ $(PROGRAMNAME).oi: $(PROGRAMNAME)-oi.o
 	$(CROSS) $(PROGRAMNAME)-oi.o -o $(PROGRAMNAME).oi
 
 $(PROGRAMNAME)-oi.bc: $(PROGRAMNAME)-oi.o
-	$(STATICBT) $(SBTOPT) -stacksize=$(STACKSIZE) $(PROGRAMNAME)-oi.o -o=$(PROGRAMNAME)-oi.bc
+	$(STATICBT) -target=$(ARCH) $(SBTOPT) -stacksize=$(STACKSIZE) $(PROGRAMNAME)-oi.o -o=$(PROGRAMNAME)-oi.bc
 
 $(PROGRAMNAME)-oi.o: $(PROGRAMNAME).s
 	llvm-mc -triple mipsel-unknown-linux -assemble -filetype=obj -o=$(PROGRAMNAME)-oi.o $(PROGRAMNAME).s

@@ -5,7 +5,7 @@ CLANG?=clang
 OPTFLAGS?=-stats
 OPT=opt -O3
 EMITLLVM=-target mipsel-unknown-linux -emit-llvm -c --sysroot=/tools -O3 -mllvm -disable-llvm-optzns
-EMITLLVMARM=-target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafael/p/openisa/cross2/cross-tools/arm-linux-musleabihf -O3 -mllvm -disable-llvm-optzns
+EMITLLVMARM=-target arm-eabi-linux -emit-llvm -c --sysroot=/home/rafaelauler/p/openisa/cross2/cross-tools/arm-linux-musleabihf -O3 -mllvm -disable-llvm-optzns
 CROSS=mipsel-unknown-linux-gnu-gcc
 SBTOPT?=-optimize
 STACKSIZE?=4000
@@ -14,7 +14,7 @@ STATICBT=static-bt
 PASS2=sbtpass2
 ARCH?=x86
 CPP_OPTS?=
-MATTR?=
+MATTR?=-mattr=avx2
 
 FILE1_basenames := $(sort $(basename $(FILE1)))
 FILE1_bcs := $(FILE1_basenames:%=%.bc)
@@ -66,7 +66,9 @@ endif
 $(BENCHNAME)-oi-arm: $(BENCHNAME)-oi.bc
 	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME)-oi.bc -o $(BENCHNAME)-oi-$(ARCH).s
 	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
-	cat $(BENCHNAME)-oi-$(ARCH).s >> aa.s
+	echo "\n.text\n\t.align 2\n.type __aeabi_memset,%function\n__aeabi_memset:\npush {r2}\nmov r2, r1\npop {r1}\nb memset\n" >> aa.s
+	echo "\n.text\n\t.align 2\n.type __aeabi_memcpy,%function\n__aeabi_memcpy:\nb memcpy\n" >> aa.s
+	cat $(BENCHNAME)-oi-$(ARCH).s  >> aa.s
 	$(CLANGARM) -g aa.s -o $(BENCHNAME)-oi-$(ARCH) -lm
 	$(PASS2) $(BENCHNAME)-oi-$(ARCH)
 
@@ -106,6 +108,8 @@ $(BENCHNAME2)-nat.bc: ${FILE2_bc2s}
 $(BENCHNAME2)-oi-arm: $(BENCHNAME2)-oi.bc
 	$(LLVMLLC) -march=$(ARCH) $(MATTR) $(BENCHNAME2)-oi.bc -o $(BENCHNAME2)-oi-$(ARCH).s
 	echo " .eabi_attribute 27, 3\n    	 .eabi_attribute 28, 1\n	.eabi_attribute 26, 2\n	.eabi_attribute 30, 6\n	.eabi_attribute 34, 1\n	.eabi_attribute 18, 4" > aa.s
+	echo "\n.text\n\t.align 2\n.type __aeabi_memset,%function\n__aeabi_memset:\npush {r2}\nmov r2, r1\npop {r1}\nb memset\n" >> aa.s
+	echo "\n.text\n\t.align 2\n.type __aeabi_memcpy,%function\n__aeabi_memcpy:\nb memcpy\n" >> aa.s
 	cat $(BENCHNAME2)-oi-$(ARCH).s >> aa.s
 	$(CLANGARM) -g aa.s -o $(BENCHNAME2)-oi-$(ARCH) -lm
 	$(PASS2) $(BENCHNAME2)-oi-$(ARCH)

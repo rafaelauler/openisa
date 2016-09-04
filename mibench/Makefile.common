@@ -14,7 +14,7 @@ STATICBT=static-bt
 PASS2=sbtpass2
 ARCH?=x86
 CPP_OPTS?=
-MATTR?=
+MATTR?=-mattr=avx2
 
 FILE1_basenames := $(sort $(basename $(FILE1)))
 FILE1_bcs := $(FILE1_basenames:%=%.bc)
