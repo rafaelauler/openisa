@@ -131,6 +131,10 @@ for index in ${!NAMES[*]}; do
     echo -ne "${name}-oneregion${FIELD_SEP}"
     sed -n "/Running ${name} OpenISA mode (large) with opts -oneregion/,/Running/p" $LOG_TEMP > $LOG_T2
     extract_info "oi-x86"
+
+    echo -ne "${name}-abi-locals${FIELD_SEP}"
+    sed -n "/Running ${name} OpenISA mode (large) with opts -abi-locals/,/Running/p" $LOG_TEMP > $LOG_T2
+    extract_info "oi-x86"
 done
 
 rm $LOG_TEMP

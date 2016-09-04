@@ -49,8 +49,8 @@ yes #fft
 yes #fft-inv
 yes #stringsearch
 yes #lame
-no #cjpeg
-no) #djpeg
+yes #cjpeg
+yes) #djpeg
 #ACTIVATE=(yes #basicmath
 #yes #bitcount
 #yes #susan-smoothing
@@ -231,15 +231,15 @@ for index in ${!DIRS[*]}; do
         continue
     fi
     cd $dir
-    for opts in "-oneregion" "-nolocals" "-debug-ir"; do
+    for opts in "-oneregion" "-nolocals" "-debug-ir" "-abi-locals"; do
         # Exceptions...
         if [ x"$opts" = x"-oneregion" -a x"$name" = x"cjpeg" ]; then
-            continue
+            myopts=$opts
+        elif [ x"$opts" = x"-oneregion" -a x"$name" = x"djpeg" ]; then
+            myopts=$opts
+        else
+            myopts=$opts" -optimize"
         fi
-        if [ x"$opts" = x"-oneregion" -a x"$name" = x"djpeg" ]; then
-            continue
-        fi
-        myopts=$opts" -optimize"
         make clean &> /dev/null
         echo Building $dir with mode $myopts ...
         if [ x"$VERBOSE" == x"false" ]; then
