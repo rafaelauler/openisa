@@ -1464,18 +1464,23 @@ int   n=0;
 
   while(corner_list[n].info != 7)
   {
-    if (drawing_mode==0)
-    {
-      p = in + (corner_list[n].y-1)*x_size + corner_list[n].x - 1;
-      *p++=255; *p++=255; *p=255; p+=x_size-2;
-      *p++=255; *p++=0;   *p=255; p+=x_size-2;
-      *p++=255; *p++=255; *p=255;
+    if (drawing_mode == 0) {
+      p = in + (corner_list[n].y - 1) * x_size + corner_list[n].x - 1;
+      *p++ = 255;
+      *p++ = 255;
+      *p = 255;
+      p += x_size - 2;
+      *p++ = 255;
+      *p++ = 0;
+      *p = 255;
+      p += x_size - 2;
+      *p++ = 255;
+      *p++ = 255;
+      *p = 255;
       n++;
-    }
-    else
-    {
-      p = in + corner_list[n].y*x_size + corner_list[n].x;
-      *p=0;
+    } else {
+      p = in + corner_list[n].y * x_size + corner_list[n].x;
+      *p = 0;
       n++;
     }
   }
@@ -1489,279 +1494,374 @@ susan_corners(in,r,bp,max_no,corner_list,x_size,y_size)
   int         *r, max_no, x_size, y_size;
   CORNER_LIST corner_list;
 {
-int   n,x,y,sq,xx,yy,
-      i,j,*cgx,*cgy;
-double divide;
-uchar c,*p,*cp;
+  int n, x, y, sq, xx, yy, i, j, *cgx, *cgy;
+  double divide;
+  uchar c, *p, *cp;
 
-  memset (r,0,x_size * y_size * sizeof(int));
+  memset(r, 0, x_size * y_size * sizeof(int));
 
-  cgx=(int *)malloc(x_size*y_size*sizeof(int));
-  cgy=(int *)malloc(x_size*y_size*sizeof(int));
+  cgx = (int *)malloc(x_size * y_size * sizeof(int));
+  cgy = (int *)malloc(x_size * y_size * sizeof(int));
 
-  for (i=5;i<y_size-5;i++)
-    for (j=5;j<x_size-5;j++) {
-        n=100;
-        p=in + (i-3)*x_size + j - 1;
-        cp=bp + in[i*x_size+j];
+  for (i = 5; i < y_size - 5; i++)
+    for (j = 5; j < x_size - 5; j++) {
+      n = 100;
+      p = in + (i - 3) * x_size + j - 1;
+      cp = bp + in[i * x_size + j];
 
-        n+=*(cp-*p++);
-        n+=*(cp-*p++);
-        n+=*(cp-*p);
-        p+=x_size-3; 
+      n += *(cp - *p++);
+      n += *(cp - *p++);
+      n += *(cp - *p);
+      p += x_size - 3;
 
-        n+=*(cp-*p++);
-        n+=*(cp-*p++);
-        n+=*(cp-*p++);
-        n+=*(cp-*p++);
-        n+=*(cp-*p);
-        p+=x_size-5;
+      n += *(cp - *p++);
+      n += *(cp - *p++);
+      n += *(cp - *p++);
+      n += *(cp - *p++);
+      n += *(cp - *p);
+      p += x_size - 5;
 
-        n+=*(cp-*p++);
-        n+=*(cp-*p++);
-        n+=*(cp-*p++);
-        n+=*(cp-*p++);
-        n+=*(cp-*p++);
-        n+=*(cp-*p++);
-        n+=*(cp-*p);
-        p+=x_size-6;
+      n += *(cp - *p++);
+      n += *(cp - *p++);
+      n += *(cp - *p++);
+      n += *(cp - *p++);
+      n += *(cp - *p++);
+      n += *(cp - *p++);
+      n += *(cp - *p);
+      p += x_size - 6;
 
-        n+=*(cp-*p++);
-        n+=*(cp-*p++);
-        n+=*(cp-*p);
-      if (n<max_no){    /* do this test early and often ONLY to save wasted computation */
-        p+=2;
-        n+=*(cp-*p++);
-      if (n<max_no){
-        n+=*(cp-*p++);
-      if (n<max_no){
-        n+=*(cp-*p);
-      if (n<max_no){
-        p+=x_size-6;
+      n += *(cp - *p++);
+      n += *(cp - *p++);
+      n += *(cp - *p);
+      if (n < max_no) {/* do this test early and often ONLY to save wasted
+                          computation */
+        p += 2;
+        n += *(cp - *p++);
+        if (n < max_no) {
+          n += *(cp - *p++);
+          if (n < max_no) {
+            n += *(cp - *p);
+            if (n < max_no) {
+              p += x_size - 6;
 
-        n+=*(cp-*p++);
-      if (n<max_no){
-        n+=*(cp-*p++);
-      if (n<max_no){
-        n+=*(cp-*p++);
-      if (n<max_no){
-        n+=*(cp-*p++);
-      if (n<max_no){
-        n+=*(cp-*p++);
-      if (n<max_no){
-        n+=*(cp-*p++);
-      if (n<max_no){
-        n+=*(cp-*p);
-      if (n<max_no){
-        p+=x_size-5;
+              n += *(cp - *p++);
+              if (n < max_no) {
+                n += *(cp - *p++);
+                if (n < max_no) {
+                  n += *(cp - *p++);
+                  if (n < max_no) {
+                    n += *(cp - *p++);
+                    if (n < max_no) {
+                      n += *(cp - *p++);
+                      if (n < max_no) {
+                        n += *(cp - *p++);
+                        if (n < max_no) {
+                          n += *(cp - *p);
+                          if (n < max_no) {
+                            p += x_size - 5;
 
-        n+=*(cp-*p++);
-      if (n<max_no){
-        n+=*(cp-*p++);
-      if (n<max_no){
-        n+=*(cp-*p++);
-      if (n<max_no){
-        n+=*(cp-*p++);
-      if (n<max_no){
-        n+=*(cp-*p);
-      if (n<max_no){
-        p+=x_size-3;
+                            n += *(cp - *p++);
+                            if (n < max_no) {
+                              n += *(cp - *p++);
+                              if (n < max_no) {
+                                n += *(cp - *p++);
+                                if (n < max_no) {
+                                  n += *(cp - *p++);
+                                  if (n < max_no) {
+                                    n += *(cp - *p);
+                                    if (n < max_no) {
+                                      p += x_size - 3;
 
-        n+=*(cp-*p++);
-      if (n<max_no){
-        n+=*(cp-*p++);
-      if (n<max_no){
-        n+=*(cp-*p);
+                                      n += *(cp - *p++);
+                                      if (n < max_no) {
+                                        n += *(cp - *p++);
+                                        if (n < max_no) {
+                                          n += *(cp - *p);
+                                          if (n < max_no) {
+                                            x = 0;
+                                            y = 0;
+                                            p = in + (i - 3) * x_size + j - 1;
 
-        if (n<max_no)
-        {
-            x=0;y=0;
-            p=in + (i-3)*x_size + j - 1;
+                                            c = *(cp - *p++);
+                                            x -= c;
+                                            y -= 3 * c;
+                                            c = *(cp - *p++);
+                                            y -= 3 * c;
+                                            c = *(cp - *p);
+                                            x += c;
+                                            y -= 3 * c;
+                                            p += x_size - 3;
 
-            c=*(cp-*p++);x-=c;y-=3*c;
-            c=*(cp-*p++);y-=3*c;
-            c=*(cp-*p);x+=c;y-=3*c;
-            p+=x_size-3; 
-    
-            c=*(cp-*p++);x-=2*c;y-=2*c;
-            c=*(cp-*p++);x-=c;y-=2*c;
-            c=*(cp-*p++);y-=2*c;
-            c=*(cp-*p++);x+=c;y-=2*c;
-            c=*(cp-*p);x+=2*c;y-=2*c;
-            p+=x_size-5;
-    
-            c=*(cp-*p++);x-=3*c;y-=c;
-            c=*(cp-*p++);x-=2*c;y-=c;
-            c=*(cp-*p++);x-=c;y-=c;
-            c=*(cp-*p++);y-=c;
-            c=*(cp-*p++);x+=c;y-=c;
-            c=*(cp-*p++);x+=2*c;y-=c;
-            c=*(cp-*p);x+=3*c;y-=c;
-            p+=x_size-6;
+                                            c = *(cp - *p++);
+                                            x -= 2 * c;
+                                            y -= 2 * c;
+                                            c = *(cp - *p++);
+                                            x -= c;
+                                            y -= 2 * c;
+                                            c = *(cp - *p++);
+                                            y -= 2 * c;
+                                            c = *(cp - *p++);
+                                            x += c;
+                                            y -= 2 * c;
+                                            c = *(cp - *p);
+                                            x += 2 * c;
+                                            y -= 2 * c;
+                                            p += x_size - 5;
 
-            c=*(cp-*p++);x-=3*c;
-            c=*(cp-*p++);x-=2*c;
-            c=*(cp-*p);x-=c;
-            p+=2;
-            c=*(cp-*p++);x+=c;
-            c=*(cp-*p++);x+=2*c;
-            c=*(cp-*p);x+=3*c;
-            p+=x_size-6;
-    
-            c=*(cp-*p++);x-=3*c;y+=c;
-            c=*(cp-*p++);x-=2*c;y+=c;
-            c=*(cp-*p++);x-=c;y+=c;
-            c=*(cp-*p++);y+=c;
-            c=*(cp-*p++);x+=c;y+=c;
-            c=*(cp-*p++);x+=2*c;y+=c;
-            c=*(cp-*p);x+=3*c;y+=c;
-            p+=x_size-5;
+                                            c = *(cp - *p++);
+                                            x -= 3 * c;
+                                            y -= c;
+                                            c = *(cp - *p++);
+                                            x -= 2 * c;
+                                            y -= c;
+                                            c = *(cp - *p++);
+                                            x -= c;
+                                            y -= c;
+                                            c = *(cp - *p++);
+                                            y -= c;
+                                            c = *(cp - *p++);
+                                            x += c;
+                                            y -= c;
+                                            c = *(cp - *p++);
+                                            x += 2 * c;
+                                            y -= c;
+                                            c = *(cp - *p);
+                                            x += 3 * c;
+                                            y -= c;
+                                            p += x_size - 6;
 
-            c=*(cp-*p++);x-=2*c;y+=2*c;
-            c=*(cp-*p++);x-=c;y+=2*c;
-            c=*(cp-*p++);y+=2*c;
-            c=*(cp-*p++);x+=c;y+=2*c;
-            c=*(cp-*p);x+=2*c;y+=2*c;
-            p+=x_size-3;
+                                            c = *(cp - *p++);
+                                            x -= 3 * c;
+                                            c = *(cp - *p++);
+                                            x -= 2 * c;
+                                            c = *(cp - *p);
+                                            x -= c;
+                                            p += 2;
+                                            c = *(cp - *p++);
+                                            x += c;
+                                            c = *(cp - *p++);
+                                            x += 2 * c;
+                                            c = *(cp - *p);
+                                            x += 3 * c;
+                                            p += x_size - 6;
 
-            c=*(cp-*p++);x-=c;y+=3*c;
-            c=*(cp-*p++);y+=3*c;
-            c=*(cp-*p);x+=c;y+=3*c;
+                                            c = *(cp - *p++);
+                                            x -= 3 * c;
+                                            y += c;
+                                            c = *(cp - *p++);
+                                            x -= 2 * c;
+                                            y += c;
+                                            c = *(cp - *p++);
+                                            x -= c;
+                                            y += c;
+                                            c = *(cp - *p++);
+                                            y += c;
+                                            c = *(cp - *p++);
+                                            x += c;
+                                            y += c;
+                                            c = *(cp - *p++);
+                                            x += 2 * c;
+                                            y += c;
+                                            c = *(cp - *p);
+                                            x += 3 * c;
+                                            y += c;
+                                            p += x_size - 5;
 
-            xx=x*x;
-            yy=y*y;
-            sq=xx+yy;
-            if ( sq > ((n*n)/2) )
-            {
-              if(yy<xx) {
-                divide=(double)y/(double)abs(x);
-                sq=abs(x)/x;
-                sq=*(cp-in[(i+FTOI(divide))*x_size+j+sq]) +
-                   *(cp-in[(i+FTOI(2*divide))*x_size+j+2*sq]) +
-                   *(cp-in[(i+FTOI(3*divide))*x_size+j+3*sq]);}
-              else {
-                divide=(double)x/(double)abs(y);
-                sq=abs(y)/y;
-                sq=*(cp-in[(i+sq)*x_size+j+FTOI(divide)]) +
-                   *(cp-in[(i+2*sq)*x_size+j+FTOI(2*divide)]) +
-                   *(cp-in[(i+3*sq)*x_size+j+FTOI(3*divide)]);}
+                                            c = *(cp - *p++);
+                                            x -= 2 * c;
+                                            y += 2 * c;
+                                            c = *(cp - *p++);
+                                            x -= c;
+                                            y += 2 * c;
+                                            c = *(cp - *p++);
+                                            y += 2 * c;
+                                            c = *(cp - *p++);
+                                            x += c;
+                                            y += 2 * c;
+                                            c = *(cp - *p);
+                                            x += 2 * c;
+                                            y += 2 * c;
+                                            p += x_size - 3;
 
-              if(sq>290){
-                r[i*x_size+j] = max_no-n;
-                cgx[i*x_size+j] = (51*x)/n;
-                cgy[i*x_size+j] = (51*y)/n;}
+                                            c = *(cp - *p++);
+                                            x -= c;
+                                            y += 3 * c;
+                                            c = *(cp - *p++);
+                                            y += 3 * c;
+                                            c = *(cp - *p);
+                                            x += c;
+                                            y += 3 * c;
+
+                                            xx = x * x;
+                                            yy = y * y;
+                                            sq = xx + yy;
+                                            if (sq > ((n * n) / 2)) {
+                                              if (yy < xx) {
+                                                divide =
+                                                    (double)y / (double)abs(x);
+                                                sq = abs(x) / x;
+                                                sq = *(cp -
+                                                       in[(i + FTOI(divide)) *
+                                                              x_size +
+                                                          j + sq]) +
+                                                     *(cp -
+                                                       in[(i +
+                                                           FTOI(2 * divide)) *
+                                                              x_size +
+                                                          j + 2 * sq]) +
+                                                     *(cp -
+                                                       in[(i +
+                                                           FTOI(3 * divide)) *
+                                                              x_size +
+                                                          j + 3 * sq]);
+                                              } else {
+                                                divide =
+                                                    (double)x / (double)abs(y);
+                                                sq = abs(y) / y;
+                                                sq =
+                                                    *(cp -
+                                                      in[(i + sq) * x_size + j +
+                                                         FTOI(divide)]) +
+                                                    *(cp -
+                                                      in[(i + 2 * sq) * x_size +
+                                                         j +
+                                                         FTOI(2 * divide)]) +
+                                                    *(cp -
+                                                      in[(i + 3 * sq) * x_size +
+                                                         j + FTOI(3 * divide)]);
+                                              }
+
+                                              if (sq > 290) {
+                                                r[i * x_size + j] = max_no - n;
+                                                cgx[i * x_size + j] =
+                                                    (51 * x) / n;
+                                                cgy[i * x_size + j] =
+                                                    (51 * y) / n;
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
-	}
-}}}}}}}}}}}}}}}}}}}
+          }
+        }
+      }
+    }
 
   /* to locate the local maxima */
-  n=0;
-  for (i=5;i<y_size-5;i++)
-    for (j=5;j<x_size-5;j++) {
-       x = r[i*x_size+j];
-       if (x>0)  {
-          /* 5x5 mask */
+  n = 0;
+  for (i = 5; i < y_size - 5; i++)
+    for (j = 5; j < x_size - 5; j++) {
+      x = r[i * x_size + j];
+      if (x > 0) {
+/* 5x5 mask */
 #ifdef FIVE_SUPP
-          if (
-              (x>r[(i-1)*x_size+j+2]) &&
-              (x>r[(i  )*x_size+j+1]) &&
-              (x>r[(i  )*x_size+j+2]) &&
-              (x>r[(i+1)*x_size+j-1]) &&
-              (x>r[(i+1)*x_size+j  ]) &&
-              (x>r[(i+1)*x_size+j+1]) &&
-              (x>r[(i+1)*x_size+j+2]) &&
-              (x>r[(i+2)*x_size+j-2]) &&
-              (x>r[(i+2)*x_size+j-1]) &&
-              (x>r[(i+2)*x_size+j  ]) &&
-              (x>r[(i+2)*x_size+j+1]) &&
-              (x>r[(i+2)*x_size+j+2]) &&
-              (x>=r[(i-2)*x_size+j-2]) &&
-              (x>=r[(i-2)*x_size+j-1]) &&
-              (x>=r[(i-2)*x_size+j  ]) &&
-              (x>=r[(i-2)*x_size+j+1]) &&
-              (x>=r[(i-2)*x_size+j+2]) &&
-              (x>=r[(i-1)*x_size+j-2]) &&
-              (x>=r[(i-1)*x_size+j-1]) &&
-	      (x>=r[(i-1)*x_size+j  ]) &&
-	      (x>=r[(i-1)*x_size+j+1]) &&
-	      (x>=r[(i  )*x_size+j-2]) &&
-	      (x>=r[(i  )*x_size+j-1]) &&
-	      (x>=r[(i+1)*x_size+j-2]) )
+        if ((x > r[(i - 1) * x_size + j + 2]) && (x > r[(i)*x_size + j + 1]) &&
+            (x > r[(i)*x_size + j + 2]) && (x > r[(i + 1) * x_size + j - 1]) &&
+            (x > r[(i + 1) * x_size + j]) &&
+            (x > r[(i + 1) * x_size + j + 1]) &&
+            (x > r[(i + 1) * x_size + j + 2]) &&
+            (x > r[(i + 2) * x_size + j - 2]) &&
+            (x > r[(i + 2) * x_size + j - 1]) &&
+            (x > r[(i + 2) * x_size + j]) &&
+            (x > r[(i + 2) * x_size + j + 1]) &&
+            (x > r[(i + 2) * x_size + j + 2]) &&
+            (x >= r[(i - 2) * x_size + j - 2]) &&
+            (x >= r[(i - 2) * x_size + j - 1]) &&
+            (x >= r[(i - 2) * x_size + j]) &&
+            (x >= r[(i - 2) * x_size + j + 1]) &&
+            (x >= r[(i - 2) * x_size + j + 2]) &&
+            (x >= r[(i - 1) * x_size + j - 2]) &&
+            (x >= r[(i - 1) * x_size + j - 1]) &&
+            (x >= r[(i - 1) * x_size + j]) &&
+            (x >= r[(i - 1) * x_size + j + 1]) &&
+            (x >= r[(i)*x_size + j - 2]) && (x >= r[(i)*x_size + j - 1]) &&
+            (x >= r[(i + 1) * x_size + j - 2]))
 #endif
 #ifdef SEVEN_SUPP
-          if ( 
-                (x>r[(i-3)*x_size+j-3]) &&
-                (x>r[(i-3)*x_size+j-2]) &&
-                (x>r[(i-3)*x_size+j-1]) &&
-                (x>r[(i-3)*x_size+j  ]) &&
-                (x>r[(i-3)*x_size+j+1]) &&
-                (x>r[(i-3)*x_size+j+2]) &&
-                (x>r[(i-3)*x_size+j+3]) &&
+          if ((x > r[(i - 3) * x_size + j - 3]) &&
+              (x > r[(i - 3) * x_size + j - 2]) &&
+              (x > r[(i - 3) * x_size + j - 1]) &&
+              (x > r[(i - 3) * x_size + j]) &&
+              (x > r[(i - 3) * x_size + j + 1]) &&
+              (x > r[(i - 3) * x_size + j + 2]) &&
+              (x > r[(i - 3) * x_size + j + 3]) &&
 
-                (x>r[(i-2)*x_size+j-3]) &&
-                (x>r[(i-2)*x_size+j-2]) &&
-                (x>r[(i-2)*x_size+j-1]) &&
-                (x>r[(i-2)*x_size+j  ]) &&
-                (x>r[(i-2)*x_size+j+1]) &&
-                (x>r[(i-2)*x_size+j+2]) &&
-                (x>r[(i-2)*x_size+j+3]) &&
+              (x > r[(i - 2) * x_size + j - 3]) &&
+              (x > r[(i - 2) * x_size + j - 2]) &&
+              (x > r[(i - 2) * x_size + j - 1]) &&
+              (x > r[(i - 2) * x_size + j]) &&
+              (x > r[(i - 2) * x_size + j + 1]) &&
+              (x > r[(i - 2) * x_size + j + 2]) &&
+              (x > r[(i - 2) * x_size + j + 3]) &&
 
-                (x>r[(i-1)*x_size+j-3]) &&
-                (x>r[(i-1)*x_size+j-2]) &&
-                (x>r[(i-1)*x_size+j-1]) &&
-                (x>r[(i-1)*x_size+j  ]) &&
-                (x>r[(i-1)*x_size+j+1]) &&
-                (x>r[(i-1)*x_size+j+2]) &&
-                (x>r[(i-1)*x_size+j+3]) &&
+              (x > r[(i - 1) * x_size + j - 3]) &&
+              (x > r[(i - 1) * x_size + j - 2]) &&
+              (x > r[(i - 1) * x_size + j - 1]) &&
+              (x > r[(i - 1) * x_size + j]) &&
+              (x > r[(i - 1) * x_size + j + 1]) &&
+              (x > r[(i - 1) * x_size + j + 2]) &&
+              (x > r[(i - 1) * x_size + j + 3]) &&
 
-                (x>r[(i)*x_size+j-3]) &&
-                (x>r[(i)*x_size+j-2]) &&
-                (x>r[(i)*x_size+j-1]) &&
-                (x>=r[(i)*x_size+j+1]) &&
-                (x>=r[(i)*x_size+j+2]) &&
-                (x>=r[(i)*x_size+j+3]) &&
+              (x > r[(i)*x_size + j - 3]) && (x > r[(i)*x_size + j - 2]) &&
+              (x > r[(i)*x_size + j - 1]) && (x >= r[(i)*x_size + j + 1]) &&
+              (x >= r[(i)*x_size + j + 2]) && (x >= r[(i)*x_size + j + 3]) &&
 
-                (x>=r[(i+1)*x_size+j-3]) &&
-                (x>=r[(i+1)*x_size+j-2]) &&
-                (x>=r[(i+1)*x_size+j-1]) &&
-                (x>=r[(i+1)*x_size+j  ]) &&
-                (x>=r[(i+1)*x_size+j+1]) &&
-                (x>=r[(i+1)*x_size+j+2]) &&
-                (x>=r[(i+1)*x_size+j+3]) &&
+              (x >= r[(i + 1) * x_size + j - 3]) &&
+              (x >= r[(i + 1) * x_size + j - 2]) &&
+              (x >= r[(i + 1) * x_size + j - 1]) &&
+              (x >= r[(i + 1) * x_size + j]) &&
+              (x >= r[(i + 1) * x_size + j + 1]) &&
+              (x >= r[(i + 1) * x_size + j + 2]) &&
+              (x >= r[(i + 1) * x_size + j + 3]) &&
 
-                (x>=r[(i+2)*x_size+j-3]) &&
-                (x>=r[(i+2)*x_size+j-2]) &&
-                (x>=r[(i+2)*x_size+j-1]) &&
-                (x>=r[(i+2)*x_size+j  ]) &&
-                (x>=r[(i+2)*x_size+j+1]) &&
-                (x>=r[(i+2)*x_size+j+2]) &&
-                (x>=r[(i+2)*x_size+j+3]) &&
+              (x >= r[(i + 2) * x_size + j - 3]) &&
+              (x >= r[(i + 2) * x_size + j - 2]) &&
+              (x >= r[(i + 2) * x_size + j - 1]) &&
+              (x >= r[(i + 2) * x_size + j]) &&
+              (x >= r[(i + 2) * x_size + j + 1]) &&
+              (x >= r[(i + 2) * x_size + j + 2]) &&
+              (x >= r[(i + 2) * x_size + j + 3]) &&
 
-                (x>=r[(i+3)*x_size+j-3]) &&
-                (x>=r[(i+3)*x_size+j-2]) &&
-                (x>=r[(i+3)*x_size+j-1]) &&
-                (x>=r[(i+3)*x_size+j  ]) &&
-                (x>=r[(i+3)*x_size+j+1]) &&
-                (x>=r[(i+3)*x_size+j+2]) &&
-                (x>=r[(i+3)*x_size+j+3]) )
+              (x >= r[(i + 3) * x_size + j - 3]) &&
+              (x >= r[(i + 3) * x_size + j - 2]) &&
+              (x >= r[(i + 3) * x_size + j - 1]) &&
+              (x >= r[(i + 3) * x_size + j]) &&
+              (x >= r[(i + 3) * x_size + j + 1]) &&
+              (x >= r[(i + 3) * x_size + j + 2]) &&
+              (x >= r[(i + 3) * x_size + j + 3]))
 #endif
-{
-corner_list[n].info=0;
-corner_list[n].x=j;
-corner_list[n].y=i;
-corner_list[n].dx=cgx[i*x_size+j];
-corner_list[n].dy=cgy[i*x_size+j];
-corner_list[n].I=in[i*x_size+j];
-n++;
-if(n==MAX_CORNERS){
-      printf("Too many corners.\n");
-      exit(1);
-         }}}}
-corner_list[n].info=7;
+              {
+            corner_list[n].info = 0;
+            corner_list[n].x = j;
+            corner_list[n].y = i;
+            corner_list[n].dx = cgx[i * x_size + j];
+            corner_list[n].dy = cgy[i * x_size + j];
+            corner_list[n].I = in[i * x_size + j];
+            n++;
+            if (n == MAX_CORNERS) {
+              printf("Too many corners.\n");
+              exit(1);
+            }
+          }
+      }
+    }
+  corner_list[n].info = 7;
 
-free(cgx);
-free(cgy);
-
+  free(cgx);
+  free(cgy);
 }
 
 /* }}} */
@@ -2119,6 +2219,7 @@ CORNER_LIST corner_list;
     for (int x = 0; x < 10; ++x) {
       setup_brightness_lut(&bp,bt,2);
       susan_smoothing(three_by_three,in,dt,x_size,y_size,bp);
+      free(bp - 258);
     }
   }
 /* }}} */
@@ -2150,17 +2251,19 @@ CORNER_LIST corner_list;
           susan_thin(r,mid,x_size,y_size);
         edge_draw(in,mid,x_size,y_size,drawing_mode);
       }
+    free(r);
+    free(bp - 258);
     }
   }
 
 /* }}} */
   if (mode == 2) {
       /* {{{ corners */
+    r   = (int *) malloc(x_size * y_size * sizeof(int));
+    setup_brightness_lut(&bp,bt,6);
+    uchar *out = (uchar *) malloc(x_size * y_size);
+    memcpy(out, in, x_size * y_size);
     for (int x = 0; x < 100; ++x) {
-
-      r   = (int *) malloc(x_size * y_size * sizeof(int));
-      setup_brightness_lut(&bp,bt,6);
-
       if (principle)
       {
         susan_principle(in,r,bp,max_no_corners,x_size,y_size);
@@ -2172,9 +2275,14 @@ CORNER_LIST corner_list;
           susan_corners_quick(in,r,bp,max_no_corners,corner_list,x_size,y_size);
         else
           susan_corners(in,r,bp,max_no_corners,corner_list,x_size,y_size);
-        corner_draw(in,corner_list,x_size,drawing_mode);
+        corner_draw(out,corner_list,x_size,drawing_mode);
       }
     }
+    put_image(argv[2],out,x_size,y_size);
+    free(bp - 258);
+    free(r);
+    free(out);
+    return 0;
   }
 /* }}} */
 
