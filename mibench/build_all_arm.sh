@@ -59,7 +59,7 @@ for index in ${!DIRS[*]}; do
     fi
 
     cd $dir
-    for opts in "-oneregion" "-nolocals" "-debug-ir"; do
+    for opts in "-oneregion" "-nolocals" "-debug-ir" "-abi-locals"; do
         # Exceptions...
         if [ x"$opts" = x"-oneregion" -a x"$name" = x"cjpeg" ]; then
             continue
