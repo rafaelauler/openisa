@@ -6,6 +6,7 @@ TARGETS=sha
 
 SBTOPT?=-nolocals
 OPTFLAGS=-printf-break
+CPP_OPTS=-DLITTLE_ENDIAN
 
 STACKSIZE=400000
 
