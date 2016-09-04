@@ -5,7 +5,7 @@ FILE1 = susan.c
 
 TARGETS=susan
 
-SBTOPT?=-optimize -debug-ir
+SBTOPT?=-optimize -abi-locals
 
 STACKSIZE=400000
 
