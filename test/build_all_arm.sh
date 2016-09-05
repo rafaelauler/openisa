@@ -13,11 +13,14 @@ for dir in $(find . -maxdepth 1 -mindepth 1 -type d | cut -c 3-); do
     if [ $dir == "testes-arm" ]; then
         continue
     fi
+    if [ $dir == "testes-x86" ]; then
+        continue
+    fi
     if [ $dir == "moments" ]; then
         continue
     fi
     cd $dir
-    for opts in "-oneregion" "-nolocals" "-debug-ir"; do
+    for opts in "-oneregion" "-nolocals" "-debug-ir" "-abi-locals"; do
 	make clean
 	SBTOPT="-optimize "${opts} ARCH="arm" MATTR="-mattr=vfp3,d16,a8,-neon -mcpu=cortex-a9 -float-abi=hard" make
 	if [ $? != 0 ]; then

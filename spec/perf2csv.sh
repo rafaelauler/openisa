@@ -26,7 +26,7 @@ NAMES=(bzip2
 ACTIVATE=(yes #401.bzip
 yes #429.mcf
 yes #433.milc
-yes #456.hmmer
+no #456.hmmer
 yes #458.sjeng
 yes #462.libquantum
 yes #464.h264ref
@@ -96,11 +96,15 @@ for index in ${!NAMES[*]}; do
     format_perf_output
 
     echo -ne "${name}-locals${FIELD_SEP}"
-    sed -n "/Running ${name} OpenISA mode (small) with opts -debug-ir -optimize/,/Running/p" $LOG_TEMP | sed -n "/task-clock/,/blblbl/p" > $LOG_T2
+    sed -n "/Running ${name} OpenISA mode (small) with opts -debug-ir/,/Running/p" $LOG_TEMP | sed -n "/task-clock/,/blblbl/p" > $LOG_T2
     format_perf_output
 
     echo -ne "${name}-oneregion${FIELD_SEP}"
     sed -n "/Running ${name} OpenISA mode (small) with opts -oneregion/,/Running/p" $LOG_TEMP | sed -n "/task-clock/,/blblbl/p" > $LOG_T2
+    format_perf_output
+
+    echo -ne "${name}-abi-locals${FIELD_SEP}"
+    sed -n "/Running ${name} OpenISA mode (small) with opts -abi-locals/,/Running/p" $LOG_TEMP | sed -n "/task-clock/,/blblbl/p" > $LOG_T2
     format_perf_output
 done
 

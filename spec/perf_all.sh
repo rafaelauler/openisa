@@ -4,7 +4,7 @@ GSED=sed
 GNUTIME=/usr/bin/time
 LOGFILE=$(pwd)/log_perf.txt
 # Number of times each binary execution is measured
-NUMTESTS=10
+NUMTESTS=3
 VERBOSE=false
 
 echo Tests started. Today is $(date). | tee -a $LOGFILE
@@ -86,7 +86,7 @@ for index in ${!DIRS[*]}; do
         continue
     fi
     cd $dir
-    for opts in "-oneregion" "-nolocals" "-debug-ir"; do
+    for opts in "-oneregion" "-nolocals" "-debug-ir" "-abi-locals"; do
         if [ x"$name" = x"458.sjeng" ]; then
             myopts=$opts
         else
@@ -115,16 +115,16 @@ for index in ${!DIRS[*]}; do
         cd run
         echo Running $name in native mode "(small)" - current time is $(date) | tee -a $LOGFILE
         if [ x"$inputsmall" != x"none" ]; then
-            sudo schedtool -F -p 99 -a 0x4 -e perf stat ./${smallnat} < $inputsmall 1> /dev/null 2>> $LOGFILE
+            perf stat ./${smallnat} < $inputsmall 1> /dev/null 2>> $LOGFILE
         else
-            sudo schedtool -F -p 99 -a 0x4 -e perf stat -r $NUMTESTS ./${smallnat} 1> /dev/null 2>> $LOGFILE
+            perf stat -r $NUMTESTS ./${smallnat} 1> /dev/null 2>> $LOGFILE
         fi
 
         echo Running $name OpenISA mode "(small)" with opts $myopts - current time is $(date) | tee -a $LOGFILE
         if [ x"$inputsmall" != x"none" ]; then
-            sudo schedtool -F -p 99 -a 0x4 -e perf stat ./${smalloi} < $inputsmall 1> /dev/null 2>> $LOGFILE
+            perf stat ./${smalloi} < $inputsmall 1> /dev/null 2>> $LOGFILE
         else
-            sudo schedtool -F -p 99 -a 0x4 -e perf stat -r $NUMTESTS ./${smalloi} 1> /dev/null 2>> $LOGFILE
+            perf stat -r $NUMTESTS ./${smalloi} 1> /dev/null 2>> $LOGFILE
         fi
 
         cd ..
