@@ -42,8 +42,8 @@ main:                                   # @main
   lwc1  $f2, ($1)
   cvt.d.s  $f2, $f2
   add   $5, $0, $0
-  mfc1  $6, $f2
-  mfc1  $7, $f3
+  mflc1  $6, $d2
+  mfhc1  $7, $d2
   # Print output
 	ldi 	$4, %lo($.str5)
   ldihi	%hi($.str5)
@@ -54,8 +54,8 @@ main:                                   # @main
   ldihi %hi(my_double)
   ldc1  $f2, ($1)
   add   $5, $0, $0
-  mfc1  $6, $f2
-  mfc1  $7, $f3
+  mflc1  $6, $d2
+  mfhc1  $7, $d2
   # Print output
 	ldi 	$4, %lo($.str6)
   ldihi	%hi($.str6)
@@ -65,18 +65,18 @@ main:                                   # @main
   ldi $1, %lo(my_float)
   ldihi %hi(my_float)
   lwc1  $f2, ($1)
-  cvt.d.s  $f2, $f2
+  cvt.d.s  $d1, $f2
   ldi $1, %lo(my_double)
   ldihi %hi(my_double)
-  ldc1  $f0, ($1)
-  mul.d $f0, $f0, $f2
+  ldc1  $d0, ($1)
+  mul.d $d0, $d0, $d1
   ldi $1, %lo(my_double_result)
   ldihi %hi(my_double_result)
-  sdc1 $f0, ($1)
-  ldc1 $f6, ($1)
+  sdc1 $d0, ($1)
+  ldc1 $d3, ($1)
   add  $5, $0, $0
-  mfc1 $6, $f6
-  mfc1 $7, $f7
+  mflc1 $6, $d3
+  mfhc1 $7, $d3
   # Print output
 	ldi 	$4, %lo($.str7)
   ldihi	%hi($.str7)
@@ -85,15 +85,15 @@ main:                                   # @main
   # Printing 10 * my_double as int
   addi  $1, $0, 10
   mtc1  $1, $f2
-  cvt.d.w  $f2, $f2
+  cvt.d.w  $d1, $f2
 	ldi 	$1, %lo(my_double)
   ldihi	%hi(my_double)
-  ldc1  $f0, ($1)
-  mul.d $f0, $f0, $f2
-  trunc.w.d $f5, $f0
+  ldc1  $d0, ($1)
+  mul.d $d0, $d0, $d1
+  trunc.w.d $f5, $d0
   mfc1 $5, $f5
-  mfc1 $6, $f0
-  mfc1 $7, $f1
+  mflc1 $6, $d0
+  mfhc1 $7, $d0
   # Print output
 	ldi 	$4, %lo($.str8)
   ldihi	%hi($.str8)
