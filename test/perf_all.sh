@@ -55,7 +55,7 @@ for index in ${!DIRS[*]}; do
         continue
     fi
     cd $dir
-    for opts in "-oneregion" "-nolocals" "-debug-ir"; do
+    for opts in "-oneregion" "-nolocals" "-debug-ir" "-abi-locals"; do
         myopts=$opts" -optimize"
         make clean &> /dev/null
         echo Building $dir with mode $myopts ...
