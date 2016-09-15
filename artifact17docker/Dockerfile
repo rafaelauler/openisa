@@ -6,12 +6,16 @@ RUN apt-get update && apt-get install -y \
   build-essential \
   bzip2 \
   cmake \
+  gawk \
   git \
   gnuplot-nox \
   libc6-dev-i386 \
   lib32z1 \
+  linux-tools \
   ninja-build \
   python \
+  r-base \
+  time \
   wget
 RUN mkdir /openisa
 WORKDIR /openisa
