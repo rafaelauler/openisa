@@ -17,21 +17,21 @@ telecomm/FFT
 office/stringsearch
 consumer/lame/lame3.70
 consumer/jpeg/jpeg-6a)
-ACTIVATE=(no #basicmath
-no #bitcount
-no #susan
-no #patricia
-no #dijkstra
-no #rijndael
-no #blowfish
-no #sha
+ACTIVATE=(yes #basicmath
+yes #bitcount
+yes #susan
+yes #patricia
+yes #dijkstra
+yes #rijndael
+yes #blowfish
+yes #sha
 yes #adpcm-coder
 yes #adpcm-decoder
-no #crc32
-no #fft
-no #stringsearch
-no #lame
-no) #jpeg-6a
+yes #crc32
+yes #fft
+yes #stringsearch
+yes #lame
+yes) #jpeg-6a
 NAMES=(basicmath_large
 bitcnts
 susan
