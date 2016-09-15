@@ -21,7 +21,7 @@ yes #462.libquantum
 yes #464.h264ref
 yes #470.lbm
 yes #482.sphinx3
-no) #998.specrand
+yes) #998.specrand
 NAMES=(401.bzip2
 429.mcf
 433.milc
