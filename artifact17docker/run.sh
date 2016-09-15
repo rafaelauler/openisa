@@ -11,7 +11,7 @@ function check_error {
 
 . env.sh
 
-cd $ROOT/openisa/spec
+cd $ROOT/openisa/spec/testes-x86
 ./measure_x86.sh
 
-echo "Finished. Check the results in mibench.pdf and spec.pdf."
+echo "Finished. Check the results in ${ROOT}/openisa/spec/mibench.pdf and spec.pdf."
