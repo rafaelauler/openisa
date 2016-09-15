@@ -1,0 +1,1 @@
+cmd_/tools/include/uapi/.install := /bin/bash scripts/headers_install.sh /tools/include/uapi  ; for F in ; do echo "\#include <asm-generic/$$F>" > /tools/include/uapi/$$F; done; touch /tools/include/uapi/.install

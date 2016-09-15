@@ -1,0 +1,1 @@
+cmd_/tools/include/linux/mmc/.install := /bin/bash scripts/headers_install.sh /tools/include/linux/mmc   /l/home/rafael/disco2/rafael/archc/openisa/cross/linux-3.10.14/include/uapi/linux/mmc/ioctl.h ; for F in ; do echo "\#include <asm-generic/$$F>" > /tools/include/linux/mmc/$$F; done; touch /tools/include/linux/mmc/.install
