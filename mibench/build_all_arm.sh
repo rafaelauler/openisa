@@ -31,7 +31,7 @@ yes #crc32
 yes #fft
 yes #stringsearch
 yes #lame
-yes) #jpeg-6a
+no) #jpeg-6a
 NAMES=(basicmath_large
 bitcnts
 susan
