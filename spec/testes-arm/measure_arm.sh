@@ -7,6 +7,7 @@ MIBENCHWORKDIR=$(pwd)/bin
 NUMTESTS=10
 
 set -f noglob
+mkdir -p output
 
 function create_golden_files {
     if [ x"${1}" = x"susan" -a x"${4}" = x"-s" ]; then
@@ -250,7 +251,7 @@ function run_mibench {
     echo -ne "17 fft-inv " | tee -a $OUTSCENARIO && run_family "fft" "8 32768 -i" && echo -ne "\n" | tee -a $OUTSCENARIO
     echo -ne "18 stringsearch " | tee -a $OUTSCENARIO && run_family "search_large" && echo -ne "\n" | tee -a $OUTSCENARIO
     echo -ne "19 lame " | tee -a $OUTSCENARIO && run_family "lame" "${REMOTEINSTALL}/input/large.wav" "${REMOTEINSTALL}/output/large.mp3" && echo -ne "\n" | tee -a $OUTSCENARIO
-    echo -ne "20 cjpeg " | tee -a $OUTSCENARIO && run_family "cjpeg" "${REMOTEINSTALL}/input/input_jpeg.ppm" && echo -ne "\n" | tee -a $OUTSCENARIO
+    #echo -ne "20 cjpeg " | tee -a $OUTSCENARIO && run_family "cjpeg" "${REMOTEINSTALL}/input/input_jpeg.ppm" && echo -ne "\n" | tee -a $OUTSCENARIO
 }
 
 function run_spec {
