@@ -25,7 +25,7 @@ for dir in $(find . -maxdepth 2 -mindepth 1 -type d | cut -c 3-); do
         continue
     fi
     cd $dir
-    for opts in "-oneregion" "-nolocals" "-debug-ir" "-abi-locals"; do
+    for opts in "-oneregion" "-nolocals" "" "-abi-locals"; do
         myopts=$opts" -optimize"
         make clean &> /dev/null
         echo -ne "$dir [ $myopts ] : \t\t" | tee -a $LOGFILE

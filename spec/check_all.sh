@@ -93,7 +93,7 @@ for index in ${!DIRS[*]}; do
         continue
     fi
     cd $dir
-    for opts in "-oneregion" "-nolocals" "-debug-ir"; do
+    for opts in "-oneregion" "-nolocals" "" "-abi-locals"; do
         # Exceptions...
         if [ x"$name" = x"458.sjeng" ]; then
             myopts=$opts

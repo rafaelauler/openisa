@@ -45,7 +45,7 @@ for index in ${!DIRS[*]}; do
 
     cd $dir
     first=1
-    for opts in "-oneregion" "-nolocals" "-debug-ir" "-abi-locals"; do
+    for opts in "-oneregion" "-nolocals" "" "-abi-locals"; do
         if [ x"$name" = x"458.sjeng" ]; then
             myopts=$opts
         else
@@ -71,7 +71,7 @@ for index in ${!DIRS[*]}; do
 	          fi
             first=0
         fi
-	      if [ $opts == "-debug-ir" ]; then
+	      if [ x"$opts" == x"" ]; then
 	          cp ${name}-oi-x86 ${X86DIR}/bin/${name}-locals
 	      else
 	          cp ${name}-oi-x86 ${X86DIR}/bin/${name}${opts}

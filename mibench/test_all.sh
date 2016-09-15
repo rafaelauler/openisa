@@ -231,7 +231,7 @@ for index in ${!DIRS[*]}; do
         continue
     fi
     cd $dir
-    for opts in "-oneregion" "-nolocals" "-debug-ir" "-abi-locals"; do
+    for opts in "-oneregion" "-nolocals" "" "-abi-locals"; do
         # Exceptions...
         if [ x"$opts" = x"-oneregion" -a x"$name" = x"cjpeg" ]; then
             myopts=$opts

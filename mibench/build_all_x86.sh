@@ -59,7 +59,7 @@ for index in ${!DIRS[*]}; do
     fi
 
     cd $dir
-    for opts in "-oneregion" "-nolocals" "-debug-ir" "-abi-locals"; do
+    for opts in "-oneregion" "-nolocals" "" "-abi-locals"; do
         # Exceptions...
         if [ x"$opts" = x"-oneregion" -a x"$name" = x"cjpeg" ]; then
             continue
@@ -80,7 +80,7 @@ for index in ${!DIRS[*]}; do
             echo Stopping script at $dir
             exit
 	      fi
-	      if [ $opts == "-debug-ir" ]; then
+	      if [ x"$opts" == x"" ]; then
 	          cp ${name}-oi-x86 ${X86DIR}/bin/${name}-locals
 	      else
 	          cp ${name}-oi-x86 ${X86DIR}/bin/${name}${opts}
