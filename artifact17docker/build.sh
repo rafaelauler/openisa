@@ -108,6 +108,7 @@ echo export PATH=\$PATH:${ROOT}/oi-toolchain/bin:/home/rafaelauler/p/openisa/cro
 # lines below and it should be fine (you can run the lines below later).
 cd ${ROOT}/openisa/mibench || check_error
 ./build_all_x86.sh || check_error
+mkdir -p ${ROOT}/openisa/spec/testes-x86/bin
 cp -v testes-x86/bin/* ${ROOT}/openisa/spec/testes-x86/bin || check_error
 cd ${ROOT}/openisa/spec || check_error
 ./build_all_x86.sh || check_error

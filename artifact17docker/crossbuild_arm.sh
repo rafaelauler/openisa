@@ -13,6 +13,7 @@ function check_error {
 
 cd ${ROOT}/openisa/mibench || check_error
 ./build_all_arm.sh || check_error
+mkdir -p ${ROOT}/openisa/spec/testes-arm/bin
 cp -v testes-arm/bin/* ${ROOT}/openisa/spec/testes-arm/bin || check_error
 cd ${ROOT}/openisa/spec || check_error
 ./build_all_arm.sh || check_error
