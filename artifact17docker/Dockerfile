@@ -31,12 +31,13 @@ COPY run.sh run.sh
 COPY crossbuild_arm.sh crossbuild_arm.sh
 
 # The next command builds ARM binaries. It depends on "build.sh" being
-# successfully completed. It will take another round of 5+ hours.
+# successfully completed. It will take another round of 4+ hours.
 RUN ./crossbuild_arm.sh
 
-# The next command runs x86 experiments. It will take circa 3 hours. Comment it
-# out if you want to later edit scripts to run experiments less than 10 times
-# (which is used for statistical rigor) in order to run them faster.
-RUN ./run.sh
-
 CMD /bin/bash
+
+# Once the image is ready, create a container with
+# # docker run -t -i rafaelauler/artifact17
+# In the container, type "./run.sh" to run the experiments on x86.
+# Transfer the bundle-arm.tar.bz2 file to an ARM platform to run the experiments
+# on an ARM.
