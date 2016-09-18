@@ -37,7 +37,14 @@ RUN ./crossbuild_arm.sh
 CMD /bin/bash
 
 # Once the image is ready, create a container with
-# # docker run -t -i rafaelauler/artifact17
+# # docker run -v /host/folder:/mnt/shared -t -i rafaelauler/artifact17
 # In the container, type "./run.sh" to run the experiments on x86.
+# Change "/host/folder" above to a valid folder in your system. Whenever you copy
+# a file to /mnt/shared inside the container, it will be copied to this folder.
+# Use this folder to copy the experimental results (after run.sh finishes):
+# # cp /openisa/oitools/openisa/spec/testes-x86/*.pdf /mnt/shared
+# And also to copy the programs to run in ARM:
+# # cp /openisa/bundle-arm.tar.bz2 /mnt/shared
 # Transfer the bundle-arm.tar.bz2 file to an ARM platform to run the experiments
-# on an ARM.
+# on an ARM. Once in the ARM platform, run the script "measure_arm.sh".
+# Results for ARM will be available in similar PDF files as those from x86.
