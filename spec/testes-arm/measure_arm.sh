@@ -295,5 +295,6 @@ function main_measure_runtime {
 
 main_check_output
 main_measure_runtime
-gnuplot < $REMOTEINSTALL/mibench.gnuplot
-gnuplot < $REMOTEINSTALL/spec.gnuplot
+cd $REMOTEINSTALL
+gnuplot < mibench.gnuplot
+gnuplot < spec.gnuplot
